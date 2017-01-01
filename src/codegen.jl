@@ -75,11 +75,10 @@ function generate_action_code(machine::Machine)
     for (s, trans) in machine.transitions
         codes_in = []
         for (l, (_, as)) in trans
-            #action = Expr(:block, [machine.actions[a] for a in as]...)
-            action = generate_actions(machine, as)
+            action = generate_action_code(machine, as)
             push!(codes_in, Expr(:if, label_condition(l), action))
         end
-        push!(codes, Expr(:if, :(cs == $(s)), Expr(:block, codes_in...)))
+        push!(codes, Expr(:if, state_condition(s), Expr(:block, codes_in...)))
     end
     return Expr(:block, codes...)
 end
@@ -106,17 +105,28 @@ function generate_inline_code(machine::Machine)
 end
 
 function generate_transition_code(machine::Machine)
-    foldr(:(ns = -1), collect(machine.transitions)) do trans, els
-        then = foldr(:(ns = -1), collect(trans[2])) do trans′, els′
-            action = generate_actions(machine, trans′[2][2])
-            Expr(:if, label_condition(trans′[1]), :(ns = $(trans′[2][1]); $(action)), els′)
+    default = :(ns = -1)
+    return foldr(default, collect(machine.transitions)) do s_trans, els
+        s, trans = s_trans
+        then = foldr(default, collect(trans)) do branch, els′
+            l, (t, actions) = branch
+            action = generate_action_code(machine, actions)
+            Expr(:if, label_condition(l), :(ns = $(t); $(action)), els′)
         end
-        Expr(:if, :(cs == $(trans[1])), then, els)
+        Expr(:if, state_condition(s), then, els)
     end
 end
 
-function generate_actions(machine, actions)
+function generate_eof_action_code(machine::Machine)
+    return Expr(:block, (Expr(:if, state_condition(s), generate_action_code(machine, as)) for (s, as) in machine.eof_actions)...)
+end
+
+function generate_action_code(machine::Machine, actions::Vector{Symbol})
     return Expr(:block, (machine.actions[a] for a in actions)...)
+end
+
+function state_condition(s::Int)
+    return :(cs == $(s))
 end
 
 function label_condition(label)
@@ -129,13 +139,4 @@ function label_condition(label)
     else
         error("invalid label type: $(typeof(label))")
     end
-end
-
-function generate_eof_action_code(machine::Machine)
-    codes = []
-    for (s, as) in machine.eof_actions
-        codes_in = [machine.actions[a] for a in as]
-        push!(codes, Expr(:if, :(cs == $(s)), Expr(:block, codes_in...)))
-    end
-    return Expr(:block, codes...)
 end
