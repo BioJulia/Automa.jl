@@ -21,6 +21,18 @@ module Test1
 
     @test validate(b"") == (true, [:enter_re, :exit_re])
     @test validate(b"a") == (false, Symbol[])
+
+    # inlined code
+    exec_code = generate_exec(machine, code=:inline)
+    @eval function validate2(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states), logger
+    end
+    @test validate2(b"") == (true, [:enter_re, :exit_re])
+    @test validate2(b"a") == (false, Symbol[])
 end
 
 module Test2
@@ -54,6 +66,20 @@ module Test2
     @test validate(b"a") == (false, [:enter_re,:enter_a])
     @test validate(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
     @test validate(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+
+    # inlined code
+    exec_code = generate_exec(machine, code=:inline)
+    @eval function validate2(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states), logger
+    end
+    @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+    @test validate2(b"a") == (false, [:enter_re,:enter_a])
+    @test validate2(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+    @test validate2(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
 end
 
 module Test3
@@ -87,4 +113,23 @@ module Test3
     @test validate(b">") == false
     @test validate(b">seq1\na") == false
     @test validate(b">seq1\nac\ngt") == false
+
+    exec_code = generate_exec(machine, code=:inline)
+    @eval function validate2(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states)
+    end
+    @test validate2(b"") == true
+    @test validate2(b">\naa\n") == true
+    @test validate2(b">seq1\n") == true
+    @test validate2(b">seq1\na\n") == true
+    @test validate2(b">seq1\nac\ngt\n") == true
+    @test validate2(b">seq1\r\nacgt\r\n") == true
+    @test validate2(b">seq1\nac\n>seq2\ngt\n") == true
+    @test validate2(b"a") == false
+    @test validate2(b">") == false
+    @test validate2(b">seq1\na") == false
+    @test validate2(b">seq1\nac\ngt") == false
 end

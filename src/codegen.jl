@@ -17,7 +17,17 @@ function generate_init(machine::Machine)
     end
 end
 
-function generate_exec(machine::Machine)
+function generate_exec(machine::Machine; code=:table)
+    if code == :table
+        return generate_table_code(machine)
+    elseif code == :inline
+        return generate_inline_code(machine)
+    else
+        throw(ArgumentError("invalid code: $(code)"))
+    end
+end
+
+function generate_table_code(machine::Machine)
     trans_table = generate_transition_table(machine)
     action_code = generate_action_code(machine)
     eof_action_code = generate_eof_action_code(machine)
@@ -28,7 +38,6 @@ function generate_exec(machine::Machine)
             ns = $(trans_table)[(cs - 1) << 8 + l + 1]
             $(action_code)
             if ns < 0
-                # set the last state by flipping the sign
                 cs = -cs
                 @goto escape
             end
@@ -66,12 +75,48 @@ function generate_action_code(machine::Machine)
     for (s, trans) in machine.transitions
         codes_in = []
         for (l, (_, as)) in trans
-            action = Expr(:block, [machine.actions[a] for a in as]...)
+            #action = Expr(:block, [machine.actions[a] for a in as]...)
+            action = generate_actions(machine, as)
             push!(codes_in, Expr(:if, label_condition(l), action))
         end
         push!(codes, Expr(:if, :(cs == $(s)), Expr(:block, codes_in...)))
     end
     return Expr(:block, codes...)
+end
+
+function generate_inline_code(machine::Machine)
+    trans_code = generate_transition_code(machine)
+    eof_action_code = generate_eof_action_code(machine)
+    return quote
+        while p ≤ p_end
+            l = data[p]
+            $(trans_code)
+            if ns < 0
+                cs = -cs
+                @goto escape
+            end
+            cs = ns
+            p += 1
+        end
+        if p > p_eof ≥ 0
+            $(eof_action_code)
+        end
+        @label escape
+    end
+end
+
+function generate_transition_code(machine::Machine)
+    foldr(:(ns = -1), collect(machine.transitions)) do trans, els
+        then = foldr(:(ns = -1), collect(trans[2])) do trans′, els′
+            action = generate_actions(machine, trans′[2][2])
+            Expr(:if, label_condition(trans′[1]), :(ns = $(trans′[2][1]); $(action)), els′)
+        end
+        Expr(:if, :(cs == $(trans[1])), then, els)
+    end
+end
+
+function generate_actions(machine, actions)
+    return Expr(:block, (machine.actions[a] for a in actions)...)
 end
 
 function label_condition(label)
