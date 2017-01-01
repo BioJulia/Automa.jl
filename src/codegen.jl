@@ -77,16 +77,15 @@ function generate_transition_table(machine::Machine)
 end
 
 function generate_action_code(machine::Machine)
-    codes = []
-    for (s, trans) in machine.transitions
-        codes_in = []
-        for (l, (_, as)) in trans
-            action = generate_action_code(machine, as)
-            push!(codes_in, Expr(:if, label_condition(l), action))
+    default = :()
+    return foldr(default, collect(machine.transitions)) do s_trans, els
+        s, trans = s_trans
+        then = foldr(default, collect(trans)) do branch, els′
+            l, (t, actions) = branch
+            Expr(:if, label_condition(l), generate_action_code(machine, actions), els′)
         end
-        push!(codes, Expr(:if, state_condition(s), Expr(:block, codes_in...)))
+        Expr(:if, state_condition(s), then, els)
     end
-    return Expr(:block, codes...)
 end
 
 function generate_inline_code(machine::Machine, inbounds::Bool)
