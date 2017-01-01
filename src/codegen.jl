@@ -21,10 +21,11 @@ function generate_exec(machine::Machine)
     trans_table = generate_transition_table(machine)
     action_code = generate_action_code(machine)
     eof_action_code = generate_eof_action_code(machine)
+    @assert size(trans_table, 1) == 256
     return quote
         while p ≤ p_end
             l = data[p]
-            ns = $(trans_table)[l+1,cs]
+            ns = $(trans_table)[(cs - 1) << 8 + l + 1]
             $(action_code)
             if ns < 0
                 # set the last state by flipping the sign
