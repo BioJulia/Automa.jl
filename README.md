@@ -14,22 +14,22 @@ Automa.jl:
 using Automa
 
 # Describe a pattern in regular expression.
-header = re"[ -~]*"
-newline = re"\r\n|\n"
-identifier = re"[!-~]*"
+header      = re"[ -~]*"
+newline     = re"\r\n|\n"
+identifier  = re"[!-~]*"
 description = re"[!-~][ -~]*"
-header = cat(identifier, alt(re"", cat(re" ", description)))
-sequence = rep(cat(re"[A-Za-z]*", newline))
-fasta = rep(cat(re">", header, newline, sequence))
+header      = cat(identifier, alt(re"", cat(re" ", description)))
+sequence    = rep(cat(re"[A-Za-z]*", newline))
+fasta       = rep(cat(re">", header, newline, sequence))
 
 # Register actions.
-newline.actions[:enter] = [:newline]
-identifier.actions[:enter] = [:mark]
-identifier.actions[:exit] = [:identifier]
+newline.actions[:enter]     = [:newline]
+identifier.actions[:enter]  = [:mark]
+identifier.actions[:exit]   = [:identifier]
 description.actions[:enter] = [:mark]
-description.actions[:exit] = [:description]
-sequence.actions[:enter] = [:mark]
-sequence.actions[:exit] = [:sequence]
+description.actions[:exit]  = [:description]
+sequence.actions[:enter]    = [:mark]
+sequence.actions[:exit]     = [:sequence]
 
 # Compile a machine with actions.
 actions = Dict(
