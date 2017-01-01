@@ -24,8 +24,7 @@ function generate_exec(machine::Machine)
     return quote
         while p ≤ p_end
             l = data[p]
-            lp1 = Int(l) + 1
-            ns = $(trans_table)[lp1,cs]
+            ns = $(trans_table)[l+1,cs]
             $(action_code)
             if ns < 0
                 # set the last state by flipping the sign
@@ -48,12 +47,10 @@ function generate_transition_table(machine::Machine)
     for (s, trans) in machine.transitions
         for (l, (t, _)) in trans
             if isa(l, UInt8) || isa(l, UnitRange{UInt8})
-                lp1 = l + 1
-                trans_table[lp1,s] = t
+                trans_table[l+1,s] = t
             elseif isa(l, Vector{UnitRange{UInt8}})
-                for l′ in l
-                    lp1 = l′ + 1
-                    trans_table[lp1,s] = t
+                for ll in l
+                    trans_table[ll+1,s] = t
                 end
             else
                 @assert false
