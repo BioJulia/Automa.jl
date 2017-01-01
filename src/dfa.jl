@@ -63,7 +63,6 @@ end
 function move(nodes::Set{NFANode}, label)
     set = Set{NFANode}()
     for node in nodes
-        #union!(set, move(node, label))
         if haskey(node.next, label)
             union!(set, node.next[label])
         end
