@@ -127,7 +127,10 @@ function generate_transition_code(machine::Machine)
 end
 
 function generate_eof_action_code(machine::Machine)
-    return Expr(:block, (Expr(:if, state_condition(s), generate_action_code(machine, as)) for (s, as) in machine.eof_actions)...)
+    return foldr(:(), collect(machine.eof_actions)) do s_actions, els
+        s, actions = s_actions
+        Expr(:if, state_condition(s), generate_action_code(machine, actions), els)
+    end
 end
 
 function generate_action_code(machine::Machine, actions::Vector{Symbol})
