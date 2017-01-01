@@ -17,25 +17,31 @@ function generate_init(machine::Machine)
     end
 end
 
-function generate_exec(machine::Machine; code=:table)
+function generate_exec(machine::Machine; code::Symbol=:table, inbounds::Bool=true)
     if code == :table
-        return generate_table_code(machine)
+        return generate_table_code(machine, inbounds)
     elseif code == :inline
-        return generate_inline_code(machine)
+        return generate_inline_code(machine, inbounds)
     else
         throw(ArgumentError("invalid code: $(code)"))
     end
 end
 
-function generate_table_code(machine::Machine)
+function generate_table_code(machine::Machine, inbounds::Bool)
     trans_table = generate_transition_table(machine)
     action_code = generate_action_code(machine)
     eof_action_code = generate_eof_action_code(machine)
+    l_code = :(l = data[p])
+    ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
+    if inbounds
+        l_code = make_inbounds(l_code)
+        ns_code = make_inbounds(ns_code)
+    end
     @assert size(trans_table, 1) == 256
     return quote
         while p ≤ p_end
-            l = data[p]
-            ns = $(trans_table)[(cs - 1) << 8 + l + 1]
+            $(l_code)
+            $(ns_code)
             $(action_code)
             if ns < 0
                 cs = -cs
@@ -83,12 +89,16 @@ function generate_action_code(machine::Machine)
     return Expr(:block, codes...)
 end
 
-function generate_inline_code(machine::Machine)
+function generate_inline_code(machine::Machine, inbounds::Bool)
     trans_code = generate_transition_code(machine)
     eof_action_code = generate_eof_action_code(machine)
+    l_code = :(l = data[p])
+    if inbounds
+        l_code = make_inbounds(l_code)
+    end
     return quote
         while p ≤ p_end
-            l = data[p]
+            $(l_code)
             $(trans_code)
             if ns < 0
                 cs = -cs
@@ -123,6 +133,10 @@ end
 
 function generate_action_code(machine::Machine, actions::Vector{Symbol})
     return Expr(:block, (machine.actions[a] for a in actions)...)
+end
+
+function make_inbounds(ex::Expr)
+    return :(@inbounds $(ex))
 end
 
 function state_condition(s::Int)
