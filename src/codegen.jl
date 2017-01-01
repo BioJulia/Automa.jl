@@ -69,7 +69,6 @@ function generate_action_code(machine::Machine)
         codes_in = []
         for (l, (_, as)) in trans
             action = Expr(:block, [machine.actions[a] for a in as]...)
-            #push!(codes_in, Expr(:if, :(l == $(l)), action))
             push!(codes_in, Expr(:if, label_condition(l), action))
         end
         push!(codes, Expr(:if, :(cs == $(s)), Expr(:block, codes_in...)))

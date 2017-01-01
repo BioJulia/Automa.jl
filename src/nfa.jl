@@ -6,12 +6,6 @@ immutable OrdAction
     order::Int
 end
 
-#=
-type NFANode
-    next::Vector{Pair}
-    actions::Vector{OrdAction}
-end
-=#
 type NFANode
     next::Dict{Any,Vector{NFANode}}
     actions::Vector{OrdAction}
@@ -53,23 +47,18 @@ function re2nfa_rec(re, order)
         end
     end
 
-    #start = NFANode([], [])
-    #final = NFANode([], [])
     start = NFANode(Dict(), [])
     final = NFANode(Dict(), [])
     if re.head == :byte
-        #push!(start.next, re.args[1] => final)
         push!(start, re.args[1] => final)
     elseif re.head == :cat
         if isempty(re.args)
-            #push!(start.next, :eps => final)
             push!(start, :eps => final)
         else
             lastnfa, order = re2nfa_rec(re.args[1], order)
             start = lastnfa.start
             for arg in re.args[2:end]
                 nfa, order = re2nfa_rec(arg, order)
-                #push!(lastnfa.final.next, :eps => nfa.start)
                 push!(lastnfa.final, :eps => nfa.start)
                 lastnfa = nfa
             end
@@ -81,8 +70,6 @@ function re2nfa_rec(re, order)
         end
         for arg in re.args
             nfa, order = re2nfa_rec(arg, order)
-            #push!(start.next, :eps => nfa.start)
-            #push!(nfa.final.next, :eps => final)
             push!(start, :eps => nfa.start)
             push!(nfa.final, :eps => final)
         end
@@ -91,16 +78,10 @@ function re2nfa_rec(re, order)
             error("invalid arity: $(re.head)")
         end
         nfa, order = re2nfa_rec(re.args[1], order)
-        #push!(start.next, :eps => final)
-        #push!(start.next, :eps => nfa.start)
-        #push!(nfa.final.next, :eps => final)
-        #push!(nfa.final.next, :eps => nfa.start)
         push!(start, :eps => final)
         push!(start, :eps => nfa.start)
         push!(nfa.final, :eps => final)
         push!(nfa.final, :eps => nfa.start)
-    #elseif re.head == :eos
-    #    push!(start.next, :eos => final)
     else
         error("unsupported operation: $(re.head)")
     end

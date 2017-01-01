@@ -69,11 +69,10 @@ function debug_actions(dfa::DFA)
         end
         union!(actions, s.eof_actions)
     end
-    function log_symbol_expr(name)
-        #return :(println($(string(name))))
+    function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))
     end
-    return Dict(name => log_symbol_expr(name) for name in actions)
+    return Dict(name => log_expr(name) for name in actions)
 end
 
 function traverse(f::Function, dfa::DFA)
