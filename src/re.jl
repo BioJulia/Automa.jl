@@ -102,8 +102,8 @@ function parse(str::String)
             end
             pop!(operators)
         elseif c == '['
-            set, s = parse_set(str, s)
-            push!(operands, RE(:set, [set]))
+            class, s = parse_class(str, s)
+            push!(operands, class)
         else
             push!(operands, byte(UInt8(c)))
         end
@@ -132,48 +132,41 @@ function prec(op::Symbol)
     end
 end
 
-function parse_set(str, s)
-    firstc = peek(str, s)
-    if isnull(firstc)
-        error("missing ]")
-    elseif get(firstc) == '^'
-        _, s = next(str, s)
-        complement = true
-    else
-        complement = false
-    end
-    set = Set{UInt8}()
-    lastc = typemax(Char)
+function parse_class(str, s)
+    chars = []
     while !done(str, s)
         c, s = next(str, s)
         if c == ']'
             break
-        elseif c == '-'
-            c, s = next(str, s)
-            union!(set, UInt8(c′) for c′ in lastc:c)
         else
-            push!(set, UInt8(c))
+            push!(chars, c)
         end
-        lastc = c
     end
-    if complement
-        set = setdiff(Set{UInt8}(0x00:0xff), set)
-    end
-    return set, s
-end
-
-function peek(str, s)
-    if done(str, s)
-        return Nullable{Char}()
+    if !isempty(chars) && first(chars) == '^'
+        head = :cclass
+        shift!(chars)
     else
-        return Nullable(next(str, s)[1])
+        head = :class
     end
+    args = []
+    while !isempty(chars)
+        c = shift!(chars)
+        if !isempty(chars) && first(chars) == '-' && length(chars) ≥ 2
+            push!(args, UInt8(c):UInt8(chars[2]))
+            shift!(chars)
+            shift!(chars)
+        else
+            push!(args, UInt8(c))
+        end
+    end
+    return RE(head, args), s
 end
 
 function desugar(re::RE)
-    if re.head == :set
-        set = re.args[1]
-        return RE(:alt, [byte(b) for b in 0x00:0xff if b ∈ set])
+    if re.head == :class
+        return RE(:alt, [byte(b) for b in 0x00:0xff if belongs_to(b, re.args)])
+    elseif re.head == :cclass
+        return RE(:alt, [byte(b) for b in 0x00:0xff if !belongs_to(b, re.args)])
     elseif re.head == :byte
         return re
     elseif re.head == :rep1
@@ -185,4 +178,13 @@ function desugar(re::RE)
     else
         return RE(re.head, [desugar(arg) for arg in re.args])
     end
+end
+
+function belongs_to(b, class)
+    for x in class
+        if b ∈ x
+            return true
+        end
+    end
+    return false
 end
