@@ -35,6 +35,7 @@ macro re_str(s::String)
     return desugar(parse(unescape_string(s)))
 end
 
+# Parse a regular expression string using the shunting-yard algorithm.
 function parse(str::String)
     if isempty(str)
         return RE(:cat, [])
@@ -66,7 +67,7 @@ function parse(str::String)
     lastc = typemax(Char)
     while !done(str, s)
         c, s = next(str, s)
-        # @show c operators operators
+        # @show c operands operators
         # insert :cat operator if needed
         if !isempty(operands) && c ∉ ('*', '+', '?', '|', ')') && lastc ∉ ('|', '(')
             while !isempty(operators) && prec(:cat) ≤ prec(last(operators))
