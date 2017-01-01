@@ -1,16 +1,3 @@
-# Automa
-
-[![Build Status](https://travis-ci.org/bicycle1885/Automa.jl.svg?branch=master)](https://travis-ci.org/bicycle1885/Automa.jl)
-
-[![Coverage Status](https://coveralls.io/repos/bicycle1885/Automa.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/bicycle1885/Automa.jl?branch=master)
-
-[![codecov.io](http://codecov.io/github/bicycle1885/Automa.jl/coverage.svg?branch=master)](http://codecov.io/github/bicycle1885/Automa.jl?branch=master)
-
-A Julia package for text validation and parsing based on state machine compiler.
-
-This is a [FASTA](https://en.wikipedia.org/wiki/FASTA_format) parser using
-Automa.jl:
-```julia
 using Automa
 
 # Describe a pattern in regular expression.
@@ -76,4 +63,3 @@ ACGT
 >bar some description
 ACGTACGT
 """)
-```
