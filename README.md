@@ -15,7 +15,7 @@ using Automa
 
 # Describe a pattern in regular expression.
 header = re"[ -~]*"
-newline = alt(re"\r\n", re"\n")
+newline = re"\r\n|\n"
 identifier = re"[!-~]*"
 description = re"[!-~][ -~]*"
 header = cat(identifier, alt(re"", cat(re" ", description)))
