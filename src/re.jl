@@ -46,9 +46,9 @@ function parse(str::String)
 
     function pop_and_apply!()
         op = pop!(operators)
-        if op == :rep
+        if op == :rep || op == :rep1 || op == :maybe
             arg = pop!(operands)
-            push!(operands, RE(:rep, [arg]))
+            push!(operands, RE(op, [arg]))
         elseif op == :alt
             arg2 = pop!(operands)
             arg1 = pop!(operands)
@@ -68,7 +68,7 @@ function parse(str::String)
         c, s = next(str, s)
         # @show c operators operators
         # insert :cat operator if needed
-        if !isempty(operands) && c ∉ ('*', '|', ')') && lastc ∉ ('|', '(')
+        if !isempty(operands) && c ∉ ('*', '+', '?', '|', ')') && lastc ∉ ('|', '(')
             while !isempty(operators) && prec(:cat) ≤ prec(last(operators))
                 pop_and_apply!()
             end
@@ -79,6 +79,16 @@ function parse(str::String)
                 pop_and_apply!()
             end
             push!(operators, :rep)
+        elseif c == '+'
+            while !isempty(operators) && prec(:rep1) ≤ prec(last(operators))
+                pop_and_apply!()
+            end
+            push!(operators, :rep1)
+        elseif c == '?'
+            while !isempty(operators) && prec(:maybe) ≤ prec(last(operators))
+                pop_and_apply!()
+            end
+            push!(operators, :maybe)
         elseif c == '|'
             while !isempty(operators) && prec(:alt) ≤ prec(last(operators))
                 pop_and_apply!()
@@ -109,7 +119,7 @@ function parse(str::String)
 end
 
 function prec(op::Symbol)
-    if op == :rep
+    if op == :rep || op == :rep1 || op == :maybe
         return 3
     elseif op == :cat
         return 2
@@ -166,6 +176,12 @@ function desugar(re::RE)
         return RE(:alt, [byte(b) for b in 0x00:0xff if b ∈ set])
     elseif re.head == :byte
         return re
+    elseif re.head == :rep1
+        arg = desugar(re.args[1])
+        return cat(arg, rep(arg))
+    elseif re.head == :maybe
+        arg = desugar(re.args[1])
+        return alt(arg, RE(:cat, []))
     else
         return RE(re.head, [desugar(arg) for arg in re.args])
     end
