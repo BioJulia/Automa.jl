@@ -134,12 +134,14 @@ end
 function distinct_states(Q)
     distinct = Set{Tuple{DFANode,DFANode}}()
     function isdistinct(l, p, q)
-        if haskey(p.next, l) && haskey(q.next, l)
+        phasl = haskey(p.next, l)
+        qhasl = haskey(q.next, l)
+        if phasl && qhasl
             pl = p.next[l]
             ql = q.next[l]
             return (pl[1], ql[1]) ∈ distinct || pl[2] != ql[2]
         else
-            return haskey(p.next, l) != haskey(q.next, l)
+            return phasl != qhasl
         end
     end
     for p in Q, q in Q
@@ -178,6 +180,7 @@ function distinct_states(Q)
                 if isdistinct(l, p, q)
                     push!(distinct, (p, q), (q, p))
                     converged = false
+                    break
                 end
             end
             if p.eof_actions != q.eof_actions
