@@ -14,8 +14,7 @@ Automa.jl:
 using Automa
 
 # Describe a pattern in regular expression.
-header      = re"[ -~]*"
-newline     = re"\r\n|\n"
+newline     = re"\r?\n"
 identifier  = re"[!-~]*"
 description = re"[!-~][ -~]*"
 header      = cat(identifier, alt(re"", cat(re" ", description)))

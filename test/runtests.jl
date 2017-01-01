@@ -61,7 +61,7 @@ module Test3
     using Base.Test
 
     header = re"[ -~]*"
-    newline = re"\r\n|\n"
+    newline = re"\r?\n"
     sequence = rep(cat(re"[A-Za-z]*", newline))
     fasta = rep(cat(re">", header, newline, sequence))
 
