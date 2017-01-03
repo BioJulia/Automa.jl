@@ -9,21 +9,29 @@ function nfa2dot(nfa::NFA)
     println(buf, "  0 [ shape = point ];")
     serial = 0
     serials = Dict(nfa.start => (serial += 1))
-    unmarked = Set([nfa.start])
-    while !isempty(unmarked)
-        s = pop!(unmarked)
-        for (l, T) in s.next, t in T
+
+    function trace(s, label)
+        for t in s.trans[label]
             if !haskey(serials, t)
                 serials[t] = (serial += 1)
-                push!(unmarked, t)
+                push!(unvisited, t)
             end
-            println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label2str(l))\" ];")
+            as = [a.name for a in s.actions[(label, t)]]
+            println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label2str(label, as))\" ];")
         end
+    end
+
+    unvisited = Set([nfa.start])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        for l in 0x00:0xff
+            trace(s, l)
+        end
+        trace(s, :eps)
     end
     for (node, serial) in serials
         shape = node == nfa.final ? "doublecircle" : "circle"
-        xlabel = actions2str([a.name for a in node.actions])
-        println(buf, "  $(serial) [ shape = $(shape), xlabel = \"$(xlabel)\" ];")
+        println(buf, "  $(serial) [ shape = $(shape) ];")
     end
     println(buf, "}")
     return takebuf_string(buf)

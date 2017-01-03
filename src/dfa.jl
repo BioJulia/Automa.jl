@@ -12,87 +12,96 @@ type DFA
 end
 
 function nfa2dfa(nfa::NFA)
-    new_dfanode(nodes) = DFANode(Dict(), [], nfa.final ∈ epsilon_closure(nodes))
-    start = epsilon_closure(nfa.start)
-    dfanodes = Dict([start => new_dfanode(start)])
-    unmarked = Set([start])
-    while !isempty(unmarked)
-        S = pop!(unmarked)
+    new_dfanode(nodes) = DFANode(Dict(), [], nfa.final ∈ nodes)
+    S = epsilon_closure(Set([nfa.start]))
+    start = new_dfanode(S)
+    dfanodes = Dict([S => start])
+    unvisited = Set([S])
+    while !isempty(unvisited)
+        S = pop!(unvisited)
+        S_actions = accumulate_actions(S)
         for l in 0x00:0xff
             T = epsilon_closure(move(S, l))
             if isempty(T)
                 continue
-            end
-            if !haskey(dfanodes, T)
+            elseif !haskey(dfanodes, T)
                 dfanodes[T] = new_dfanode(T)
-                push!(unmarked, T)
+                push!(unvisited, T)
             end
-            actions = OrdAction[]
+            actions = Set{Action}()
             for s in S
-                if isempty(s.actions)
-                    # no need to check
-                    continue
-                end
-                if !isempty(epsilon_closure(move(epsilon_closure(s), l)))
-                    append!(actions, s.actions)
+                union!(actions, move_actions(s, l))
+                if !isempty(s.trans[l])
+                    union!(actions, S_actions[s])
                 end
             end
-            sort_actions!(actions)
-            dfanodes[S].next[l] = (dfanodes[T], [a.name for a in actions])
+            dfanodes[S].next[l] = (dfanodes[T], [a.name for a in sort_actions!(actions)])
+        end
+        if nfa.final ∈ S
+            eof_actions = S_actions[nfa.final]
+            dfanodes[S].eof_actions = [a.name for a in sort_actions!(eof_actions)]
         end
     end
+    return DFA(start)
+end
 
-    # attach EOF actions
-    for (S, dfanode) in dfanodes
-        actions = OrdAction[]
-        for s in S
-            if nfa.final ∈ epsilon_closure(s)
-                append!(actions, s.actions)
-            end
-        end
-        sort_actions!(actions)
-        dfanode.eof_actions = [a.name for a in actions]
+function sort_actions!(actions::Set{OrdAction})
+    return sort!(collect(actions), by=a->a.order)
+end
+
+function move(S::Set{NFANode}, label::UInt8)
+    T = Set{NFANode}()
+    for s in S
+        union!(T, s.trans[label])
     end
-    return DFA(dfanodes[start])
+    return T
 end
 
-function sort_actions!(actions::Vector{OrdAction})
-    return sort!(actions, by=a -> a.order)
-end
-
-function move(nodes::Set{NFANode}, label)
-    set = Set{NFANode}()
-    for node in nodes
-        if haskey(node.next, label)
-            union!(set, node.next[label])
-        end
-    end
-    return set
-end
-
-function epsilon_closure(node::NFANode)
+function epsilon_closure(S::Set{NFANode})
     closure = Set{NFANode}()
-    unmarked = Set([node])
-    while !isempty(unmarked)
-        s = pop!(unmarked)
+    unvisited = Set(copy(S))
+    while !isempty(unvisited)
+        s = pop!(unvisited)
         push!(closure, s)
-        if haskey(s.next, :eps)
-            for t in s.next[:eps]
-                if t ∉ closure
-                    push!(unmarked, t)
-                end
+        for t in s.trans[:eps]
+            if t ∉ closure
+                push!(unvisited, t)
             end
         end
     end
     return closure
 end
 
-function epsilon_closure(nodes::Set{NFANode})
-    closure = Set{NFANode}()
-    for node in nodes
-        union!(closure, epsilon_closure(node))
+function move_actions(s::NFANode, label::UInt8)
+    actions = Set{NFANode}()
+    for ((l, _), as) in s.actions
+        if l == label
+            union!(actions, as)
+        end
     end
-    return closure
+    return actions
+end
+
+function accumulate_actions(S::Set{NFANode})
+    top = copy(S)
+    for s in S
+        setdiff!(top, s.trans[:eps])
+    end
+    @assert !isempty(top)
+    actions = Dict(s => Set{Action}() for s in S)
+    visited = Set{NFANode}()
+    unvisited = top
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        push!(visited, s)
+        for t in s.trans[:eps]
+            union!(actions[t], union(actions[s], s.actions[(:eps, t)]))
+            if t ∉ visited
+                push!(unvisited, t)
+            end
+        end
+    end
+    return actions
 end
 
 function reduce_states(dfa::DFA)

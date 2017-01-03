@@ -9,6 +9,8 @@ export
     generate_init,
     generate_exec
 
+import DataStructures: DefaultDict
+
 include("re.jl")
 include("nfa.jl")
 include("dfa.jl")
