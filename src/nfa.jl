@@ -96,10 +96,17 @@ function re2nfa_rec(re::RE, order::Int)
         end
     end
 
+    function check_arity(p)
+        if !p(length(re.args))
+            error("invalid arity: $(re.head)")
+        end
+    end
+
     start = NFANode()
     final = NFANode()
     =>(x, y) = (x, y)
     if re.head == :byte
+        check_arity(n -> n == 1)
         addtrans!(start, re.args[1] => final)
     elseif re.head == :cat
         lastnfa = NFA(start, final)
@@ -111,27 +118,21 @@ function re2nfa_rec(re::RE, order::Int)
         end
         final = lastnfa.final
     elseif re.head == :alt
-        if isempty(re.args)
-            error("invalid arity: $(re.head)")
-        end
+        check_arity(n -> n > 0)
         for arg in re.args
             nfa, order = re2nfa_rec(arg, order)
             addtrans!(start, :eps => nfa.start)
             addtrans!(nfa.final, :eps => final)
         end
     elseif re.head == :rep
-        if length(re.args) != 1
-            error("invalid arity: $(re.head)")
-        end
+        check_arity(n -> n == 1)
         nfa, order = re2nfa_rec(re.args[1], order)
         addtrans!(start, :eps => final)
         addtrans!(start, :eps => nfa.start)
         addtrans!(nfa.final, :eps => final)
         addtrans!(nfa.final, :eps => nfa.start)
     elseif re.head == :isec
-        if length(re.args) != 2
-            error("invalid arity: $(re.head)")
-        end
+        check_arity(n -> n == 2)
         nfa1, order = re2nfa_rec(re.args[1], order)
         nfa2, order = re2nfa_rec(re.args[2], order)
         addtrans!(start, :eps => nfa1.start)
@@ -144,9 +145,7 @@ function re2nfa_rec(re::RE, order::Int)
         start = nfa.start
         final = nfa.final
     elseif re.head == :diff
-        if length(re.args) != 2
-            error("invalid arity: $(re.head)")
-        end
+        check_arity(n -> n == 2)
         nfa1, order = re2nfa_rec(re.args[1], order)
         nfa2, order = re2nfa_rec(re.args[2], order)
         addtrans!(start, :eps => nfa1.start)
