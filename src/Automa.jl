@@ -4,6 +4,7 @@ export
     cat,
     alt,
     rep,
+    diff,
     @re_str,
     compile,
     generate_init,

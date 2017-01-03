@@ -240,3 +240,45 @@ function compact_labels(labels::Vector{UInt8})
     end
     return labels′
 end
+
+function dfa2nfa(dfa::DFA)
+    =>(x, y) = (x, y)
+    final = NFANode()
+    nfanodes = Dict([dfa.start => NFANode()])
+    unvisited = Set([dfa.start])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        for (l, (t, as)) in s.next
+            @assert isa(l, UInt8)
+            if !haskey(nfanodes, t)
+                nfanodes[t] = NFANode()
+                push!(unvisited, t)
+            end
+            addtrans!(nfanodes[s], l => nfanodes[t], as)
+        end
+        if s.final
+            addtrans!(nfanodes[s], :eps => final, s.eof_actions)
+        end
+    end
+    start = NFANode()
+    addtrans!(start, :eps => nfanodes[dfa.start])
+    return NFA(start, final)
+end
+
+function revoke_finals!(p::Function, dfa::DFA)
+    visited = Set{DFANode}()
+    unvisited = Set([dfa.start])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        push!(visited, s)
+        if p(s)
+            s.final = false
+        end
+        for (_, (t, _)) in s.next
+            if t ∉ visited
+                push!(unvisited, t)
+            end
+        end
+    end
+    return dfa
+end

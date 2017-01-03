@@ -31,6 +31,10 @@ function rep(re::RE)
     return RE(:rep, [re])
 end
 
+function diff(re1::RE, re2::RE)
+    return RE(:diff, [re1, re2])
+end
+
 macro re_str(s::String)
     return desugar(parse(unescape_string(s)))
 end

@@ -128,6 +128,21 @@ function re2nfa_rec(re::RE, order::Int)
         addtrans!(start, :eps => nfa.start)
         addtrans!(nfa.final, :eps => final)
         addtrans!(nfa.final, :eps => nfa.start)
+    elseif re.head == :diff
+        if length(re.args) != 2
+            error("invalid arity: $(re.head)")
+        end
+        nfa1, order = re2nfa_rec(re.args[1], order)
+        nfa2, order = re2nfa_rec(re.args[2], order)
+        addtrans!(start, :eps => nfa1.start)
+        addtrans!(start, :eps => nfa2.start)
+        addtrans!(nfa1.final, :eps => final)
+        addtrans!(nfa2.final, :eps => final)
+        dfa = nfa2dfa(NFA(start, final))
+        revoke_finals!(s -> nfa2.final ∈ s.nfanodes, dfa)
+        nfa = dfa2nfa(dfa)
+        start = nfa.start
+        final = nfa.final
     else
         error("unsupported operation: $(re.head)")
     end
