@@ -4,6 +4,7 @@ export
     cat,
     alt,
     rep,
+    isec,
     diff,
     @re_str,
     compile,
