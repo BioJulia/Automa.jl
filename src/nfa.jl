@@ -108,6 +108,11 @@ function re2nfa_rec(re::RE, order::Int)
     if re.head == :byte
         check_arity(n -> n == 1)
         addtrans!(start, re.args[1] => final)
+    elseif re.head == :range
+        check_arity(n -> n == 1)
+        for b in re.args[1]
+            addtrans!(start, b => final)
+        end
     elseif re.head == :cat
         lastnfa = NFA(start, final)
         addtrans!(start, :eps => final)

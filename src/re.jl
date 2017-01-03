@@ -15,6 +15,10 @@ function byte(b::UInt8)
     return RE(:byte, [b])
 end
 
+function range(r::UnitRange{UInt8})
+    return RE(:range, [r])
+end
+
 function Base.cat(re::RE)
     return RE(:cat, [re])
 end
@@ -165,7 +169,7 @@ function parse_class(str, s)
             shift!(chars)
             shift!(chars)
         else
-            push!(args, UInt8(c))
+            push!(args, UInt8(c):UInt8(c))
         end
     end
     return RE(head, args), s
@@ -173,9 +177,9 @@ end
 
 function desugar(re::RE)
     if re.head == :class
-        return RE(:alt, [byte(b) for b in 0x00:0xff if belongs_to(b, re.args)])
+        return RE(:alt, [range(r) for r in re.args])
     elseif re.head == :cclass
-        return RE(:alt, [byte(b) for b in 0x00:0xff if !belongs_to(b, re.args)])
+        return RE(:alt, [range(r) for r in complement_ranges(re.args)])
     elseif re.head == :byte
         return re
     elseif re.head == :rep1
@@ -189,11 +193,10 @@ function desugar(re::RE)
     end
 end
 
-function belongs_to(b, class)
-    for x in class
-        if b ∈ x
-            return true
-        end
+function complement_ranges(ranges)
+    comp = Set(0x00:0xff)
+    for r in ranges
+        setdiff!(comp, r)
     end
-    return false
+    return compact_labels(collect(comp))
 end
