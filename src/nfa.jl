@@ -31,7 +31,7 @@ function re2nfa(re::RE)
     return nfa
 end
 
-function re2nfa_rec(re, order)
+function re2nfa_rec(re::RE, order::Int)
     if haskey(re.actions, :enter)
         enter_actions = []
         for a in re.actions[:enter]
