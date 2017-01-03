@@ -19,7 +19,7 @@ function gen_empty_nfanode_set()
 end
 
 function gen_empty_actions()
-    return Action[]
+    return Set{Action}()
 end
 
 type NFATransition{T}
@@ -44,27 +44,27 @@ end
 
 type NFANode
     trans::NFATransition{NFANode}
-    actions::DefaultDict{Tuple{Any,NFANode},Vector{Action},typeof(gen_empty_actions)}
+    actions::DefaultDict{Tuple{Any,NFANode},Set{Action},typeof(gen_empty_actions)}
 end
 
 function NFANode()
     trans = NFATransition()
-    actions = DefaultDict(Tuple{Any,NFANode},Vector{Action},gen_empty_actions)
+    actions = DefaultDict(Tuple{Any,NFANode},Set{Action},gen_empty_actions)
     return NFANode(trans, actions)
 end
 
-function addtrans!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Vector{Action}=Action[])
+function addtrans!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     push!(node.trans[label], target)
-    append!(node.actions[trans], actions)
+    union!(node.actions[trans], actions)
     return node
 end
 
-function addtrans!(node::NFANode, trans::Tuple{Symbol,NFANode}, actions::Vector{Action}=Action[])
+function addtrans!(node::NFANode, trans::Tuple{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     @assert label == :eps
     push!(node.trans.trans_eps, target)
-    append!(node.actions[trans], actions)
+    union!(node.actions[trans], actions)
     return node
 end
 
@@ -81,8 +81,8 @@ function re2nfa(re::RE)
 end
 
 function re2nfa_rec(re::RE, order::Int)
-    enter_actions = Action[]
-    exit_actions = Action[]
+    enter_actions = Set{Action}()
+    exit_actions = Set{Action}()
     if haskey(re.actions, :enter)
         for a in re.actions[:enter]
             push!(enter_actions, Action(a, order))
