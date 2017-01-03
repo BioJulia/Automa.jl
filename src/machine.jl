@@ -45,7 +45,7 @@ function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
         s = pop!(unvisited)
         if s.final
             push!(accept_states, serials[s])
-            eof_actions[serials[s]] = s.eof_actions
+            eof_actions[serials[s]] = sorted_action_names(s.eof_actions)
         end
         for (l, (t, as)) in s.next
             if !haskey(serials, t)
@@ -55,7 +55,7 @@ function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
             if !haskey(transitions, serials[s])
                 transitions[serials[s]] = Dict()
             end
-            transitions[serials[s]][l] = (serials[t], as)
+            transitions[serials[s]][l] = (serials[t], sorted_action_names(as))
         end
     end
     return Machine(1:serial, serials[start], accept_states, transitions, eof_actions, actions)
@@ -65,9 +65,9 @@ function debug_actions(dfa::DFA)
     actions = Set{Symbol}()
     traverse(dfa) do s
         for (_, (_, as)) in s.next
-            union!(actions, as)
+            union!(actions, sorted_action_names(as))
         end
-        union!(actions, s.eof_actions)
+        union!(actions, sorted_action_names(s.eof_actions))
     end
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))

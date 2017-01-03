@@ -6,7 +6,13 @@ immutable Action
     order::Int
 end
 
-typealias OrdAction Action
+function sorted_actions(actions::Set{Action})
+    return sort!(collect(actions), by=a->a.order)
+end
+
+function sorted_action_names(actions::Set{Action})
+    return [a.name for a in sorted_actions(actions)]
+end
 
 function gen_empty_nfanode_set()
     return Set{NFANode}()
@@ -75,17 +81,17 @@ function re2nfa(re::RE)
 end
 
 function re2nfa_rec(re::RE, order::Int)
-    enter_actions = OrdAction[]
-    exit_actions = OrdAction[]
+    enter_actions = Action[]
+    exit_actions = Action[]
     if haskey(re.actions, :enter)
         for a in re.actions[:enter]
-            push!(enter_actions, OrdAction(a, order))
+            push!(enter_actions, Action(a, order))
             order += 1
         end
     end
     if haskey(re.actions, :exit)
         for a in re.actions[:exit]
-            push!(exit_actions, OrdAction(a, order))
+            push!(exit_actions, Action(a, order))
             order += 1
         end
     end

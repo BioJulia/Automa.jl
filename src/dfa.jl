@@ -2,9 +2,10 @@
 # ==============================
 
 type DFANode
-    next::Dict{Any,Tuple{DFANode,Vector{Symbol}}}
-    eof_actions::Vector{Symbol}
+    next::Dict{Any,Tuple{DFANode,Set{Action}}}
+    eof_actions::Set{Action}
     final::Bool
+    nfanodes::Set{NFANode}  # back reference to NFA nodes (optional)
 end
 
 type DFA
@@ -12,7 +13,7 @@ type DFA
 end
 
 function nfa2dfa(nfa::NFA)
-    new_dfanode(nodes) = DFANode(Dict(), [], nfa.final ∈ nodes)
+    new_dfanode(S) = DFANode(Dict(), Set{Action}(), nfa.final ∈ S, S)
     S = epsilon_closure(Set([nfa.start]))
     start = new_dfanode(S)
     dfanodes = Dict([S => start])
@@ -35,18 +36,13 @@ function nfa2dfa(nfa::NFA)
                     union!(actions, S_actions[s])
                 end
             end
-            dfanodes[S].next[l] = (dfanodes[T], [a.name for a in sort_actions!(actions)])
+            dfanodes[S].next[l] = (dfanodes[T], actions)
         end
         if nfa.final ∈ S
-            eof_actions = S_actions[nfa.final]
-            dfanodes[S].eof_actions = [a.name for a in sort_actions!(eof_actions)]
+            dfanodes[S].eof_actions = S_actions[nfa.final]
         end
     end
     return DFA(start)
-end
-
-function sort_actions!(actions::Set{OrdAction})
-    return sort!(collect(actions), by=a->a.order)
 end
 
 function move(S::Set{NFANode}, label::UInt8)
@@ -109,7 +105,7 @@ function reduce_states(dfa::DFA)
     distinct = distinct_states(Q)
     # reconstruct an optimized DFA
     equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
-    new_dfanode(s) = DFANode(Dict(), [], s.final)
+    new_dfanode(s) = DFANode(Dict(), Set{Action}(), s.final, Set{NFANode}())
     start = new_dfanode(dfa.start)
     S_start = equivalent(dfa.start)
     dfanodes = Dict([S_start => start])
@@ -205,7 +201,7 @@ function distinct_states(Q)
 end
 
 function reduce_edges(dfa::DFA)
-    new_dfanode(s) = DFANode(Dict(), [], s.final)
+    new_dfanode(s) = DFANode(Dict(), Set{Action}(), s.final, Set{NFANode}())
     start = new_dfanode(dfa.start)
     dfanodes = Dict(dfa.start => start)
     unvisited = Set([dfa.start])

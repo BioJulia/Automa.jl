@@ -16,8 +16,8 @@ function nfa2dot(nfa::NFA)
                 serials[t] = (serial += 1)
                 push!(unvisited, t)
             end
-            as = [a.name for a in s.actions[(label, t)]]
-            println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label2str(label, as))\" ];")
+            actions = s.actions[(lable, t)]
+            println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label2str(label, actions))\" ];")
         end
     end
 
@@ -99,5 +99,5 @@ function label2str(label)
 end
 
 function actions2str(actions)
-    return join(actions, ',')
+    return join(sort_actions(actions), ',')
 end
