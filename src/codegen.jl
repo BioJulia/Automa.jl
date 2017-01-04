@@ -39,27 +39,24 @@ function generate_table_code(machine::Machine, inbounds::Bool)
     end
     @assert size(trans_table, 1) == 256
     return quote
-        while p ≤ p_end
+        while p ≤ p_end && cs > 0
             $(l_code)
             $(ns_code)
             $(action_code)
-            if ns < 0
-                cs = -cs
-                @goto escape
-            end
             cs = ns
             p += 1
         end
-        if p > p_eof ≥ 0
+        if p > p_eof ≥ 0 && cs > 0
             $(eof_action_code)
         end
-        @label escape
     end
 end
 
 function generate_transition_table(machine::Machine)
     trans_table = Matrix{Int}(256, length(machine.states))
-    fill!(trans_table, -1)
+    for j in 1:size(trans_table, 2)
+        trans_table[:,j] = -j
+    end
     for (s, trans) in machine.transitions
         for (l, (t, _)) in trans
             if isa(l, UInt8) || isa(l, UnitRange{UInt8})
@@ -96,25 +93,20 @@ function generate_inline_code(machine::Machine, inbounds::Bool)
         l_code = make_inbounds(l_code)
     end
     return quote
-        while p ≤ p_end
+        while p ≤ p_end && cs > 0
             $(l_code)
             $(trans_code)
-            if ns < 0
-                cs = -cs
-                @goto escape
-            end
             cs = ns
             p += 1
         end
-        if p > p_eof ≥ 0
+        if p > p_eof ≥ 0 && cs > 0
             $(eof_action_code)
         end
-        @label escape
     end
 end
 
 function generate_transition_code(machine::Machine)
-    default = :(ns = -1)
+    default = :(ns = -cs)
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
         then = foldr(default, collect(trans)) do branch, els′
