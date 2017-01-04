@@ -133,3 +133,104 @@ module Test3
     @test validate2(b">seq1\na") == false
     @test validate2(b">seq1\nac\ngt") == false
 end
+
+module Test4
+    using Automa
+    using Base.Test
+
+    beg_a = cat(re"a", re"[ab]*")
+    end_b = cat(re"[ab]*", re"b")
+    re = isec(beg_a, end_b)
+
+    machine = compile(re)
+    init_code = generate_init(machine)
+    exec_code = generate_exec(machine)
+
+    @eval function validate(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states)
+    end
+
+    @test validate(b"") == false
+    @test validate(b"a") == false
+    @test validate(b"aab") == true
+    @test validate(b"ab") == true
+    @test validate(b"aba") == false
+    @test validate(b"abab") == true
+    @test validate(b"abb") == true
+    @test validate(b"abbb") == true
+    @test validate(b"b") == false
+    @test validate(b"bab") == false
+
+    exec_code = generate_exec(machine, code=:inline)
+    @eval function validate2(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states)
+    end
+    @test validate2(b"") == false
+    @test validate2(b"a") == false
+    @test validate2(b"aab") == true
+    @test validate2(b"ab") == true
+    @test validate2(b"aba") == false
+    @test validate2(b"abab") == true
+    @test validate2(b"abb") == true
+    @test validate2(b"abbb") == true
+    @test validate2(b"b") == false
+    @test validate2(b"bab") == false
+end
+
+module Test5
+    using Automa
+    using Base.Test
+
+    keyword = alt(re"if", re"else", re"end", re"while")
+    ident = Automa.diff(re"[a-z]+", keyword)
+    re = alt(keyword, ident)
+
+    keyword.actions[:exit] = [:keyword]
+    ident.actions[:exit] = [:ident]
+
+    machine = compile(re, actions=:debug)
+    init_code = generate_init(machine)
+    exec_code = generate_exec(machine)
+
+    @eval function validate(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states), logger
+    end
+
+    @test validate(b"if") == (true, [:keyword])
+    @test validate(b"else") == (true, [:keyword])
+    @test validate(b"end") == (true, [:keyword])
+    @test validate(b"while") == (true, [:keyword])
+    @test validate(b"e") == (true, [:ident])
+    @test validate(b"eif") == (true, [:ident])
+    @test validate(b"i") == (true, [:ident])
+    @test validate(b"iff") == (true, [:ident])
+    @test validate(b"1if") == (false, [])
+
+    exec_code = generate_exec(machine, code=:inline)
+    @eval function validate2(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs ∈ $(machine.accept_states), logger
+    end
+    @test validate2(b"if") == (true, [:keyword])
+    @test validate2(b"else") == (true, [:keyword])
+    @test validate2(b"end") == (true, [:keyword])
+    @test validate2(b"while") == (true, [:keyword])
+    @test validate2(b"e") == (true, [:ident])
+    @test validate2(b"eif") == (true, [:ident])
+    @test validate2(b"i") == (true, [:ident])
+    @test validate2(b"iff") == (true, [:ident])
+    @test validate2(b"1if") == (false, [])
+end

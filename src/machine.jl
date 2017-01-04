@@ -11,7 +11,7 @@ type Machine
 end
 
 function compile(re::RE; actions=nothing, optimize=2)
-    dfa = nfa2dfa(re2nfa(re))
+    dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
     if optimize == 0
         # do nothing
     elseif optimize == 1

@@ -179,3 +179,71 @@ function re2nfa_rec(re::RE, order::Int)
 
     return NFA(start, final), order
 end
+
+function remove_dead_states(nfa::NFA)
+    backrefs = make_back_references(nfa)
+    alive = Set{NFANode}()
+    unvisited = Set([nfa.final])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        push!(alive, s)
+        for t in backrefs[s]
+            if t ∉ alive
+                push!(unvisited, t)
+            end
+        end
+    end
+    @assert nfa.start ∈ alive
+    @assert nfa.final ∈ alive
+
+    newnodes = Dict{NFANode,NFANode}(nfa.start => NFANode())
+    unvisited = Set([nfa.start])
+    function copy_trans(s, t, l)
+        if !haskey(newnodes, t)
+            newnodes[t] = NFANode()
+            push!(unvisited, t)
+        end
+        addtrans!(newnodes[s], (l, newnodes[t]), s.actions[(l, t)])
+    end
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        for (l, T) in s.trans.trans
+            for t in T
+                if t ∈ alive
+                    copy_trans(s, t, l)
+                end
+            end
+        end
+        for t in s.trans.trans_eps
+            if t ∈ alive
+                copy_trans(s, t, :eps)
+            end
+        end
+    end
+    return NFA(newnodes[nfa.start], newnodes[nfa.final])
+end
+
+function make_back_references(nfa::NFA)
+    backrefs = Dict(nfa.start => Set{NFANode}())
+    unvisited = Set([nfa.start])
+    function add_backref(t, s)
+        if !haskey(backrefs, t)
+            backrefs[t] = Set{NFANode}()
+            push!(unvisited, t)
+        end
+        push!(backrefs[t], s)
+    end
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        for l in keys(s.trans.trans)
+            T = s.trans[l]
+            for t in T
+                add_backref(t, s)
+            end
+        end
+        for t in s.trans.trans_eps
+            add_backref(t, s)
+        end
+    end
+    return backrefs
+end
