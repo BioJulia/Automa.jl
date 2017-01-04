@@ -35,6 +35,10 @@ function rep(re::RE)
     return RE(:rep, [re])
 end
 
+function opt(re::RE)
+    return RE(:alt, [re, RE(:cat, [])])
+end
+
 function isec(re1::RE, re2::RE)
     return RE(:isec, [re1, re2])
 end
@@ -59,7 +63,7 @@ function parse(str::String)
 
     function pop_and_apply!()
         op = pop!(operators)
-        if op == :rep || op == :rep1 || op == :maybe
+        if op == :rep || op == :rep1 || op == :opt
             arg = pop!(operands)
             push!(operands, RE(op, [arg]))
         elseif op == :alt
@@ -98,10 +102,10 @@ function parse(str::String)
             end
             push!(operators, :rep1)
         elseif c == '?'
-            while !isempty(operators) && prec(:maybe) ≤ prec(last(operators))
+            while !isempty(operators) && prec(:opt) ≤ prec(last(operators))
                 pop_and_apply!()
             end
-            push!(operators, :maybe)
+            push!(operators, :opt)
         elseif c == '|'
             while !isempty(operators) && prec(:alt) ≤ prec(last(operators))
                 pop_and_apply!()
@@ -132,7 +136,7 @@ function parse(str::String)
 end
 
 function prec(op::Symbol)
-    if op == :rep || op == :rep1 || op == :maybe
+    if op == :rep || op == :rep1 || op == :opt
         return 3
     elseif op == :cat
         return 2
@@ -185,7 +189,7 @@ function desugar(re::RE)
     elseif re.head == :rep1
         arg = desugar(re.args[1])
         return cat(arg, rep(arg))
-    elseif re.head == :maybe
+    elseif re.head == :opt
         arg = desugar(re.args[1])
         return alt(arg, RE(:cat, []))
     else
