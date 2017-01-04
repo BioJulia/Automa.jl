@@ -181,19 +181,19 @@ end
 
 function desugar(re::RE)
     if re.head == :class
-        return RE(:alt, [range(r) for r in re.args])
+        return RE(:alt, [range(r) for r in re.args], re.actions)
     elseif re.head == :cclass
-        return RE(:alt, [range(r) for r in complement_ranges(re.args)])
-    elseif re.head == :byte
+        return RE(:alt, [range(r) for r in complement_ranges(re.args)], re.actions)
+    elseif re.head == :byte || re.head == :range
         return re
     elseif re.head == :rep1
         arg = desugar(re.args[1])
-        return cat(arg, rep(arg))
+        return RE(:cat, [arg, rep(arg)], re.actions)
     elseif re.head == :opt
         arg = desugar(re.args[1])
-        return alt(arg, RE(:cat, []))
+        return RE(:alt, [arg, RE(:cat, [])], re.actions)
     else
-        return RE(re.head, [desugar(arg) for arg in re.args])
+        return RE(re.head, [desugar(arg) for arg in re.args], re.actions)
     end
 end
 
