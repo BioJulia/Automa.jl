@@ -6,7 +6,7 @@ newline     = re"\r?\n"
 identifier  = re"[!-~]*"
 description = re"[!-~][ -~]*"
 header      = re.cat(identifier, re.opt(re.cat(re" ", description)))
-sequence    = re.rep(re.cat(re"[A-Za-z]*", newline))
+sequence    = re.rep(re.cat(re"[!-~]*", newline))
 fasta       = re.rep(re.cat(re">", header, newline, sequence))
 
 # Register actions.
