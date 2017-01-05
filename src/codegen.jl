@@ -17,20 +17,29 @@ function generate_init(machine::Machine)
     end
 end
 
-function generate_exec(machine::Machine; code::Symbol=:table, inbounds::Bool=true)
+function generate_exec(machine::Machine; actions=nothing, code::Symbol=:table, inbounds::Bool=true)
+    if actions == nothing
+        actions = Dict{Symbol,Expr}()
+    elseif actions == :debug
+        actions = debug_actions(machine)
+    elseif isa(actions, Associative{Symbol,Expr})
+        # ok
+    else
+        throw(ArgumentError("invalid actions argument"))
+    end
     if code == :table
-        return generate_table_code(machine, inbounds)
+        return generate_table_code(machine, actions, inbounds)
     elseif code == :inline
-        return generate_inline_code(machine, inbounds)
+        return generate_inline_code(machine, actions, inbounds)
     else
         throw(ArgumentError("invalid code: $(code)"))
     end
 end
 
-function generate_table_code(machine::Machine, inbounds::Bool)
+function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, inbounds::Bool)
     trans_table = generate_transition_table(machine)
-    action_code = generate_table_action_code(machine)
-    eof_action_code = generate_eof_action_code(machine)
+    action_code = generate_table_action_code(machine, actions)
+    eof_action_code = generate_eof_action_code(machine, actions)
     l_code = :(l = data[p])
     ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
     if inbounds
@@ -76,22 +85,22 @@ function generate_transition_table(machine::Machine)
     return trans_table
 end
 
-function generate_table_action_code(machine::Machine)
+function generate_table_action_code(machine::Machine, actions::Associative{Symbol,Expr})
     default = :()
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
         then = foldr(default, collect(trans)) do branch, els′
-            l, (t, actions) = branch
-            action_code = rewrite_special_macros(generate_action_code(machine, actions), false)
+            l, (t, as) = branch
+            action_code = rewrite_special_macros(generate_action_code(as, actions), false)
             Expr(:if, label_condition(l), action_code, els′)
         end
         Expr(:if, state_condition(s), then, els)
     end
 end
 
-function generate_inline_code(machine::Machine, inbounds::Bool)
-    trans_code = generate_transition_code(machine)
-    eof_action_code = generate_eof_action_code(machine)
+function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, inbounds::Bool)
+    trans_code = generate_transition_code(machine, actions)
+    eof_action_code = generate_eof_action_code(machine, actions)
     l_code = :(l = data[p])
     if inbounds
         l_code = make_inbounds(l_code)
@@ -112,29 +121,29 @@ function generate_inline_code(machine::Machine, inbounds::Bool)
     end
 end
 
-function generate_transition_code(machine::Machine)
+function generate_transition_code(machine::Machine, actions::Associative{Symbol,Expr})
     default = :(ns = -cs)
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
         then = foldr(default, collect(trans)) do branch, els′
-            l, (t, actions) = branch
-            action_code = rewrite_special_macros(generate_action_code(machine, actions), false)
+            l, (t, as) = branch
+            action_code = rewrite_special_macros(generate_action_code(as, actions), false)
             Expr(:if, label_condition(l), :(ns = $(t); $(action_code)), els′)
         end
         Expr(:if, state_condition(s), then, els)
     end
 end
 
-function generate_eof_action_code(machine::Machine)
-    return foldr(:(), collect(machine.eof_actions)) do s_actions, els
-        s, actions = s_actions
-        action_code = rewrite_special_macros(generate_action_code(machine, actions), true)
+function generate_eof_action_code(machine::Machine, actions::Associative{Symbol,Expr})
+    return foldr(:(), collect(machine.eof_actions)) do s_as, els
+        s, as = s_as
+        action_code = rewrite_special_macros(generate_action_code(as, actions), true)
         Expr(:if, state_condition(s), action_code, els)
     end
 end
 
-function generate_action_code(machine::Machine, actions::Vector{Symbol})
-    return Expr(:block, (machine.actions[a] for a in actions)...)
+function generate_action_code(names::Vector{Symbol}, actions::Associative{Symbol,Expr})
+    return Expr(:block, (actions[n] for n in names)...)
 end
 
 function make_inbounds(ex::Expr)
@@ -177,4 +186,20 @@ function rewrite_special_macros(ex::Expr, eof_action::Bool)
         end
     end
     return Expr(ex.head, args...)
+end
+
+function debug_actions(machine::Machine)
+    actions = Set{Symbol}()
+    for trans in values(machine.transitions)
+        for (_, as) in values(trans)
+            union!(actions, as)
+        end
+    end
+    for as in values(machine.eof_actions)
+        union!(actions, as)
+    end
+    function log_expr(name)
+        return :(push!(logger, $(QuoteNode(name))))
+    end
+    return Dict(name => log_expr(name) for name in actions)
 end

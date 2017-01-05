@@ -7,9 +7,9 @@ module Test1
     re.actions[:enter] = [:enter_re]
     re.actions[:exit] = [:exit_re]
 
-    machine = compile(re, actions=:debug)
+    machine = compile(re)
     init_code = generate_init(machine)
-    exec_code = generate_exec(machine)
+    exec_code = generate_exec(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -23,7 +23,7 @@ module Test1
     @test validate(b"a") == (false, Symbol[])
 
     # inlined code
-    exec_code = generate_exec(machine, code=:inline)
+    exec_code = generate_exec(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -50,9 +50,9 @@ module Test2
     re.actions[:enter] = [:enter_re]
     re.actions[:exit] = [:exit_re]
 
-    machine = compile(re, actions=:debug)
+    machine = compile(re)
     init_code = generate_init(machine)
-    exec_code = generate_exec(machine)
+    exec_code = generate_exec(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -68,7 +68,7 @@ module Test2
     @test validate(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
 
     # inlined code
-    exec_code = generate_exec(machine, code=:inline)
+    exec_code = generate_exec(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -194,9 +194,9 @@ module Test5
     keyword.actions[:exit] = [:keyword]
     ident.actions[:exit] = [:ident]
 
-    machine = compile(re, actions=:debug)
+    machine = compile(re)
     init_code = generate_init(machine)
-    exec_code = generate_exec(machine)
+    exec_code = generate_exec(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -216,7 +216,7 @@ module Test5
     @test validate(b"iff") == (true, [:ident])
     @test validate(b"1if") == (false, [])
 
-    exec_code = generate_exec(machine, code=:inline)
+    exec_code = generate_exec(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -243,7 +243,7 @@ module Test6
     foos = rep(cat(foo, re" *"))
     foo.actions[:exit]  = [:foo]
     actions = Dict(:foo => :(push!(ret, state.p:p-1); @escape))
-    machine = compile(foos, actions=actions)
+    machine = compile(foos)
 
     @eval type MachineState
         p::Int
@@ -259,7 +259,7 @@ module Test6
         p = state.p
         cs = state.cs
         p_end = p_eof = endof(data)
-        $(generate_exec(machine))
+        $(generate_exec(machine, actions=actions))
         state.p = p
         state.cs = cs
         return ret
@@ -279,7 +279,7 @@ module Test6
         p = state.p
         cs = state.cs
         p_end = p_eof = endof(data)
-        $(generate_exec(machine, code=:inline))
+        $(generate_exec(machine, actions=actions, code=:inline))
         state.p = p
         state.cs = cs
         return ret

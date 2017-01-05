@@ -7,33 +7,22 @@ type Machine
     final_states::Set{Int}
     transitions::Dict{Int,Dict{Any,Tuple{Int,Vector{Symbol}}}}
     eof_actions::Dict{Int,Vector{Symbol}}
-    actions::Dict{Symbol,Expr}
 end
 
-function compile(re::RE; actions=nothing, optimize=2)
+function compile(re::RE; optimize::Integer=2)
+    if optimize ∉ (0, 1, 2)
+        throw(ArgumentError("optimization level must be in {0, 1, 2}"))
+    end
     dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
-    if optimize == 0
-        # do nothing
-    elseif optimize == 1
+    if optimize == 1
         dfa = reduce_states(dfa)
     elseif optimize == 2
         dfa = reduce_edges(reduce_states(dfa))
-    else
-        throw(ArgumentError("optimization level must be in {0, 1, 2}"))
     end
-    if actions == nothing
-        actions = Dict{Symbol,Expr}()
-    elseif actions == :debug
-        actions = debug_actions(dfa)
-    elseif isa(actions, Dict{Symbol,Expr})
-        # ok
-    else
-        throw(ArgumentError("invalid actions argument"))
-    end
-    return dfa2machine(dfa, actions)
+    return dfa2machine(dfa)
 end
 
-function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
+function dfa2machine(dfa::DFA)
     start = dfa.start
     serial = 0
     serials = Dict(start => (serial += 1))
@@ -58,21 +47,7 @@ function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
             transitions[serials[s]][l] = (serials[t], sorted_action_names(as))
         end
     end
-    return Machine(1:serial, serials[start], final_states, transitions, eof_actions, actions)
-end
-
-function debug_actions(dfa::DFA)
-    actions = Set{Symbol}()
-    traverse(dfa) do s
-        for (_, (_, as)) in s.next
-            union!(actions, sorted_action_names(as))
-        end
-        union!(actions, sorted_action_names(s.eof_actions))
-    end
-    function log_expr(name)
-        return :(push!(logger, $(QuoteNode(name))))
-    end
-    return Dict(name => log_expr(name) for name in actions)
+    return Machine(1:serial, serials[start], final_states, transitions, eof_actions)
 end
 
 function traverse(f::Function, dfa::DFA)
