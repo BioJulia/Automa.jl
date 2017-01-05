@@ -121,6 +121,8 @@ function parse(str::String)
         elseif c == '['
             class, s = parse_class(str, s)
             push!(operands, class)
+        elseif c == '.'
+            push!(operands, range(0x00:0xff))
         else
             push!(operands, byte(UInt8(c)))
         end
