@@ -75,12 +75,12 @@ type NFA
 end
 
 # Convert a RE to an NFA using Thompson's construction.
-function re2nfa(re::RE)
+function re2nfa(re::RegExp.RE)
     nfa, _ = re2nfa_rec(re, 1)
     return nfa
 end
 
-function re2nfa_rec(re::RE, order::Int)
+function re2nfa_rec(re::RegExp.RE, order::Int)
     enter_actions = Set{Action}()
     exit_actions = Set{Action}()
     if haskey(re.actions, :enter)

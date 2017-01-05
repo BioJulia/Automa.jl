@@ -38,19 +38,20 @@ end
 module Test2
     using Automa
     using Base.Test
+    const re = Automa.RegExp
 
-    a = rep(re"a")
-    b = cat(re"b", rep(re"b"))
-    re = cat(a, b)
+    a = re.rep(re"a")
+    b = re.cat(re"b", re.rep(re"b"))
+    ab = re.cat(a, b)
 
     a.actions[:enter] = [:enter_a]
     a.actions[:exit] = [:exit_a]
     b.actions[:enter] = [:enter_b]
     b.actions[:exit] = [:exit_b]
-    re.actions[:enter] = [:enter_re]
-    re.actions[:exit] = [:exit_re]
+    ab.actions[:enter] = [:enter_re]
+    ab.actions[:exit] = [:exit_re]
 
-    machine = compile(re)
+    machine = compile(ab)
     init_code = generate_init(machine)
     exec_code = generate_exec(machine, actions=:debug)
 
@@ -85,11 +86,12 @@ end
 module Test3
     using Automa
     using Base.Test
+    const re = Automa.RegExp
 
     header = re"[ -~]*"
     newline = re"\r?\n"
-    sequence = rep(cat(re"[A-Za-z]*", newline))
-    fasta = rep(cat(re">", header, newline, sequence))
+    sequence = re.rep(re.cat(re"[A-Za-z]*", newline))
+    fasta = re.rep(re.cat(re">", header, newline, sequence))
 
     machine = compile(fasta)
     init_code = generate_init(machine)
@@ -137,12 +139,13 @@ end
 module Test4
     using Automa
     using Base.Test
+    const re = Automa.RegExp
 
-    beg_a = cat(re"a", re"[ab]*")
-    end_b = cat(re"[ab]*", re"b")
-    re = isec(beg_a, end_b)
+    beg_a = re.cat(re"a", re"[ab]*")
+    end_b = re.cat(re"[ab]*", re"b")
+    beg_a_end_b = re.isec(beg_a, end_b)
 
-    machine = compile(re)
+    machine = compile(beg_a_end_b)
     init_code = generate_init(machine)
     exec_code = generate_exec(machine)
 
@@ -186,15 +189,16 @@ end
 module Test5
     using Automa
     using Base.Test
+    const re = Automa.RegExp
 
-    keyword = alt(re"if", re"else", re"end", re"while")
-    ident = Automa.diff(re"[a-z]+", keyword)
-    re = alt(keyword, ident)
+    keyword = re.alt(re"if", re"else", re"end", re"while")
+    ident = re.diff(re"[a-z]+", keyword)
+    token = re.alt(keyword, ident)
 
     keyword.actions[:exit] = [:keyword]
     ident.actions[:exit] = [:ident]
 
-    machine = compile(re)
+    machine = compile(token)
     init_code = generate_init(machine)
     exec_code = generate_exec(machine, actions=:debug)
 
@@ -238,9 +242,10 @@ end
 module Test6
     using Automa
     using Base.Test
+    const re = Automa.RegExp
 
     foo = re"foo"
-    foos = rep(cat(foo, re" *"))
+    foos = re.rep(re.cat(foo, re" *"))
     foo.actions[:exit]  = [:foo]
     actions = Dict(:foo => :(push!(ret, state.p:p-1); @escape))
     machine = compile(foos)

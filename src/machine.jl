@@ -9,7 +9,7 @@ type Machine
     eof_actions::Dict{Int,Vector{Symbol}}
 end
 
-function compile(re::RE; optimize::Integer=2)
+function compile(re::RegExp.RE; optimize::Integer=2)
     if optimize ∉ (0, 1, 2)
         throw(ArgumentError("optimization level must be in {0, 1, 2}"))
     end

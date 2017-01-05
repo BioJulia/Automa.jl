@@ -1,12 +1,13 @@
 using Automa
+const re = Automa.RegExp
 
 # Describe a pattern in regular expression.
 newline     = re"\r?\n"
 identifier  = re"[!-~]*"
 description = re"[!-~][ -~]*"
-header      = cat(identifier, alt(re"", cat(re" ", description)))
-sequence    = rep(cat(re"[A-Za-z]*", newline))
-fasta       = rep(cat(re">", header, newline, sequence))
+header      = re.cat(identifier, re.opt(re.cat(re" ", description)))
+sequence    = re.rep(re.cat(re"[A-Za-z]*", newline))
+fasta       = re.rep(re.cat(re">", header, newline, sequence))
 
 # Register actions.
 newline.actions[:enter]     = [:newline]

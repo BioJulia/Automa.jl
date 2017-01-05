@@ -1,12 +1,6 @@
 module Automa
 
 export
-    cat,
-    alt,
-    rep,
-    opt,
-    isec,
-    diff,
     @re_str,
     compile,
     generate_init,
@@ -20,5 +14,7 @@ include("dfa.jl")
 include("dot.jl")
 include("machine.jl")
 include("codegen.jl")
+
+import .RegExp: @re_str  # re-export
 
 end # module

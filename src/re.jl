@@ -1,6 +1,8 @@
 # Regular Expression
 # ==================
 
+module RegExp
+
 type RE
     head::Symbol
     args::Vector
@@ -19,12 +21,8 @@ function range(r::UnitRange{UInt8})
     return RE(:range, [r])
 end
 
-function Base.cat(re::RE)
-    return RE(:cat, [re])
-end
-
-function Base.cat(re1::RE, re::RE...)
-    return RE(:cat, [re1, re...])
+function cat(re::RE...)
+    return RE(:cat, [re...])
 end
 
 function alt(re1::RE, re::RE...)
@@ -46,6 +44,11 @@ end
 function diff(re1::RE, re2::RE)
     return RE(:diff, [re1, re2])
 end
+
+Base.:*(re1::RE, re2::RE) = cat(re1, re2)
+Base.:|(re1::RE, re2::RE) = alt(re1, re2)
+Base.:&(re1::RE, re2::RE) = isec(re1, re2)
+Base.:\(re1::RE, re2::RE) = diff(re1, re2)
 
 macro re_str(s::String)
     return desugar(parse(unescape_string(escape_re_string(s))))
@@ -238,4 +241,6 @@ function complement_ranges(ranges)
         setdiff!(comp, r)
     end
     return compact_labels(collect(comp))
+end
+
 end
