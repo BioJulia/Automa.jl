@@ -29,9 +29,9 @@ actions = Dict(
         description = ""
     end
 )
-machine = compile(fasta, actions=actions)
+machine = compile(fasta)
 init_code = generate_init(machine)
-exec_code = generate_exec(machine)
+exec_code = generate_exec(machine, actions=actions)
 
 type FASTARecord
     description::String
