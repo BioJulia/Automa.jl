@@ -196,6 +196,10 @@ function parse_class(str, s)
     else
         head = :class
     end
+    if isempty(chars)
+        error("empty class")
+    end
+
     args = []
     while !isempty(chars)
         c = shift!(chars)
