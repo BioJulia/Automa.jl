@@ -74,8 +74,7 @@ function escape_re_string(io::IO, str::String)
             c′, s′ = next(str, s)
             if c′ ∈ METACHAR
                 print(io, "\\\\")
-                c = c′
-                s = s′
+                c, s = c′, s′
             end
         end
         print(io, c)
@@ -247,6 +246,20 @@ function complement_ranges(ranges)
         setdiff!(comp, r)
     end
     return compact_labels(collect(comp))
+end
+
+function compact_labels(labels::Vector{UInt8})
+    labels = sort(labels)
+    labels′ = UnitRange{UInt8}[]
+    while !isempty(labels)
+        lo = shift!(labels)
+        hi = lo
+        while !isempty(labels) && first(labels) == hi + 1
+            hi = shift!(labels)
+        end
+        push!(labels′, lo:hi)
+    end
+    return labels′
 end
 
 end
