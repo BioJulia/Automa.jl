@@ -37,7 +37,7 @@ function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
     start = dfa.start
     serial = 0
     serials = Dict(start => (serial += 1))
-    accept_states = Set{Int}()
+    accept_states = Set([0])  # zero indicates the EOF state
     transitions = Dict()
     eof_actions = Dict()
     unvisited = Set([start])

@@ -234,3 +234,61 @@ module Test5
     @test validate2(b"iff") == (true, [:ident])
     @test validate2(b"1if") == (false, [])
 end
+
+module Test6
+    using Automa
+    using Base.Test
+
+    foo = re"foo"
+    foos = rep(cat(foo, re" *"))
+    foo.actions[:exit]  = [:foo]
+    actions = Dict(:foo => :(push!(ret, state.p:p-1); @escape))
+    machine = compile(foos, actions=actions)
+
+    @eval type MachineState
+        p::Int
+        cs::Int
+        function MachineState()
+            $(generate_init(machine))
+            return new(p, cs)
+        end
+    end
+
+    @eval function run!(state, data)
+        ret = []
+        p = state.p
+        cs = state.cs
+        p_end = p_eof = endof(data)
+        $(generate_exec(machine))
+        state.p = p
+        state.cs = cs
+        return ret
+    end
+
+    state = MachineState()
+    data = b"foo foofoo   foo"
+    @test run!(state, data) == [1:3]
+    @test run!(state, data) == [5:7]
+    @test run!(state, data) == [9:10]
+    @test run!(state, data) == [12:16]
+    @test run!(state, data) == []
+    @test run!(state, data) == []
+
+    @eval function run2!(state, data)
+        ret = []
+        p = state.p
+        cs = state.cs
+        p_end = p_eof = endof(data)
+        $(generate_exec(machine, code=:inline))
+        state.p = p
+        state.cs = cs
+        return ret
+    end
+    state = MachineState()
+    @test run2!(state, data) == [1:3]
+    @test run2!(state, data) == [5:7]
+    @test run2!(state, data) == [9:10]
+    @test run2!(state, data) == [12:16]
+    @test run2!(state, data) == []
+    @test run2!(state, data) == []
+end
