@@ -46,13 +46,13 @@ function dfa2dot(dfa::DFA)
     println(buf, "  final [ shape = point ];")
     serial = 0
     serials = Dict(dfa.start => (serial += 1))
-    unmarked = Set([dfa.start])
-    while !isempty(unmarked)
-        s = pop!(unmarked)
+    unvisited = Set([dfa.start])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
         for (l, (t, as)) in s.next
             if !haskey(serials, t)
                 serials[t] = (serial += 1)
-                push!(unmarked, t)
+                push!(unvisited, t)
             end
             label = label2str(l, as)
             println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label)\" ];")
