@@ -292,3 +292,48 @@ module Test6
     @test run2!(state, data) == []
     @test run2!(state, data) == []
 end
+
+module Test7
+    using Automa
+    using Base.Test
+
+    re1 = re"a.*b"
+    machine = compile(re1)
+    @eval function ismatch1(data)
+        $(generate_init(machine))
+        p_end = p_eof = endof(data)
+        $(generate_exec(machine))
+        return cs ∈ $(machine.final_states)
+    end
+    @test ismatch1(b"ab")
+    @test ismatch1(b"azb")
+    @test ismatch1(b"azzzb")
+    @test !ismatch1(b"azzz")
+    @test !ismatch1(b"zzzb")
+
+    re2 = re"a\.*b"
+    machine = compile(re2)
+    @eval function ismatch2(data)
+        $(generate_init(machine))
+        p_end = p_eof = endof(data)
+        $(generate_exec(machine))
+        return cs ∈ $(machine.final_states)
+    end
+    @test ismatch2(b"ab")
+    @test ismatch2(b"a.b")
+    @test ismatch2(b"a...b")
+    @test !ismatch2(b"azzzb")
+    @test !ismatch2(b"a...")
+    @test !ismatch2(b"...b")
+
+    re3 = re"a\.\*b"
+    machine = compile(re3)
+    @eval function ismatch3(data)
+        $(generate_init(machine))
+        p_end = p_eof = endof(data)
+        $(generate_exec(machine))
+        return cs ∈ $(machine.final_states)
+    end
+    @test ismatch3(b"a.*b")
+    @test !ismatch3(b"a...b")
+end

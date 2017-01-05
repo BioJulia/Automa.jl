@@ -48,7 +48,31 @@ function diff(re1::RE, re2::RE)
 end
 
 macro re_str(s::String)
-    return desugar(parse(unescape_string(s)))
+    return desugar(parse(unescape_string(escape_re_string(s))))
+end
+
+const METACHAR = ".*+?()[\\|"
+
+function escape_re_string(str::String)
+    buf = IOBuffer()
+    escape_re_string(buf, str)
+    return takebuf_string(buf)
+end
+
+function escape_re_string(io::IO, str::String)
+    s = start(str)
+    while !done(str, s)
+        c, s = next(str, s)
+        if c == '\\' && !done(str, s)
+            c′, s′ = next(str, s)
+            if c′ ∈ METACHAR
+                print(io, "\\\\")
+                c = c′
+                s = s′
+            end
+        end
+        print(io, c)
+    end
 end
 
 # Parse a regular expression string using the shunting-yard algorithm.
@@ -90,6 +114,7 @@ function parse(str::String)
             end
             push!(operators, :cat)
         end
+        need_cat = c ∉ ('|', '(')
         if c == '*'
             while !isempty(operators) && prec(:rep) ≤ prec(last(operators))
                 pop_and_apply!()
@@ -122,10 +147,15 @@ function parse(str::String)
             push!(operands, class)
         elseif c == '.'
             push!(operands, range(0x00:0xff))
+        elseif c == '\\' && !done(str, s)
+            c, s′ = next(str, s)
+            if c ∈ METACHAR
+                push!(operands, byte(UInt8(c)))
+                s = s′
+            end
         else
             push!(operands, byte(UInt8(c)))
         end
-        need_cat = c ∉ ('|', '(')
     end
 
     while !isempty(operators)
