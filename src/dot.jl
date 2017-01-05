@@ -84,7 +84,11 @@ function label2str(label)
     elseif label == :eof
         return "EOF"
     elseif isa(label, UInt8)
-        return escape_string(escape_string(string(''', Char(label), ''')))
+        if label ≤ 0x7f  # ASCII
+            return escape_string(escape_string(string(''', Char(label), ''')))
+        else
+            return repr(label)
+        end
     elseif isa(label, UnitRange{UInt8})
         if length(label) == 1
             return string(label2str(first(label)))
