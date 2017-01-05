@@ -37,6 +37,10 @@ function rep(re::RE)
     return RE(:rep, [re])
 end
 
+function rep1(re::RE)
+    return RE(:rep1, [re])
+end
+
 function opt(re::RE)
     return RE(:alt, [re, RE(:cat, [])])
 end
@@ -47,6 +51,18 @@ end
 
 function diff(re1::RE, re2::RE)
     return RE(:diff, [re1, re2])
+end
+
+function any()
+    return range(0x00:0xff)
+end
+
+function ascii()
+    return range(0x00:0x7f)
+end
+
+function space()
+    return alt([byte(UInt8(c)) for c in "\t\v\f\n\r "]...)
 end
 
 Base.:*(re1::RE, re2::RE) = cat(re1, re2)
