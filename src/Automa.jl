@@ -3,8 +3,8 @@ module Automa
 export
     @re_str,
     compile,
-    generate_init,
-    generate_exec
+    generate_init_code,
+    generate_exec_code
 
 import DataStructures: DefaultDict
 

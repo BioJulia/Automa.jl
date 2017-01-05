@@ -8,7 +8,7 @@
 #   * `cs::Int`: current state
 #   * `ns::Int`: next state
 
-function generate_init(machine::Machine)
+function generate_init_code(machine::Machine)
     return quote
         p::Int = 1
         p_end::Int = 0
@@ -17,7 +17,7 @@ function generate_init(machine::Machine)
     end
 end
 
-function generate_exec(machine::Machine; actions=nothing, code::Symbol=:table, inbounds::Bool=true)
+function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:table, inbounds::Bool=true)
     if actions == nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug

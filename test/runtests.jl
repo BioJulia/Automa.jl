@@ -8,8 +8,8 @@ module Test1
     re.actions[:exit] = [:exit_re]
 
     machine = compile(re)
-    init_code = generate_init(machine)
-    exec_code = generate_exec(machine, actions=:debug)
+    init_code = generate_init_code(machine)
+    exec_code = generate_exec_code(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -23,7 +23,7 @@ module Test1
     @test validate(b"a") == (false, Symbol[])
 
     # inlined code
-    exec_code = generate_exec(machine, actions=:debug, code=:inline)
+    exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -52,8 +52,8 @@ module Test2
     ab.actions[:exit] = [:exit_re]
 
     machine = compile(ab)
-    init_code = generate_init(machine)
-    exec_code = generate_exec(machine, actions=:debug)
+    init_code = generate_init_code(machine)
+    exec_code = generate_exec_code(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -69,7 +69,7 @@ module Test2
     @test validate(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
 
     # inlined code
-    exec_code = generate_exec(machine, actions=:debug, code=:inline)
+    exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -94,8 +94,8 @@ module Test3
     fasta = re.rep(re.cat(re">", header, newline, sequence))
 
     machine = compile(fasta)
-    init_code = generate_init(machine)
-    exec_code = generate_exec(machine)
+    init_code = generate_init_code(machine)
+    exec_code = generate_exec_code(machine)
 
     @eval function validate(data)
         $(init_code)
@@ -116,7 +116,7 @@ module Test3
     @test validate(b">seq1\na") == false
     @test validate(b">seq1\nac\ngt") == false
 
-    exec_code = generate_exec(machine, code=:inline)
+    exec_code = generate_exec_code(machine, code=:inline)
     @eval function validate2(data)
         $(init_code)
         p_end = p_eof = endof(data)
@@ -146,8 +146,8 @@ module Test4
     beg_a_end_b = re.isec(beg_a, end_b)
 
     machine = compile(beg_a_end_b)
-    init_code = generate_init(machine)
-    exec_code = generate_exec(machine)
+    init_code = generate_init_code(machine)
+    exec_code = generate_exec_code(machine)
 
     @eval function validate(data)
         $(init_code)
@@ -167,7 +167,7 @@ module Test4
     @test validate(b"b") == false
     @test validate(b"bab") == false
 
-    exec_code = generate_exec(machine, code=:inline)
+    exec_code = generate_exec_code(machine, code=:inline)
     @eval function validate2(data)
         $(init_code)
         p_end = p_eof = endof(data)
@@ -199,8 +199,8 @@ module Test5
     ident.actions[:exit] = [:ident]
 
     machine = compile(token)
-    init_code = generate_init(machine)
-    exec_code = generate_exec(machine, actions=:debug)
+    init_code = generate_init_code(machine)
+    exec_code = generate_exec_code(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -220,7 +220,7 @@ module Test5
     @test validate(b"iff") == (true, [:ident])
     @test validate(b"1if") == (false, [])
 
-    exec_code = generate_exec(machine, actions=:debug, code=:inline)
+    exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -254,7 +254,7 @@ module Test6
         p::Int
         cs::Int
         function MachineState()
-            $(generate_init(machine))
+            $(generate_init_code(machine))
             return new(p, cs)
         end
     end
@@ -264,7 +264,7 @@ module Test6
         p = state.p
         cs = state.cs
         p_end = p_eof = endof(data)
-        $(generate_exec(machine, actions=actions))
+        $(generate_exec_code(machine, actions=actions))
         state.p = p
         state.cs = cs
         return ret
@@ -284,7 +284,7 @@ module Test6
         p = state.p
         cs = state.cs
         p_end = p_eof = endof(data)
-        $(generate_exec(machine, actions=actions, code=:inline))
+        $(generate_exec_code(machine, actions=actions, code=:inline))
         state.p = p
         state.cs = cs
         return ret
@@ -305,9 +305,9 @@ module Test7
     re1 = re"a.*b"
     machine = compile(re1)
     @eval function ismatch1(data)
-        $(generate_init(machine))
+        $(generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec(machine))
+        $(generate_exec_code(machine))
         return cs ∈ $(machine.final_states)
     end
     @test ismatch1(b"ab")
@@ -319,9 +319,9 @@ module Test7
     re2 = re"a\.*b"
     machine = compile(re2)
     @eval function ismatch2(data)
-        $(generate_init(machine))
+        $(generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec(machine))
+        $(generate_exec_code(machine))
         return cs ∈ $(machine.final_states)
     end
     @test ismatch2(b"ab")
@@ -334,9 +334,9 @@ module Test7
     re3 = re"a\.\*b"
     machine = compile(re3)
     @eval function ismatch3(data)
-        $(generate_init(machine))
+        $(generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec(machine))
+        $(generate_exec_code(machine))
         return cs ∈ $(machine.final_states)
     end
     @test ismatch3(b"a.*b")

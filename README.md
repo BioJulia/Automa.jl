@@ -44,8 +44,8 @@ actions = Dict(
     end
 )
 machine = compile(fasta)
-init_code = generate_init(machine)
-exec_code = generate_exec(machine, actions=actions)
+init_code = generate_init_code(machine)
+exec_code = generate_exec_code(machine, actions=actions)
 
 type FASTARecord
     description::String
