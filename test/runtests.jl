@@ -16,7 +16,7 @@ module Test1
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states), logger
+        return cs ∈ $(machine.final_states), logger
     end
 
     @test validate(b"") == (true, [:enter_re, :exit_re])
@@ -29,7 +29,7 @@ module Test1
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states), logger
+        return cs ∈ $(machine.final_states), logger
     end
     @test validate2(b"") == (true, [:enter_re, :exit_re])
     @test validate2(b"a") == (false, Symbol[])
@@ -59,7 +59,7 @@ module Test2
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states), logger
+        return cs ∈ $(machine.final_states), logger
     end
 
     @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
@@ -74,7 +74,7 @@ module Test2
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states), logger
+        return cs ∈ $(machine.final_states), logger
     end
     @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
     @test validate2(b"a") == (false, [:enter_re,:enter_a])
@@ -99,7 +99,7 @@ module Test3
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states)
+        return cs ∈ $(machine.final_states)
     end
 
     @test validate(b"") == true
@@ -119,7 +119,7 @@ module Test3
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states)
+        return cs ∈ $(machine.final_states)
     end
     @test validate2(b"") == true
     @test validate2(b">\naa\n") == true
@@ -150,7 +150,7 @@ module Test4
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states)
+        return cs ∈ $(machine.final_states)
     end
 
     @test validate(b"") == false
@@ -169,7 +169,7 @@ module Test4
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states)
+        return cs ∈ $(machine.final_states)
     end
     @test validate2(b"") == false
     @test validate2(b"a") == false
@@ -203,7 +203,7 @@ module Test5
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states), logger
+        return cs ∈ $(machine.final_states), logger
     end
 
     @test validate(b"if") == (true, [:keyword])
@@ -222,7 +222,7 @@ module Test5
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.accept_states), logger
+        return cs ∈ $(machine.final_states), logger
     end
     @test validate2(b"if") == (true, [:keyword])
     @test validate2(b"else") == (true, [:keyword])

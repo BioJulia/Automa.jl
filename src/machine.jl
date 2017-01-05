@@ -4,7 +4,7 @@
 type Machine
     states::UnitRange{Int}
     start_state::Int
-    accept_states::Set{Int}
+    final_states::Set{Int}
     transitions::Dict{Int,Dict{Any,Tuple{Int,Vector{Symbol}}}}
     eof_actions::Dict{Int,Vector{Symbol}}
     actions::Dict{Symbol,Expr}
@@ -37,14 +37,14 @@ function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
     start = dfa.start
     serial = 0
     serials = Dict(start => (serial += 1))
-    accept_states = Set([0])  # zero indicates the EOF state
+    final_states = Set([0])  # zero indicates the EOF state
     transitions = Dict()
     eof_actions = Dict()
     unvisited = Set([start])
     while !isempty(unvisited)
         s = pop!(unvisited)
         if s.final
-            push!(accept_states, serials[s])
+            push!(final_states, serials[s])
             eof_actions[serials[s]] = sorted_action_names(s.eof_actions)
         end
         for (l, (t, as)) in s.next
@@ -58,7 +58,7 @@ function dfa2machine(dfa::DFA, actions::Dict{Symbol,Expr})
             transitions[serials[s]][l] = (serials[t], sorted_action_names(as))
         end
     end
-    return Machine(1:serial, serials[start], accept_states, transitions, eof_actions, actions)
+    return Machine(1:serial, serials[start], final_states, transitions, eof_actions, actions)
 end
 
 function debug_actions(dfa::DFA)

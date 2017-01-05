@@ -46,7 +46,7 @@ function generate_table_code(machine::Machine, inbounds::Bool)
             cs = ns
             p += 1
         end
-        if p > p_eof ≥ 0 && cs ∈ $(machine.accept_states)
+        if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
             let ns = 0
                 $(eof_action_code)
                 cs = ns
@@ -103,7 +103,7 @@ function generate_inline_code(machine::Machine, inbounds::Bool)
             cs = ns
             p += 1
         end
-        if p > p_eof ≥ 0 && cs ∈ $(machine.accept_states)
+        if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
             let ns = 0
                 $(eof_action_code)
                 cs = ns
