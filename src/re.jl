@@ -80,12 +80,11 @@ function parse(str::String)
     end
 
     s = start(str)
-    lastc = typemax(Char)
+    need_cat = false
     while !done(str, s)
         c, s = next(str, s)
         # @show c operands operators
-        # insert :cat operator if needed
-        if !isempty(operands) && c ∉ ('*', '+', '?', '|', ')') && lastc ∉ ('|', '(')
+        if need_cat && c ∉ ('*', '+', '?', '|', ')')
             while !isempty(operators) && prec(:cat) ≤ prec(last(operators))
                 pop_and_apply!()
             end
@@ -126,7 +125,7 @@ function parse(str::String)
         else
             push!(operands, byte(UInt8(c)))
         end
-        lastc = c
+        need_cat = c ∉ ('|', '(')
     end
 
     while !isempty(operators)
