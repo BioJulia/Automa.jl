@@ -51,7 +51,7 @@ Base.:&(re1::RE, re2::RE) = isec(re1, re2)
 Base.:\(re1::RE, re2::RE) = diff(re1, re2)
 
 macro re_str(s::String)
-    return desugar(parse(unescape_string(escape_re_string(s))))
+    return parse(unescape_string(escape_re_string(s)))
 end
 
 const METACHAR = ".*+?()[\\|"
