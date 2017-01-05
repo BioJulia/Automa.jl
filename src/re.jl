@@ -21,6 +21,10 @@ function range(r::UnitRange{UInt8})
     return RE(:range, [r])
 end
 
+function str(s::String)
+    return RE(:str, [s])
+end
+
 function cat(re::RE...)
     return RE(:cat, [re...])
 end
@@ -230,6 +234,8 @@ function desugar(re::RE)
     elseif re.head == :opt
         arg = desugar(re.args[1])
         return RE(:alt, [arg, RE(:cat, [])], re.actions)
+    elseif re.head == :str
+        return RE(:cat, [byte(b) for b in convert(Vector{UInt8}, re.args[1])], re.actions)
     else
         return RE(re.head, [desugar(arg) for arg in re.args], re.actions)
     end
