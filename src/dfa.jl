@@ -31,8 +31,11 @@ function nfa2dfa(nfa::NFA)
             end
             actions = Set{Action}()
             for s in S
-                union!(actions, move_actions(s, l))
-                if !isempty(s.trans[l])
+                T′ = s.trans[l]
+                for t in T′
+                    union!(actions, s.actions[(l, t)])
+                end
+                if !isempty(T′)
                     union!(actions, S_actions[s])
                 end
             end
@@ -66,16 +69,6 @@ function epsilon_closure(S::Set{NFANode})
         end
     end
     return closure
-end
-
-function move_actions(s::NFANode, label::UInt8)
-    actions = Set{NFANode}()
-    for ((l, _), as) in s.actions
-        if l == label
-            union!(actions, as)
-        end
-    end
-    return actions
 end
 
 function accumulate_actions(S::Set{NFANode})
