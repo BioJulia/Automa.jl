@@ -42,7 +42,7 @@ function rep1(re::RE)
 end
 
 function opt(re::RE)
-    return RE(:alt, [re, RE(:cat, [])])
+    return RE(:opt, [re])
 end
 
 function isec(re1::RE, re2::RE)
