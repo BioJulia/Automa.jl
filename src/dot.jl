@@ -49,7 +49,7 @@ function dfa2dot(dfa::DFA)
     unvisited = Set([dfa.start])
     while !isempty(unvisited)
         s = pop!(unvisited)
-        for (l, (t, as)) in s.next
+        for (l, (t, as)) in compact_transition(s.next)
             if !haskey(serials, t)
                 serials[t] = (serial += 1)
                 push!(unvisited, t)
@@ -88,6 +88,13 @@ function label2str(label)
             return escape_string(escape_string(string(''', Char(label), ''')))
         else
             return repr(label)
+        end
+    elseif isa(label, ByteSet)
+        label = compact_labels(label)
+        if length(label) == 1
+            return string(label2str(first(label)))
+        else
+            return string(label2str(first(label)), ':', label2str(last(label)))
         end
     elseif isa(label, UnitRange{UInt8})
         if length(label) == 1

@@ -126,8 +126,8 @@ function generate_transition_code(machine::Machine, actions::Associative{Symbol,
     end
 end
 
-function compact_transition(trans::Dict{UInt8,Tuple{Int,Vector{Symbol}}})
-    revtrans = Dict{Tuple{Int,Vector{Symbol}},Vector{UInt8}}()
+function compact_transition{T}(trans::Dict{UInt8,T})
+    revtrans = Dict{T,Vector{UInt8}}()
     for (l, t_as) in trans
         if !haskey(revtrans, t_as)
             revtrans[t_as] = UInt8[]
