@@ -3,6 +3,8 @@
 
 module RegExp
 
+export @re_str
+
 type RE
     head::Symbol
     args::Vector

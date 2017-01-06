@@ -1,5 +1,6 @@
 module Test1
     using Automa
+    using Automa.RegExp
     using Base.Test
 
     re = re""
@@ -40,8 +41,8 @@ module Test2
     using Base.Test
     const re = Automa.RegExp
 
-    a = re.rep(re"a")
-    b = re.cat(re"b", re.rep(re"b"))
+    a = re.rep('a')
+    b = re.cat('b', re.rep('b'))
     ab = re.cat(a, b)
 
     a.actions[:enter] = [:enter_a]
@@ -85,13 +86,14 @@ end
 
 module Test3
     using Automa
+    using Automa.RegExp
     using Base.Test
     const re = Automa.RegExp
 
     header = re"[ -~]*"
     newline = re"\r?\n"
     sequence = re.rep(re.cat(re"[A-Za-z]*", newline))
-    fasta = re.rep(re.cat(re">", header, newline, sequence))
+    fasta = re.rep(re.cat('>', header, newline, sequence))
 
     machine = compile(fasta)
     init_code = generate_init_code(machine)
@@ -138,11 +140,12 @@ end
 
 module Test4
     using Automa
+    using Automa.RegExp
     using Base.Test
     const re = Automa.RegExp
 
-    beg_a = re.cat(re"a", re"[ab]*")
-    end_b = re.cat(re"[ab]*", re"b")
+    beg_a = re.cat('a', re"[ab]*")
+    end_b = re.cat(re"[ab]*", 'b')
     beg_a_end_b = re.isec(beg_a, end_b)
 
     machine = compile(beg_a_end_b)
@@ -188,10 +191,11 @@ end
 
 module Test5
     using Automa
+    using Automa.RegExp
     using Base.Test
     const re = Automa.RegExp
 
-    keyword = re.alt(re"if", re"else", re"end", re"while")
+    keyword = re"if|else|end|while"
     ident = re.diff(re"[a-z]+", keyword)
     token = re.alt(keyword, ident)
 
@@ -241,10 +245,11 @@ end
 
 module Test6
     using Automa
+    using Automa.RegExp
     using Base.Test
     const re = Automa.RegExp
 
-    foo = re"foo"
+    foo = re.cat("foo")
     foos = re.rep(re.cat(foo, re" *"))
     foo.actions[:exit]  = [:foo]
     actions = Dict(:foo => :(push!(ret, state.p:p-1); @escape))
@@ -300,6 +305,7 @@ end
 
 module Test7
     using Automa
+    using Automa.RegExp
     using Base.Test
 
     re1 = re"a.*b"
