@@ -71,15 +71,7 @@ function generate_transition_table(machine::Machine)
     end
     for (s, trans) in machine.transitions
         for (l, (t, _)) in trans
-            if isa(l, UInt8) || isa(l, UnitRange{UInt8})
-                trans_table[l+1,s] = t
-            elseif isa(l, Vector{UnitRange{UInt8}})
-                for ll in l
-                    trans_table[ll+1,s] = t
-                end
-            else
-                @assert false
-            end
+            trans_table[l+1,s] = t
         end
     end
     return trans_table
@@ -89,7 +81,7 @@ function generate_table_action_code(machine::Machine, actions::Associative{Symbo
     default = :()
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
-        then = foldr(default, collect(trans)) do branch, els′
+        then = foldr(default, compact_transition(trans)) do branch, els′
             l, (t, as) = branch
             action_code = rewrite_special_macros(generate_action_code(as, actions), false)
             Expr(:if, label_condition(l), action_code, els′)
@@ -125,13 +117,24 @@ function generate_transition_code(machine::Machine, actions::Associative{Symbol,
     default = :(ns = -cs)
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
-        then = foldr(default, collect(trans)) do branch, els′
+        then = foldr(default, compact_transition(trans)) do branch, els′
             l, (t, as) = branch
             action_code = rewrite_special_macros(generate_action_code(as, actions), false)
             Expr(:if, label_condition(l), :(ns = $(t); $(action_code)), els′)
         end
         Expr(:if, state_condition(s), then, els)
     end
+end
+
+function compact_transition(trans::Dict{UInt8,Tuple{Int,Vector{Symbol}}})
+    revtrans = Dict{Tuple{Int,Vector{Symbol}},Vector{UInt8}}()
+    for (l, t_as) in trans
+        if !haskey(revtrans, t_as)
+            revtrans[t_as] = UInt8[]
+        end
+        push!(revtrans[t_as], l)
+    end
+    return [(ByteSet(ls), t_as) for (t_as, ls) in revtrans]
 end
 
 function generate_eof_action_code(machine::Machine, actions::Associative{Symbol,Expr})
@@ -154,16 +157,23 @@ function state_condition(s::Int)
     return :(cs == $(s))
 end
 
-function label_condition(label)
-    if isa(label, UInt8)
-        return :(l == $(label))
-    elseif isa(label, UnitRange{UInt8})
-        return :(l in $(label))
-    elseif isa(label, Vector{UnitRange{UInt8}})
-        return foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), label)
-    else
-        error("invalid label type: $(typeof(label))")
+function label_condition(set::ByteSet)
+    label = compact_labels(set)
+    return foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), label)
+end
+
+function compact_labels(set::ByteSet)
+    labels = collect(set)
+    labels′ = UnitRange{UInt8}[]
+    while !isempty(labels)
+        lo = shift!(labels)
+        hi = lo
+        while !isempty(labels) && first(labels) == hi + 1
+            hi = shift!(labels)
+        end
+        push!(labels′, lo:hi)
     end
+    return labels′
 end
 
 function rewrite_special_macros(ex::Expr, eof_action::Bool)

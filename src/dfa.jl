@@ -2,7 +2,7 @@
 # ==============================
 
 type DFANode
-    next::Dict{Any,Tuple{DFANode,Set{Action}}}
+    next::Dict{UInt8,Tuple{DFANode,Set{Action}}}
     eof_actions::Set{Action}
     final::Bool
     nfanodes::Set{NFANode}  # back reference to NFA nodes (optional)
@@ -195,33 +195,6 @@ function distinct_states(Q)
         end
     end
     return distinct
-end
-
-function reduce_edges(dfa::DFA)
-    new_dfanode(s) = DFANode(Dict(), Set{Action}(), s.final, Set{NFANode}())
-    start = new_dfanode(dfa.start)
-    dfanodes = Dict(dfa.start => start)
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        dfanodes[s].eof_actions = s.eof_actions
-        edges = Dict()
-        for (l, (t, as)) in s.next
-            if !haskey(dfanodes, t)
-                dfanodes[t] = new_dfanode(t)
-                push!(unvisited, t)
-            end
-            if !haskey(edges, (t, as))
-                edges[(t, as)] = UInt8[]
-            end
-            push!(edges[(t, as)], l)
-        end
-        for ((t, as), ls) in edges
-            ls′ = compact_labels(ls)
-            dfanodes[s].next[ls′] = (dfanodes[t], as)
-        end
-    end
-    return DFA(start)
 end
 
 function compact_labels(labels::Vector{UInt8})

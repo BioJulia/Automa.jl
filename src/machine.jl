@@ -5,7 +5,7 @@ type Machine
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
-    transitions::Dict{Int,Dict{Any,Tuple{Int,Vector{Symbol}}}}
+    transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Symbol}}}}
     eof_actions::Dict{Int,Vector{Symbol}}
     dfa::DFA
 end
@@ -15,10 +15,8 @@ function compile(re::RegExp.RE; optimize::Integer=2)
         throw(ArgumentError("optimization level must be in {0, 1, 2}"))
     end
     dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
-    if optimize == 1
+    if optimize == 1 || optimize == 2
         dfa = remove_dead_states(reduce_states(dfa))
-    elseif optimize == 2
-        dfa = reduce_edges(remove_dead_states(reduce_states(dfa)))
     end
     return dfa2machine(dfa)
 end
