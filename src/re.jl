@@ -3,6 +3,8 @@
 
 module RegExp
 
+import Automa: ByteSet
+
 export @re_str
 
 type RE
@@ -15,20 +17,24 @@ function RE(head::Symbol, args::Vector)
     return RE(head, args, Dict())
 end
 
-typealias Primitive Union{RE,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
+typealias Primitive Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
 
 function primitive(re::RE)
     return re
 end
 
-const PRIMITIVE = (:byte, :range, :char, :str, :bytes)
+const PRIMITIVE = (:set, :byte, :range, :class, :cclass, :char, :str, :bytes)
 
-function primitive(b::UInt8)
-    return RE(:byte, [b])
+function primitive(set::ByteSet)
+    return RE(:set, [set])
 end
 
-function primitive(r::UnitRange{UInt8})
-    return RE(:range, [r])
+function primitive(byte::UInt8)
+    return RE(:byte, [byte])
+end
+
+function primitive(range::UnitRange{UInt8})
+    return RE(:range, [range])
 end
 
 function primitive(char::Char)
@@ -266,11 +272,7 @@ function parse_class(str, s)
 end
 
 function desugar(re::RE)
-    if re.head == :class
-        return RE(:alt, [primitive(r) for r in re.args], re.actions)
-    elseif re.head == :cclass
-        return RE(:alt, [primitive(r) for r in complement_ranges(re.args)], re.actions)
-    elseif re.head == :rep1
+    if re.head == :rep1
         arg = desugar(re.args[1])
         return RE(:cat, [arg, rep(arg)], re.actions)
     elseif re.head == :opt
@@ -287,19 +289,35 @@ function desugar(re::RE)
 end
 
 function expand(re::RE)
-    if re.head ∈ (:byte, :range)
+    if re.head == :set
         return re
+    elseif re.head == :byte
+        return primitive(ByteSet([re.args[1]]), re.actions)
+    elseif re.head == :range
+        return primitive(ByteSet(re.args[1]), re.actions)
+    elseif re.head == :class
+        set = UInt8[]
+        for arg in re.args
+            append!(set, arg)
+        end
+        return primitive(ByteSet(set), re.actions)
+    elseif re.head == :cclass
+        set = UInt8[]
+        for arg in re.args
+            append!(set, arg)
+        end
+        return primitive(ByteSet(setdiff(0x00:0xff, set)), re.actions)
     elseif re.head == :char
         char = re.args[1]
         if isascii(char)
-            return primitive(UInt8(char), re.actions)
+            return primitive(ByteSet([UInt8(char)]), re.actions)
         else
             return expand(primitive(string(char), re.actions))
         end
     elseif re.head == :str
         return expand(primitive(convert(Vector{UInt8}, re.args[1]), re.actions))
     elseif re.head == :bytes
-        return RE(:cat, [primitive(b) for b in re.args[1]], re.actions)
+        return RE(:cat, [primitive(ByteSet([b])) for b in re.args[1]], re.actions)
     else
         @assert re.head ∉ PRIMITIVE
         return RE(re.head, [expand(arg) for arg in re.args], re.actions)

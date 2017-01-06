@@ -106,10 +106,7 @@ function re2nfa_rec(re::RegExp.RE, order::Int)
     start = NFANode()
     final = NFANode()
     =>(x, y) = (x, y)
-    if re.head == :byte
-        check_arity(n -> n == 1)
-        addtrans!(start, re.args[1] => final)
-    elseif re.head == :range
+    if re.head == :set
         check_arity(n -> n == 1)
         for b in re.args[1]
             addtrans!(start, b => final)
