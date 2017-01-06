@@ -324,26 +324,4 @@ function expand(re::RE)
     end
 end
 
-function complement_ranges(ranges)
-    comp = Set(0x00:0xff)
-    for r in ranges
-        setdiff!(comp, r)
-    end
-    return compact_labels(collect(comp))
-end
-
-function compact_labels(labels::Vector{UInt8})
-    labels = sort(labels)
-    labels′ = UnitRange{UInt8}[]
-    while !isempty(labels)
-        lo = shift!(labels)
-        hi = lo
-        while !isempty(labels) && first(labels) == hi + 1
-            hi = shift!(labels)
-        end
-        push!(labels′, lo:hi)
-    end
-    return labels′
-end
-
 end

@@ -217,11 +217,25 @@ function reduce_edges(dfa::DFA)
             push!(edges[(t, as)], l)
         end
         for ((t, as), ls) in edges
-            ls′ = RegExp.compact_labels(ls)
+            ls′ = compact_labels(ls)
             dfanodes[s].next[ls′] = (dfanodes[t], as)
         end
     end
     return DFA(start)
+end
+
+function compact_labels(labels::Vector{UInt8})
+    labels = sort(labels)
+    labels′ = UnitRange{UInt8}[]
+    while !isempty(labels)
+        lo = shift!(labels)
+        hi = lo
+        while !isempty(labels) && first(labels) == hi + 1
+            hi = shift!(labels)
+        end
+        push!(labels′, lo:hi)
+    end
+    return labels′
 end
 
 function dfa2nfa(dfa::DFA)
