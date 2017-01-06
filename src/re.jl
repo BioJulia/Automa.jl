@@ -53,6 +53,10 @@ function diff(re1::RE, re2::RE)
     return RE(:diff, [re1, re2])
 end
 
+function neg(re::RE)
+    return RE(:neg, [re])
+end
+
 function any()
     return range(0x00:0xff)
 end
@@ -69,6 +73,7 @@ Base.:*(re1::RE, re2::RE) = cat(re1, re2)
 Base.:|(re1::RE, re2::RE) = alt(re1, re2)
 Base.:&(re1::RE, re2::RE) = isec(re1, re2)
 Base.:\(re1::RE, re2::RE) = diff(re1, re2)
+Base.:!(re::RE) = neg(re)
 
 macro re_str(s::String)
     return parse(unescape_string(escape_re_string(s)))
@@ -251,6 +256,9 @@ function desugar(re::RE)
         return RE(:alt, [arg, RE(:cat, [])], re.actions)
     elseif re.head == :str
         return RE(:cat, [byte(b) for b in convert(Vector{UInt8}, re.args[1])], re.actions)
+    elseif re.head == :neg
+        arg = desugar(re.args[1])
+        return RE(:diff, [rep(any()), arg])
     else
         return RE(re.head, [desugar(arg) for arg in re.args], re.actions)
     end
