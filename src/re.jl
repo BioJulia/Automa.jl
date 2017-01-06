@@ -13,60 +13,82 @@ function RE(head::Symbol, args::Vector)
     return RE(head, args, Dict())
 end
 
-function byte(b::UInt8)
+typealias Primitive Union{RE,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
+
+function primitive(re::RE)
+    return re
+end
+
+const PRIMITIVE = (:byte, :range, :char, :str, :bytes)
+
+function primitive(b::UInt8)
     return RE(:byte, [b])
 end
 
-function range(r::UnitRange{UInt8})
+function primitive(r::UnitRange{UInt8})
     return RE(:range, [r])
 end
 
-function str(s::String)
-    return RE(:str, [s])
+function primitive(char::Char)
+    return RE(:char, [char])
 end
 
-function cat(re::RE...)
-    return RE(:cat, [re...])
+function primitive(str::String)
+    return RE(:str, [str])
 end
 
-function alt(re1::RE, re::RE...)
-    return RE(:alt, [re1, re...])
+function primitive(bs::Vector{UInt8})
+    return RE(:bytes, [bs])
 end
 
-function rep(re::RE)
-    return RE(:rep, [re])
+function primitive(x::Primitive, actions::Dict{Symbol,Vector{Symbol}})
+    re = primitive(x)
+    re.actions = actions
+    return re
 end
 
-function rep1(re::RE)
-    return RE(:rep1, [re])
+function cat(xs::Primitive...)
+    return RE(:cat, [map(primitive, xs)...])
 end
 
-function opt(re::RE)
-    return RE(:opt, [re])
+function alt(x::Primitive, xs::Primitive...)
+    return RE(:alt, [primitive(x), map(primitive, xs)...])
 end
 
-function isec(re1::RE, re2::RE)
-    return RE(:isec, [re1, re2])
+function rep(x::Primitive)
+    return RE(:rep, [primitive(x)])
 end
 
-function diff(re1::RE, re2::RE)
-    return RE(:diff, [re1, re2])
+function rep1(x::Primitive)
+    return RE(:rep1, [primitive(x)])
 end
 
-function neg(re::RE)
-    return RE(:neg, [re])
+function opt(x::Primitive)
+    return RE(:opt, [primitive(x)])
+end
+
+function isec(x::Primitive, y::Primitive)
+    return RE(:isec, [primitive(x), primitive(y)])
+end
+
+function diff(x::Primitive, y::Primitive)
+    return RE(:diff, [primitive(x), primitive(y)])
+end
+
+function neg(x::Primitive)
+    return RE(:neg, [primitive(x)])
 end
 
 function any()
-    return range(0x00:0xff)
+    return primitive(0x00:0xff)
 end
 
 function ascii()
-    return range(0x00:0x7f)
+    return primitive(0x00:0x7f)
 end
 
 function space()
-    return alt([byte(UInt8(c)) for c in "\t\v\f\n\r "]...)
+    return alt([primitive(c) for c in "\t\v\f\n\r "]...)
 end
 
 Base.:*(re1::RE, re2::RE) = cat(re1, re2)
@@ -173,15 +195,15 @@ function parse(str::String)
             class, s = parse_class(str, s)
             push!(operands, class)
         elseif c == '.'
-            push!(operands, range(0x00:0xff))
+            push!(operands, any())
         elseif c == '\\' && !done(str, s)
             c, s′ = next(str, s)
             if c ∈ METACHAR
-                push!(operands, byte(UInt8(c)))
+                push!(operands, primitive(c))
                 s = s′
             end
         else
-            push!(operands, byte(UInt8(c)))
+            push!(operands, primitive(c))
         end
     end
 
@@ -243,24 +265,42 @@ end
 
 function desugar(re::RE)
     if re.head == :class
-        return RE(:alt, [range(r) for r in re.args], re.actions)
+        return RE(:alt, [primitive(r) for r in re.args], re.actions)
     elseif re.head == :cclass
-        return RE(:alt, [range(r) for r in complement_ranges(re.args)], re.actions)
-    elseif re.head == :byte || re.head == :range
-        return re
+        return RE(:alt, [primitive(r) for r in complement_ranges(re.args)], re.actions)
     elseif re.head == :rep1
         arg = desugar(re.args[1])
         return RE(:cat, [arg, rep(arg)], re.actions)
     elseif re.head == :opt
         arg = desugar(re.args[1])
         return RE(:alt, [arg, RE(:cat, [])], re.actions)
-    elseif re.head == :str
-        return RE(:cat, [byte(b) for b in convert(Vector{UInt8}, re.args[1])], re.actions)
     elseif re.head == :neg
         arg = desugar(re.args[1])
-        return RE(:diff, [rep(any()), arg])
+        return RE(:diff, [rep(any()), arg], re.actions)
+    elseif re.head ∈ PRIMITIVE
+        return re
     else
         return RE(re.head, [desugar(arg) for arg in re.args], re.actions)
+    end
+end
+
+function expand(re::RE)
+    if re.head ∈ (:byte, :range)
+        return re
+    elseif re.head == :char
+        char = re.args[1]
+        if isascii(char)
+            return primitive(UInt8(char), re.actions)
+        else
+            return expand(primitive(string(char), re.actions))
+        end
+    elseif re.head == :str
+        return expand(primitive(convert(Vector{UInt8}, re.args[1]), re.actions))
+    elseif re.head == :bytes
+        return RE(:cat, [primitive(b) for b in re.args[1]], re.actions)
+    else
+        @assert re.head ∉ PRIMITIVE
+        return RE(re.head, [expand(arg) for arg in re.args], re.actions)
     end
 end
 

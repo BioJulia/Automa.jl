@@ -76,7 +76,8 @@ end
 
 # Convert a RE to an NFA using Thompson's construction.
 function re2nfa(re::RegExp.RE)
-    nfa, _ = re2nfa_rec(RegExp.desugar(re), 1)
+    re′ = RegExp.expand(RegExp.desugar(re))
+    nfa, _ = re2nfa_rec(re′, 1)
     return nfa
 end
 
