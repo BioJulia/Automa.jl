@@ -7,6 +7,7 @@ type Machine
     final_states::Set{Int}
     transitions::Dict{Int,Dict{Any,Tuple{Int,Vector{Symbol}}}}
     eof_actions::Dict{Int,Vector{Symbol}}
+    dfa::DFA
 end
 
 function compile(re::RegExp.RE; optimize::Integer=2)
@@ -47,7 +48,7 @@ function dfa2machine(dfa::DFA)
             transitions[serials[s]][l] = (serials[t], sorted_action_names(as))
         end
     end
-    return Machine(1:serial, serials[start], final_states, transitions, eof_actions)
+    return Machine(1:serial, serials[start], final_states, transitions, eof_actions, dfa)
 end
 
 function traverse(f::Function, dfa::DFA)
