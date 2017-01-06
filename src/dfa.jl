@@ -8,6 +8,10 @@ type DFANode
     nfanodes::Set{NFANode}  # back reference to NFA nodes (optional)
 end
 
+function DFANode()
+    return DFANode(Dict(), Set{Action}(), false, Set{NFANode}())
+end
+
 type DFA
     start::DFANode
 end
@@ -260,4 +264,55 @@ function revoke_finals!(p::Function, dfa::DFA)
         end
     end
     return dfa
+end
+
+function remove_dead_states(dfa::DFA)
+    backrefs = make_back_references(dfa)
+    alive = Set{DFANode}()
+    unvisited = Set([s for s in keys(backrefs) if s.final])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        push!(alive, s)
+        for t in backrefs[s]
+            if t ∉ alive
+                push!(unvisited, t)
+            end
+        end
+    end
+
+    newnodes = Dict{DFANode,DFANode}(dfa.start => DFANode())
+    unvisited = Set([dfa.start])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        s′ = newnodes[s]
+        s′.eof_actions = s.eof_actions
+        s′.final = s.final
+        s′.nfanodes = s.nfanodes
+        for (l, (t, as)) in s.next
+            if t ∈ alive
+                if !haskey(newnodes, t)
+                    newnodes[t] = DFANode()
+                    push!(unvisited, t)
+                end
+                s′.next[l] = (newnodes[t], as)
+            end
+        end
+    end
+    return DFA(newnodes[dfa.start])
+end
+
+function make_back_references(dfa::DFA)
+    backrefs = Dict(dfa.start => Set{DFANode}())
+    unvisited = Set([dfa.start])
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        for (t, _) in values(s.next)
+            if !haskey(backrefs, t)
+                backrefs[t] = Set{DFANode}()
+                push!(unvisited, t)
+            end
+            push!(backrefs[t], s)
+        end
+    end
+    return backrefs
 end

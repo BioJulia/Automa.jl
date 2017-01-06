@@ -15,9 +15,9 @@ function compile(re::RegExp.RE; optimize::Integer=2)
     end
     dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
     if optimize == 1
-        dfa = reduce_states(dfa)
+        dfa = remove_dead_states(reduce_states(dfa))
     elseif optimize == 2
-        dfa = reduce_edges(reduce_states(dfa))
+        dfa = reduce_edges(remove_dead_states(reduce_states(dfa)))
     end
     return dfa2machine(dfa)
 end
