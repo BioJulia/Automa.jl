@@ -96,7 +96,7 @@ function ascii()
 end
 
 function space()
-    return alt([primitive(c) for c in "\t\v\f\n\r "]...)
+    return primitive(ByteSet([UInt8(c) for c in "\t\v\f\n\r "]))
 end
 
 Base.:*(re1::RE, re2::RE) = cat(re1, re2)
