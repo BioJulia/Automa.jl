@@ -59,7 +59,7 @@ function dfa2dot(dfa::DFA)
         end
         if s.final
             label = label2str(:eof, s.eof_actions)
-            println(buf, "  $(serials[s]) -> final [ label = \"$(label)\" ];")
+            println(buf, "  $(serials[s]) -> final [ label = \"$(label)\", style = dashed ];")
         end
     end
     for (node, serial) in serials
