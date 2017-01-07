@@ -83,16 +83,9 @@ end
 
 function re2nfa_rec(re::RegExp.RE, order::Int)
     enter_actions = Set{Action}()
-    exit_actions = Set{Action}()
     if haskey(re.actions, :enter)
         for a in re.actions[:enter]
             push!(enter_actions, Action(a, order))
-            order += 1
-        end
-    end
-    if haskey(re.actions, :exit)
-        for a in re.actions[:exit]
-            push!(exit_actions, Action(a, order))
             order += 1
         end
     end
@@ -164,12 +157,18 @@ function re2nfa_rec(re::RegExp.RE, order::Int)
         error("unsupported operation: $(re.head)")
     end
 
-    if !isempty(enter_actions)
+    if haskey(re.actions, :enter)
         newstart = NFANode()
         addtrans!(newstart, :eps => start, enter_actions)
         start = newstart
     end
-    if !isempty(exit_actions)
+
+    if haskey(re.actions, :exit)
+        exit_actions = Set{Action}()
+        for a in re.actions[:exit]
+            push!(exit_actions, Action(a, order))
+            order += 1
+        end
         newfinal = NFANode()
         addtrans!(final, :eps => newfinal, exit_actions)
         final = newfinal

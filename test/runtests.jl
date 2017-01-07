@@ -64,10 +64,10 @@ module Test2
         return cs ∈ $(machine.final_states), logger
     end
 
-    @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+    @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
     @test validate(b"a") == (false, [:enter_re,:enter_a])
-    @test validate(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
-    @test validate(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+    @test validate(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
+    @test validate(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
 
     # inlined code
     exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
@@ -78,10 +78,11 @@ module Test2
         $(exec_code)
         return cs ∈ $(machine.final_states), logger
     end
-    @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+    @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
     @test validate2(b"a") == (false, [:enter_re,:enter_a])
-    @test validate2(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
-    @test validate2(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_re,:exit_b])
+    @test validate2(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
+    @test validate2(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
+
 end
 
 module Test3
