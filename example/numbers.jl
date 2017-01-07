@@ -2,14 +2,14 @@ using Automa
 using Automa.RegExp
 const re = Automa.RegExp
 
-int = re"[-+]?[0-9]+"
-hex = re"0x[0-9A-Fa-f]+"
-oct = re"0o[0-7]+"
+int      = re"[-+]?[0-9]+"
+hex      = re"0x[0-9A-Fa-f]+"
+oct      = re"0o[0-7]+"
 prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
-float = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
-number = int | hex | oct | float
-spaces = re.rep(re.space())
-numbers = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
+float    = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
+number   = int | hex | oct | float
+spaces   = re.rep(re.space())
+numbers  = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
 
 number.actions[:enter] = [:mark]
 int.actions[:exit]     = [:int]
