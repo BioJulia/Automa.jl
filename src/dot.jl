@@ -91,11 +91,15 @@ function label2str(label)
         end
     elseif isa(label, ByteSet)
         label = compact_labels(label)
-        if length(label) == 1
-            return string(label2str(first(label)))
-        else
-            return string(label2str(first(label)), ':', label2str(last(label)))
+        ss = []
+        for range in label
+            s = label2str(first(range))
+            if length(range) ≥ 2
+                s = string(s, ':', label2str(last(range)))
+            end
+            push!(ss, s)
         end
+        return join(ss, ',')
     elseif isa(label, UnitRange{UInt8})
         if length(label) == 1
             return string(label2str(first(label)))
