@@ -33,7 +33,7 @@ function dfa2machine(dfa::DFA)
         s = pop!(unvisited)
         if s.final
             push!(final_states, serials[s])
-            eof_actions[serials[s]] = sorted_action_names(s.eof_actions)
+            eof_actions[serials[s]] = sorted_unique_action_names(s.eof_actions)
         end
         for (l, (t, as)) in s.next
             if !haskey(serials, t)
@@ -43,7 +43,7 @@ function dfa2machine(dfa::DFA)
             if !haskey(transitions, serials[s])
                 transitions[serials[s]] = Dict()
             end
-            transitions[serials[s]][l] = (serials[t], sorted_action_names(as))
+            transitions[serials[s]][l] = (serials[t], sorted_unique_action_names(as))
         end
     end
     return Machine(1:serial, serials[start], final_states, transitions, eof_actions, dfa)

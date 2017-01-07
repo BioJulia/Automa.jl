@@ -14,6 +14,16 @@ function sorted_action_names(actions::Set{Action})
     return [a.name for a in sorted_actions(actions)]
 end
 
+function sorted_unique_action_names(actions::Set{Action})
+    names = Symbol[]
+    for a in sorted_actions(actions)
+        if a.name ∉ names
+            push!(names, a.name)
+        end
+    end
+    return names
+end
+
 function gen_empty_nfanode_set()
     return Set{NFANode}()
 end

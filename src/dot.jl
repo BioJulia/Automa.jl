@@ -110,5 +110,5 @@ function label2str(label)
 end
 
 function actions2str(actions)
-    return join(sorted_action_names(actions), ',')
+    return join(sorted_unique_action_names(actions), ',')
 end
