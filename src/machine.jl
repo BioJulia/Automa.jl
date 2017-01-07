@@ -10,12 +10,9 @@ type Machine
     dfa::DFA
 end
 
-function compile(re::RegExp.RE; optimize::Integer=2)
-    if optimize ∉ (0, 1, 2)
-        throw(ArgumentError("optimization level must be in {0, 1, 2}"))
-    end
+function compile(re::RegExp.RE; optimize::Bool=true)
     dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
-    if optimize == 1 || optimize == 2
+    if optimize
         dfa = remove_dead_states(reduce_states(dfa))
     end
     return dfa2machine(dfa)
