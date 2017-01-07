@@ -1,4 +1,5 @@
 using Automa
+using Automa.RegExp
 const re = Automa.RegExp
 
 # Describe a pattern in regular expression.
