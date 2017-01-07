@@ -134,6 +134,11 @@ function all_states(dfa::DFA)
 end
 
 function distinct_states(Q)
+    actions = Dict{Tuple{DFANode,UInt8},Vector{Symbol}}()
+    for q in Q, (l, (_, as)) in q.next
+        actions[(q, l)] = sorted_unique_action_names(as)
+    end
+
     distinct = Set{Tuple{DFANode,DFANode}}()
     function isdistinct(l, p, q)
         phasl = haskey(p.next, l)
@@ -141,7 +146,7 @@ function distinct_states(Q)
         if phasl && qhasl
             pl = p.next[l]
             ql = q.next[l]
-            return (pl[1], ql[1]) ∈ distinct || pl[2] != ql[2]
+            return (pl[1], ql[1]) ∈ distinct || actions[(p, l)] != actions[(q, l)]
         else
             return phasl != qhasl
         end
@@ -151,27 +156,6 @@ function distinct_states(Q)
             push!(distinct, (p, q))
         end
     end
-    #= This is much slower.
-    while true
-        for p in Q, q in Q
-            if (p, q) ∈ distinct
-                continue
-            end
-            for l in 0x00:0xff
-                if isdistinct(l, p, q)
-                    push!(distinct, (p, q), (q, p))
-                    @goto not_converged
-                end
-            end
-            if p.eof_actions != q.eof_actions
-                push!(distinct, (p, q), (q, p))
-                @goto not_converged
-            end
-        end
-        break
-        @label not_converged
-    end
-    =#
     while true
         converged = true
         for p in Q, q in Q
@@ -185,7 +169,7 @@ function distinct_states(Q)
                     break
                 end
             end
-            if p.eof_actions != q.eof_actions
+            if sorted_unique_action_names(p.eof_actions) != sorted_unique_action_names(q.eof_actions)
                 push!(distinct, (p, q), (q, p))
                 converged = false
             end
