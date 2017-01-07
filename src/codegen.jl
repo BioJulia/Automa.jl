@@ -211,5 +211,5 @@ function debug_actions(machine::Machine)
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))
     end
-    return Dict(name => log_expr(name) for name in actions)
+    return Base.Dict(name => log_expr(name) for name in actions)
 end

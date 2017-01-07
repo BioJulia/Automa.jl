@@ -38,7 +38,7 @@ type NFATransition{T}
 end
 
 function NFATransition()
-    trans = DefaultDict(UInt8,Set{NFANode},gen_empty_nfanode_set)
+    trans = DefaultDict{UInt8,Set{NFANode}}(gen_empty_nfanode_set)
     trans_eps = Set{NFANode}()
     return NFATransition(trans, trans_eps)
 end
@@ -59,7 +59,7 @@ end
 
 function NFANode()
     trans = NFATransition()
-    actions = DefaultDict(Tuple{Any,NFANode},Set{Action},gen_empty_actions)
+    actions = DefaultDict{Tuple{Any,NFANode},Set{Action}}(gen_empty_actions)
     return NFANode(trans, actions)
 end
 
