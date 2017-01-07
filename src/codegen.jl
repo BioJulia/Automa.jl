@@ -17,7 +17,7 @@ function generate_init_code(machine::Machine)
     end
 end
 
-function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:table, inbounds::Bool=true)
+function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:table, check::Bool=true)
     if actions == nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
@@ -28,28 +28,26 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
         throw(ArgumentError("invalid actions argument"))
     end
     if code == :table
-        return generate_table_code(machine, actions, inbounds)
+        return generate_table_code(machine, actions, check)
     elseif code == :inline
-        return generate_inline_code(machine, actions, inbounds)
+        return generate_inline_code(machine, actions, check)
     else
         throw(ArgumentError("invalid code: $(code)"))
     end
 end
 
-function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, inbounds::Bool)
+function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, docheck::Bool)
     trans_table = generate_transition_table(machine)
     action_code = generate_table_action_code(machine, actions)
     eof_action_code = generate_eof_action_code(machine, actions)
-    l_code = :(l = data[p])
+    check_code = generate_check_code(docheck)
+    getbyte_code = generate_geybyte_code()
     ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
-    if inbounds
-        l_code = make_inbounds(l_code)
-        ns_code = make_inbounds(ns_code)
-    end
     @assert size(trans_table, 1) == 256
     return quote
         while p ≤ p_end && cs > 0
-            $(l_code)
+            $(check_code)
+            $(getbyte_code)
             $(ns_code)
             $(action_code)
             cs = ns
@@ -90,16 +88,15 @@ function generate_table_action_code(machine::Machine, actions::Associative{Symbo
     end
 end
 
-function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, inbounds::Bool)
+function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, docheck::Bool)
     trans_code = generate_transition_code(machine, actions)
     eof_action_code = generate_eof_action_code(machine, actions)
-    l_code = :(l = data[p])
-    if inbounds
-        l_code = make_inbounds(l_code)
-    end
+    check_code = generate_check_code(docheck)
+    getbyte_code = generate_geybyte_code()
     return quote
         while p ≤ p_end && cs > 0
-            $(l_code)
+            $(check_code)
+            $(getbyte_code)
             $(trans_code)
             cs = ns
             p += 1
@@ -149,8 +146,16 @@ function generate_action_code(names::Vector{Symbol}, actions::Associative{Symbol
     return Expr(:block, (actions[n] for n in names)...)
 end
 
-function make_inbounds(ex::Expr)
-    return :(@inbounds $(ex))
+function generate_check_code(docheck::Bool)
+    if docheck
+        return :(if !$(check)(data, p); throw(BoundsError(data, p)); end)
+    else
+        return :()
+    end
+end
+
+function generate_geybyte_code()
+    return :(l = $(getbyte)(data, p))
 end
 
 function state_condition(s::Int)
@@ -212,4 +217,24 @@ function debug_actions(machine::Machine)
         return :(push!(logger, $(QuoteNode(name))))
     end
     return Dict(name => log_expr(name) for name in actions)
+end
+
+
+# Accessors
+# ---------
+
+@inline function check(data::String, p::Integer)
+    return 1 ≤ p ≤ sizeof(data)
+end
+
+@inline function getbyte(data::String, p::Integer)
+    return unsafe_load(pointer(data), p)
+end
+
+@inline function check(data::AbstractVector{UInt8}, p::Integer)
+    return 1 ≤ p ≤ endof(data)
+end
+
+@inline function getbyte(data::AbstractVector{UInt8}, p::Integer)
+    @inbounds return data[p]
 end

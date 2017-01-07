@@ -32,7 +32,7 @@ actions = Dict(
     :float => :(push!(tokens, (:float, data[mark:p-1]))),
 )
 
-@eval function tokenize(data::Vector{UInt8})
+@eval function tokenize(data::String)
     tokens = Tuple{Symbol,String}[]
     mark = 0
     $(generate_init_code(machine))
@@ -41,4 +41,4 @@ actions = Dict(
     return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
 end
 
-tokens, status = tokenize(b"1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")
+tokens, status = tokenize("1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")
