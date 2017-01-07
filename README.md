@@ -8,72 +8,53 @@
 
 A Julia package for text validation and parsing based on state machine compiler.
 
-This is a [FASTA](https://en.wikipedia.org/wiki/FASTA_format) parser using
-Automa.jl:
+This is a number literal tokenizer using Automa.jl:
 ```julia
 using Automa
+using Automa.RegExp
 const re = Automa.RegExp
 
-# Describe a pattern in regular expression.
-newline     = re"\r?\n"
-identifier  = re"[!-~]*"
-description = re"[!-~][ -~]*"
-header      = re.cat(identifier, re.opt(re.cat(re" ", description)))
-sequence    = re.rep(re.cat(re"[!-~]*", newline))
-fasta       = re.rep(re.cat(re">", header, newline, sequence))
+int      = re"[-+]?[0-9]+"
+hex      = re"0x[0-9A-Fa-f]+"
+oct      = re"0o[0-7]+"
+prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
+float    = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
+number   = int | hex | oct | float
+spaces   = re.rep(re.space())
+numbers  = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
 
-# Register actions.
-newline.actions[:enter]     = [:newline]
-identifier.actions[:enter]  = [:mark]
-identifier.actions[:exit]   = [:identifier]
-description.actions[:enter] = [:mark]
-description.actions[:exit]  = [:description]
-sequence.actions[:enter]    = [:mark]
-sequence.actions[:exit]     = [:sequence]
+number.actions[:enter] = [:mark]
+int.actions[:exit]     = [:int]
+hex.actions[:exit]     = [:hex]
+oct.actions[:exit]     = [:oct]
+float.actions[:exit]   = [:float]
 
-# Compile a machine with actions.
+machine = compile(numbers)
+
+#= This generates a SVG file to visualize the state machine.
+write("numbers.dot", Automa.dfa2dot(machine.dfa))
+run(`dot -Tsvg -o numbers.svg numbers.dot`)
+=#
+
 actions = Dict(
-    :newline     => :(linenum += 1),
-    :mark        => :(mark = p),
-    :identifier  => :(identifier = String(data[mark:p-1])),
-    :description => :(description = String(data[mark:p-1])),
-    :sequence    => quote
-        seqs[identifier] = FASTARecord(description, data[mark:p-1])
-        identifier = ""
-        description = ""
-    end
+    :mark  => :(mark = p),
+    :int   => :(push!(tokens, (:int, data[mark:p-1]))),
+    :hex   => :(push!(tokens, (:hex, data[mark:p-1]))),
+    :oct   => :(push!(tokens, (:oct, data[mark:p-1]))),
+    :float => :(push!(tokens, (:float, data[mark:p-1]))),
 )
-machine = compile(fasta)
-init_code = generate_init_code(machine)
-exec_code = generate_exec_code(machine, actions=actions)
 
-type FASTARecord
-    description::String
-    sequence::Vector{UInt8}
-end
-
-# Generate a function to run the machine.
-@eval function parse_fasta(data::Vector{UInt8})
-    seqs = Dict{String,FASTARecord}()
-    identifier = ""
-    description = ""
+@eval function tokenize(data::Vector{UInt8})
+    tokens = Tuple{Symbol,String}[]
     mark = 0
-    linenum = 1
-    $(init_code)
+    $(generate_init_code(machine))
     p_end = p_eof = endof(data)
-    $(exec_code)
-    if !(cs in $(machine.final_states))
-        error("failed to parse at line ", linenum)
-    end
-    return seqs
+    $(generate_exec_code(machine, actions=actions))
+    return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
 end
 
-# Run the machine.
-seqs = parse_fasta(b"""
->foo
-ACGT
-ACGT
->bar some description
-ACGTACGT
-""")
+tokens, status = tokenize(b"1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")
 ```
+
+The compiled deterministic finite automaton (DFA) looks like this:
+![DFA](/numbers.png)
