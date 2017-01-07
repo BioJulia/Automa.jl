@@ -349,3 +349,54 @@ module Test7
     @test ismatch3(b"a.*b")
     @test !ismatch3(b"a...b")
 end
+
+module Test8
+    using Automa
+    using Automa.RegExp
+    const re = Automa.RegExp
+    using Base.Test
+
+    int = re"[-+]?[0-9]+"
+    prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
+    float = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
+    number = int | float
+    spaces = re.rep(re.space())
+    numbers = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
+
+    number.actions[:enter] = [:mark]
+    int.actions[:exit]     = [:int]
+    float.actions[:exit]   = [:float]
+
+    machine = compile(numbers)
+
+    actions = Dict(
+        :mark  => :(mark = p),
+        :int   => :(push!(tokens, (:int, data[mark:p-1]))),
+        :float => :(push!(tokens, (:float, data[mark:p-1]))),
+    )
+
+    @eval function tokenize(data)
+        tokens = Tuple{Symbol,String}[]
+        mark = 0
+        $(generate_init_code(machine))
+        p_end = p_eof = endof(data)
+        $(generate_exec_code(machine, actions=actions))
+        return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
+    end
+
+    @test tokenize(b"") == ([], :ok)
+    @test tokenize(b"  ") == ([], :ok)
+    @test tokenize(b"42") == ([(:int, "42")], :ok)
+    @test tokenize(b"3.14") == ([(:float, "3.14")], :ok)
+    @test tokenize(b"1 -42 55") == ([(:int, "1"), (:int, "-42"), (:int, "55")], :ok)
+    @test tokenize(b"12. -22. .1 +10e12") == ([(:float, "12."), (:float, "-22."), (:float, ".1"), (:float, "+10e12")], :ok)
+    @test tokenize(b" -3 -1.2e-3  +54 1.E2  ") == ([(:int, "-3"), (:float, "-1.2e-3"), (:int, "+54"), (:float, "1.E2")], :ok)
+
+    @test tokenize(b"e") == ([], :error)
+    @test tokenize(b"42,") == ([], :error)
+    @test tokenize(b"42 ,") == ([(:int, "42")], :error)
+
+    @test tokenize(b".") == ([], :incomplete)
+    @test tokenize(b"1e") == ([], :incomplete)
+    @test tokenize(b"1e-") == ([], :incomplete)
+end
