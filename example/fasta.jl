@@ -40,6 +40,10 @@ type FASTARecord
     sequence::Vector{UInt8}
 end
 
+function Base.:(==)(r1::FASTARecord, r2::FASTARecord)
+    return r1.description == r2.description && r1.sequence == r2.sequence
+end
+
 # Generate a function to run the machine.
 @eval function parse_fasta(data::Vector{UInt8})
     seqs = Dict{String,FASTARecord}()
