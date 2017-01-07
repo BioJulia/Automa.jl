@@ -87,16 +87,20 @@ end
 # Convert a RE to an NFA using Thompson's construction.
 function re2nfa(re::RegExp.RE)
     re′ = RegExp.expand(RegExp.desugar(re))
-    nfa, _ = re2nfa_rec(re′, 1)
+    actions = Dict{Symbol,Action}()
+    nfa, _ = re2nfa_rec(re′, actions, 1)
     return nfa
 end
 
-function re2nfa_rec(re::RegExp.RE, order::Int)
+function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action}, order::Int)
     enter_actions = Set{Action}()
     if haskey(re.actions, :enter)
-        for a in re.actions[:enter]
-            push!(enter_actions, Action(a, order))
-            order += 1
+        for name in re.actions[:enter]
+            if !haskey(actions, name)
+                actions[name] = Action(name, order)
+                order += 1
+            end
+            push!(enter_actions, actions[name])
         end
     end
 
@@ -118,7 +122,7 @@ function re2nfa_rec(re::RegExp.RE, order::Int)
         lastnfa = NFA(start, final)
         addtrans!(start, :eps => final)
         for arg in re.args
-            nfa, order = re2nfa_rec(arg, order)
+            nfa, order = re2nfa_rec(arg, actions, order)
             addtrans!(lastnfa.final, :eps => nfa.start)
             lastnfa = nfa
         end
@@ -126,21 +130,21 @@ function re2nfa_rec(re::RegExp.RE, order::Int)
     elseif re.head == :alt
         check_arity(n -> n > 0)
         for arg in re.args
-            nfa, order = re2nfa_rec(arg, order)
+            nfa, order = re2nfa_rec(arg, actions, order)
             addtrans!(start, :eps => nfa.start)
             addtrans!(nfa.final, :eps => final)
         end
     elseif re.head == :rep
         check_arity(n -> n == 1)
-        nfa, order = re2nfa_rec(re.args[1], order)
+        nfa, order = re2nfa_rec(re.args[1], actions, order)
         addtrans!(start, :eps => final)
         addtrans!(start, :eps => nfa.start)
         addtrans!(nfa.final, :eps => final)
         addtrans!(nfa.final, :eps => nfa.start)
     elseif re.head == :isec
         check_arity(n -> n == 2)
-        nfa1, order = re2nfa_rec(re.args[1], order)
-        nfa2, order = re2nfa_rec(re.args[2], order)
+        nfa1, order = re2nfa_rec(re.args[1], actions, order)
+        nfa2, order = re2nfa_rec(re.args[2], actions, order)
         addtrans!(start, :eps => nfa1.start)
         addtrans!(start, :eps => nfa2.start)
         addtrans!(nfa1.final, :eps => final)
@@ -152,8 +156,8 @@ function re2nfa_rec(re::RegExp.RE, order::Int)
         final = nfa.final
     elseif re.head == :diff
         check_arity(n -> n == 2)
-        nfa1, order = re2nfa_rec(re.args[1], order)
-        nfa2, order = re2nfa_rec(re.args[2], order)
+        nfa1, order = re2nfa_rec(re.args[1], actions, order)
+        nfa2, order = re2nfa_rec(re.args[2], actions, order)
         addtrans!(start, :eps => nfa1.start)
         addtrans!(start, :eps => nfa2.start)
         addtrans!(nfa1.final, :eps => final)
@@ -175,9 +179,12 @@ function re2nfa_rec(re::RegExp.RE, order::Int)
 
     if haskey(re.actions, :exit)
         exit_actions = Set{Action}()
-        for a in re.actions[:exit]
-            push!(exit_actions, Action(a, order))
-            order += 1
+        for name in re.actions[:exit]
+            if !haskey(actions, name)
+                actions[name] = Action(name, order)
+                order += 1
+            end
+            push!(exit_actions, actions[name])
         end
         newfinal = NFANode()
         addtrans!(final, :eps => newfinal, exit_actions)
