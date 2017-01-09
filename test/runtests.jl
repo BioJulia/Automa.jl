@@ -403,6 +403,38 @@ module Test8
     @test tokenize(b"1e-") == ([], :incomplete)
 end
 
+module Test9
+    using Automa
+    using Automa.RegExp
+    const re = Automa.RegExp
+    using Base.Test
+
+    tokenizer = compile(
+        re"a"      => :(emit(:a, ts:te)),
+        re"a*b"    => :(emit(:ab, ts:te)),
+    )
+
+    @eval function tokenize(data)
+        $(generate_init_code(tokenizer))
+        p_end = p_eof = sizeof(data)
+        tokens = Tuple{Symbol,String}[]
+        emit(kind, range) = push!(tokens, (kind, data[range]))
+        while p ≤ p_eof
+            $(generate_exec_code(tokenizer))
+        end
+        return tokens
+    end
+
+    @test tokenize("") == []
+    @test tokenize("a") == [(:a, "a")]
+    @test tokenize("b") == [(:ab, "b")]
+    @test tokenize("aa") == [(:a, "a"), (:a, "a")]
+    @test tokenize("ab") == [(:ab, "ab")]
+    @test tokenize("aaa") == [(:a, "a"), (:a, "a"), (:a, "a")]
+    @test tokenize("aab") == [(:ab, "aab")]
+    @test tokenize("abaabba") == [(:ab, "ab"), (:ab, "aab"), (:ab, "b"), (:a, "a")]
+end
+
 module TestFASTA
     include("../example/fasta.jl")
     using Base.Test

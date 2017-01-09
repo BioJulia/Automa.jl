@@ -14,5 +14,6 @@ include("dfa.jl")
 include("dot.jl")
 include("machine.jl")
 include("codegen.jl")
+include("tokenizer.jl")
 
 end # module
