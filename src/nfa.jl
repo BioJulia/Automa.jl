@@ -63,6 +63,44 @@ function NFANode()
     return NFANode(trans, actions)
 end
 
+immutable NFATraverser
+    start::NFANode
+end
+
+function traverse(node::NFANode)
+    return NFATraverser(node)
+end
+
+function Base.start(traverser::NFATraverser)
+    visited = Set{NFANode}()
+    unvisited = [traverser.start]
+    return visited, unvisited
+end
+
+function Base.done(traverser::NFATraverser, state)
+    _, unvisited = state
+    return isempty(unvisited)
+end
+
+function Base.next(traverser::NFATraverser, state)
+    visited, unvisited = state
+    s = pop!(unvisited)
+    push!(visited, s)
+    for (_, T) in s.trans.trans
+        for t in T
+            if t ∉ visited
+                push!(unvisited, t)
+            end
+        end
+    end
+    for t in s.trans[:eps]
+        if t ∉ visited
+            push!(unvisited, t)
+        end
+    end
+    return s, (visited, unvisited)
+end
+
 function addtrans!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     push!(node.trans[label], target)
@@ -74,6 +112,11 @@ function addtrans!(node::NFANode, trans::Tuple{Symbol,NFANode}, actions::Set{Act
     label, target = trans
     @assert label == :eps
     push!(node.trans.trans_eps, target)
+    union!(node.actions[trans], actions)
+    return node
+end
+
+function addactions!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action})
     union!(node.actions[trans], actions)
     return node
 end
@@ -187,7 +230,44 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         final = newfinal
     end
 
+    if haskey(re.actions, :final)
+        finals = NFANode[]
+        for s in traverse(start)
+            if final ∈ epsilon_closure(Set([s]))
+                push!(finals, s)
+            end
+        end
+        final_actions = Set{Action}()
+        for name in re.actions[:final]
+            if !haskey(actions, name)
+                actions[name] = Action(name, length(actions))
+            end
+            push!(final_actions, actions[name])
+        end
+        for s in traverse(start)
+            for (l, T) in s.trans.trans
+                for t in T
+                    if t ∈ finals
+                        addactions!(s, (l, t), final_actions)
+                    end
+                end
+            end
+        end
+    end
+
     return NFA(start, final)
+end
+
+function isdisjoint{T}(set1::Set{T}, set2::Set{T})
+    if length(set2) > length(set1)
+        set2, set1 = set1, set2
+    end
+    for x in set1
+        if x ∈ set2
+            return false
+        end
+    end
+    return true
 end
 
 function remove_dead_states(nfa::NFA)

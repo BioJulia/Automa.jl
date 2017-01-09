@@ -47,10 +47,13 @@ module Test2
 
     a.actions[:enter] = [:enter_a]
     a.actions[:exit] = [:exit_a]
+    a.actions[:final] = [:final_a]
     b.actions[:enter] = [:enter_b]
     b.actions[:exit] = [:exit_b]
+    b.actions[:final] = [:final_b]
     ab.actions[:enter] = [:enter_re]
     ab.actions[:exit] = [:exit_re]
+    ab.actions[:final] = [:final_re]
 
     machine = compile(ab)
     init_code = generate_init_code(machine)
@@ -64,10 +67,10 @@ module Test2
         return cs ∈ $(machine.final_states), logger
     end
 
-    @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
-    @test validate(b"a") == (false, [:enter_re,:enter_a])
-    @test validate(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
-    @test validate(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
+    @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate(b"a") == (false, [:enter_re,:enter_a,:final_a])
+    @test validate(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
 
     # inlined code
     exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
@@ -78,11 +81,10 @@ module Test2
         $(exec_code)
         return cs ∈ $(machine.final_states), logger
     end
-    @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
-    @test validate2(b"a") == (false, [:enter_re,:enter_a])
-    @test validate2(b"ab") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
-    @test validate2(b"abb") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:exit_b,:exit_re])
-
+    @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate2(b"a") == (false, [:enter_re,:enter_a,:final_a])
+    @test validate2(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate2(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
 end
 
 module Test3
