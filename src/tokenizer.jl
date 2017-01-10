@@ -33,7 +33,10 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
         push!(actions_code, (name, code))
     end
     nfa = NFA(start, final)
-    dfa = reduce_states(nfa2dfa(nfa))
+    dfa = nfa2dfa(remove_dead_states(nfa))
+    if optimize
+        dfa = remove_dead_states(reduce_states(dfa))
+    end
     machine = dfa2machine(dfa)
     return Tokenizer(machine, actions_code)
 end
