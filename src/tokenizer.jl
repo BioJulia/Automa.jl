@@ -18,6 +18,10 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
     actions_code = Tuple{Symbol,Expr}[]
     for (i, (re, code)) in enumerate(tokens)
         re′ = RegExp.expand(RegExp.desugar(re))
+        if !haskey(re′.actions, :enter)
+            re′.actions[:enter] = Symbol[]
+        end
+        push!(re′.actions[:enter], :__token_start)
         name = Symbol(:__token, i)
         if !haskey(re′.actions, :final)
             re′.actions[:final] = Symbol[]
@@ -55,6 +59,7 @@ function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
     else
         throw(ArgumentError("invalid actions argument"))
     end
+    actions[:__token_start] = :(ts = p)
     for (i, (name, _)) in enumerate(tokenizer.actions_code)
         actions[name] = :(t = $(i); te = p)
     end
@@ -72,7 +77,7 @@ function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,E
     @assert size(trans_table, 1) == 256
     return quote
         t = 0
-        ts = p
+        ts = 0
         while p ≤ p_end && cs > 0
             $(check_code)
             $(getbyte_code)
@@ -87,7 +92,7 @@ function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,E
                 cs = ns
             end
         end
-        if cs ≤ 0 || p > p_eof
+        if t > 0 && (cs ≤ 0 || p > p_end ≥ 0)
             $(token_exit_code)
             p = te + 1
             cs = $(tokenizer.machine.start_state)

@@ -419,8 +419,11 @@ module Test9
         p_end = p_eof = sizeof(data)
         tokens = Tuple{Symbol,String}[]
         emit(kind, range) = push!(tokens, (kind, data[range]))
-        while p ≤ p_eof
+        while p ≤ p_eof && cs > 0
             $(generate_exec_code(tokenizer))
+        end
+        if cs < 0
+            error()
         end
         return tokens
     end
@@ -433,6 +436,10 @@ module Test9
     @test tokenize("aaa") == [(:a, "a"), (:a, "a"), (:a, "a")]
     @test tokenize("aab") == [(:ab, "aab")]
     @test tokenize("abaabba") == [(:ab, "ab"), (:ab, "aab"), (:ab, "b"), (:a, "a")]
+    @test_throws ErrorException tokenize("c")
+    @test_throws ErrorException tokenize("ac")
+    @test_throws ErrorException tokenize("abc")
+    @test_throws ErrorException tokenize("acb")
 end
 
 module TestFASTA
