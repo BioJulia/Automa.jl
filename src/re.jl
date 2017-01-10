@@ -109,7 +109,7 @@ macro re_str(s::String)
     return parse(unescape_string(escape_re_string(s)))
 end
 
-const METACHAR = ".*+?()[\\|"
+const METACHAR = ".*+?()[]\\|"
 
 function escape_re_string(str::String)
     buf = IOBuffer()
@@ -243,6 +243,12 @@ function parse_class(str, s)
         c, s = next(str, s)
         if c == ']'
             break
+        elseif c == '\\'
+            if done(str, s)
+                error("missing ]")
+            end
+            c, s = next(str, s)
+            push!(chars, c)
         else
             push!(chars, c)
         end
