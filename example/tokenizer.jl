@@ -42,8 +42,10 @@ const minijulia = compile(
     re"[\t ]+"     => :(emit(:spaces)),
 )
 
+#=
 write("minijulia.dot", Automa.dfa2dot(minijulia.machine.dfa))
 run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
+=#
 
 @eval function tokenize(data)
     $(generate_init_code(minijulia))
