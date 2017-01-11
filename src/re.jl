@@ -4,18 +4,23 @@
 module RegExp
 
 import Compat: @compat
+import DataStructures: DefaultDict
 import Automa: ByteSet
 
 export @re_str
 
+function gen_empty_names()
+    return Symbol[]
+end
+
 type RE
     head::Symbol
     args::Vector
-    actions::Dict{Symbol,Vector{Symbol}}
+    actions::DefaultDict{Symbol,Vector{Symbol},typeof(gen_empty_names)}
 end
 
 function RE(head::Symbol, args::Vector)
-    return RE(head, args, Dict())
+    return RE(head, args, DefaultDict{Symbol,Vector{Symbol}}(gen_empty_names))
 end
 
 typealias Primitive Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
@@ -50,7 +55,7 @@ function primitive(bs::Vector{UInt8})
     return RE(:bytes, [bs])
 end
 
-function primitive(x::Primitive, actions::Dict{Symbol,Vector{Symbol}})
+function primitive(x::Primitive, actions)
     re = primitive(x)
     re.actions = actions
     return re

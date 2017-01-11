@@ -18,14 +18,8 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
     actions_code = Tuple{Symbol,Expr}[]
     for (i, (re, code)) in enumerate(tokens)
         re′ = RegExp.expand(RegExp.desugar(re))
-        if !haskey(re′.actions, :enter)
-            re′.actions[:enter] = Symbol[]
-        end
         push!(re′.actions[:enter], :__token_start)
         name = Symbol(:__token, i)
-        if !haskey(re′.actions, :final)
-            re′.actions[:final] = Symbol[]
-        end
         push!(re′.actions[:final], name)
         nfa = re2nfa_rec(re′, actions)
         addtrans!(start, (:eps, nfa.start))
