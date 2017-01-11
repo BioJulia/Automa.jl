@@ -10,10 +10,6 @@ function sorted_actions(actions::Set{Action})
     return sort!(collect(actions), by=a->a.order)
 end
 
-function sorted_action_names(actions::Set{Action})
-    return [a.name for a in sorted_actions(actions)]
-end
-
 function sorted_unique_action_names(actions::Set{Action})
     names = Symbol[]
     for a in sorted_actions(actions)
