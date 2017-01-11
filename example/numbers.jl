@@ -26,10 +26,10 @@ run(`dot -Tsvg -o numbers.svg numbers.dot`)
 
 actions = Dict(
     :mark  => :(mark = p),
-    :int   => :(push!(tokens, (:int, data[mark:p-1]))),
-    :hex   => :(push!(tokens, (:hex, data[mark:p-1]))),
-    :oct   => :(push!(tokens, (:oct, data[mark:p-1]))),
-    :float => :(push!(tokens, (:float, data[mark:p-1]))),
+    :int   => :(emit(:int)),
+    :hex   => :(emit(:hex)),
+    :oct   => :(emit(:oct)),
+    :float => :(emit(:float)),
 )
 
 @eval function tokenize(data::String)
@@ -37,6 +37,7 @@ actions = Dict(
     mark = 0
     $(generate_init_code(machine))
     p_end = p_eof = endof(data)
+    emit(kind) = push!(tokens, (kind, data[mark:p-1]))
     $(generate_exec_code(machine, actions=actions))
     return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
 end
