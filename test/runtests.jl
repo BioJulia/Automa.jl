@@ -9,6 +9,8 @@ module Test1
     re.actions[:exit] = [:exit_re]
 
     machine = compile(re)
+    @test ismatch(r"^Automa.Machine\(<.*>\)$", repr(machine))
+
     last, actions = Automa.execute(machine, "")
     @test last ∈ machine.final_states
     @test actions == [:enter_re, :exit_re]
