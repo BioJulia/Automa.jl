@@ -3,17 +3,17 @@ using Automa.RegExp
 const re = Automa.RegExp
 
 # Describe regular expression patterns.
-int      = re"[-+]?[0-9]+"
+dec      = re"[-+]?[0-9]+"
 hex      = re"0x[0-9A-Fa-f]+"
 oct      = re"0o[0-7]+"
 prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
 float    = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
-number   = int | hex | oct | float
+number   = dec | hex | oct | float
 numbers  = re.cat(re.opt(number), re.rep(re" +" * number), re" *")
 
 # Register action names to regular expressions.
 number.actions[:enter] = [:mark]
-int.actions[:exit]     = [:int]
+dec.actions[:exit]     = [:dec]
 hex.actions[:exit]     = [:hex]
 oct.actions[:exit]     = [:oct]
 float.actions[:exit]   = [:float]
@@ -21,15 +21,13 @@ float.actions[:exit]   = [:float]
 # Compile a finite-state machine.
 machine = compile(numbers)
 
-#= This generates a SVG file to visualize the state machine.
 write("numbers.dot", Automa.dfa2dot(machine.dfa))
-run(`dot -Tsvg -o numbers.svg numbers.dot`)
-=#
+run(`dot -Tpng -o numbers.png numbers.dot`)
 
 # Bind an action code for each action name.
 actions = Dict(
     :mark  => :(mark = p),
-    :int   => :(emit(:int)),
+    :dec   => :(emit(:dec)),
     :hex   => :(emit(:hex)),
     :oct   => :(emit(:oct)),
     :float => :(emit(:float)),

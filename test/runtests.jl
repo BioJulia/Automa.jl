@@ -452,7 +452,7 @@ end
 module TestNumbers
     include("../example/numbers.jl")
     using Base.Test
-    @test tokens == [(:int,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
+    @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
     @test status == :ok
     @test startswith(Automa.dfa2dot(machine.dfa), "digraph")
 end
