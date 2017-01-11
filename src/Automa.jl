@@ -5,7 +5,10 @@ export
     generate_init_code,
     generate_exec_code
 
-import DataStructures: DefaultDict
+import DataStructures: DefaultDict, OrderedDict, OrderedSet
+
+const Dict = OrderedDict
+const Set = OrderedSet
 
 include("byteset.jl")
 include("re.jl")
