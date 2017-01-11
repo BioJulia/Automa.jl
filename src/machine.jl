@@ -10,6 +10,10 @@ type Machine
     dfa::DFA
 end
 
+function Base.show(io::IO, machine::Machine)
+    print(io, summary(machine), "(<states=", machine.states, ",start_state=", machine.start_state, ",final_states=", machine.final_states, ">)")
+end
+
 function compile(re::RegExp.RE; optimize::Bool=true)
     dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
     if optimize
