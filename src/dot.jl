@@ -83,12 +83,6 @@ function label2str(label)
         return "ε"
     elseif label == :eof
         return "EOF"
-    elseif isa(label, UInt8)
-        if label ≤ 0x7f  # ASCII
-            return escape_string(escape_string(string(''', Char(label), ''')))
-        else
-            return repr(label)
-        end
     elseif isa(label, ByteSet)
         label = compact_labels(label)
         ss = []
@@ -100,14 +94,6 @@ function label2str(label)
             push!(ss, s)
         end
         return join(ss, ',')
-    elseif isa(label, UnitRange{UInt8})
-        if length(label) == 1
-            return string(label2str(first(label)))
-        else
-            return string(label2str(first(label)), ':', label2str(last(label)))
-        end
-    elseif isa(label, Vector)
-        return join([label2str(l) for l in label], ',')
     else
         return escape_string(repr(label))
     end
