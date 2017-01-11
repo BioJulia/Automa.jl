@@ -16,8 +16,7 @@ oct      = re"0o[0-7]+"
 prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
 float    = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
 number   = int | hex | oct | float
-spaces   = re.rep(re.space())
-numbers  = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
+numbers  = re.cat(re.opt(number), re.rep(re" +" * number), re" *")
 
 # Register action names to regular expressions.
 number.actions[:enter] = [:mark]
@@ -54,7 +53,7 @@ actions = Dict(
     return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
 end
 
-tokens, status = tokenize("1 0x0123BEEF 0o754 3.14 1e-4 +6.022045e23")
+tokens, status = tokenize("1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")
 ```
 
 Finally, space-separated numbers are tokenized as follows:
