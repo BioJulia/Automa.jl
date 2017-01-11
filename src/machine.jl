@@ -36,13 +36,13 @@ function dfa2machine(dfa::DFA)
             push!(final_states, serials[s])
             eof_actions[serials[s]] = sorted_unique_action_names(s.eof_actions)
         end
+        if !haskey(transitions, serials[s])
+            transitions[serials[s]] = Dict()
+        end
         for (l, (t, as)) in s.next
             if !haskey(serials, t)
                 serials[t] = (serial += 1)
                 push!(unvisited, t)
-            end
-            if !haskey(transitions, serials[s])
-                transitions[serials[s]] = Dict()
             end
             transitions[serials[s]][l] = (serials[t], sorted_unique_action_names(as))
         end

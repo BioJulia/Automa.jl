@@ -9,6 +9,13 @@ module Test1
     re.actions[:exit] = [:exit_re]
 
     machine = compile(re)
+    last, actions = Automa.execute(machine, "")
+    @test last ∈ machine.final_states
+    @test actions == [:enter_re, :exit_re]
+    last, actions = Automa.execute(machine, "a")
+    @test last ∉ machine.final_states
+    @test actions == []
+
     init_code = generate_init_code(machine)
     exec_code = generate_exec_code(machine, actions=:debug)
 
@@ -56,6 +63,11 @@ module Test2
     ab.actions[:final] = [:final_re]
 
     machine = compile(ab)
+
+    last, actions = Automa.execute(machine, "ab")
+    @test last ∈ machine.final_states
+    @test actions == [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re]
+
     init_code = generate_init_code(machine)
     exec_code = generate_exec_code(machine, actions=:debug)
 
