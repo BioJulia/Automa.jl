@@ -21,8 +21,10 @@ float.actions[:exit]   = [:float]
 # Compile a finite-state machine.
 machine = compile(numbers)
 
+#= This generates a SVG file to visualize the state machine.
 write("numbers.dot", Automa.dfa2dot(machine.dfa))
 run(`dot -Tpng -o numbers.png numbers.dot`)
+=#
 
 # Bind an action code for each action name.
 actions = Dict(
