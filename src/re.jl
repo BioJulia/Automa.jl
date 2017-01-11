@@ -3,6 +3,7 @@
 
 module RegExp
 
+import Compat: @compat
 import Automa: ByteSet
 
 export @re_str
@@ -114,7 +115,7 @@ const METACHAR = ".*+?()[]\\|"
 function escape_re_string(str::String)
     buf = IOBuffer()
     escape_re_string(buf, str)
-    return takebuf_string(buf)
+    return @compat String(take!(buf))
 end
 
 function escape_re_string(io::IO, str::String)

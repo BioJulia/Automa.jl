@@ -5,6 +5,7 @@ export
     generate_init_code,
     generate_exec_code
 
+import Compat: @compat
 import DataStructures: DefaultDict
 
 include("byteset.jl")

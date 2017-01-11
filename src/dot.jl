@@ -34,7 +34,7 @@ function nfa2dot(nfa::NFA)
         println(buf, "  $(serial) [ shape = $(shape) ];")
     end
     println(buf, "}")
-    return takebuf_string(buf)
+    return @compat String(take!(buf))
 end
 
 function dfa2dot(dfa::DFA)
@@ -67,7 +67,7 @@ function dfa2dot(dfa::DFA)
         println(buf, "  $(serial) [ shape = $(shape) ];")
     end
     println(buf, "}")
-    return takebuf_string(buf)
+    return @compat String(take!(buf))
 end
 
 function label2str(label, actions)
