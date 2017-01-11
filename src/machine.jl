@@ -50,6 +50,30 @@ function dfa2machine(dfa::DFA)
     return Machine(1:serial, serials[start], final_states, transitions, eof_actions, dfa)
 end
 
+function execute(machine::Machine, data::Vector{UInt8})
+    cs = machine.start_state
+    actions = Symbol[]
+    for d in data
+        if haskey(machine.transitions[cs], d)
+            cs, as = machine.transitions[cs][d]
+            append!(actions, as)
+        else
+            cs = -cs
+        end
+        if cs < 0
+            break
+        end
+    end
+    if haskey(machine.eof_actions, cs)
+        append!(actions, machine.eof_actions[cs])
+    end
+    return cs, actions
+end
+
+function execute(machine::Machine, data::String)
+    return execute(machine, convert(Vector{UInt8}, data))
+end
+
 function traverse(f::Function, dfa::DFA)
     visited = Set{DFANode}()
     unvisited = Set([dfa.start])
