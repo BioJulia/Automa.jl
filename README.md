@@ -6,7 +6,7 @@
 
 [![codecov.io](http://codecov.io/github/BioJulia/Automa.jl/coverage.svg?branch=master)](http://codecov.io/github/BioJulia/Automa.jl?branch=master)
 
-A Julia package for text validation and parsing based on state machine compiler.
+A Julia package for text validation, parsing, and tokenizing based on state machine compiler.
 
 This is a number literal tokenizer using Automa.jl:
 ```julia
