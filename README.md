@@ -57,4 +57,4 @@ tokens, status = tokenize("1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")
 ```
 
 The compiled deterministic finite automaton (DFA) looks like this:
-![DFA](/numbers.png)
+![DFA](/docs/figure/numbers.png)

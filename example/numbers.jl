@@ -8,8 +8,7 @@ oct      = re"0o[0-7]+"
 prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
 float    = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
 number   = int | hex | oct | float
-spaces   = re.rep(re.space())
-numbers  = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
+numbers  = re.cat(re.opt(number), re.rep(re" +" * number), re" *")
 
 number.actions[:enter] = [:mark]
 int.actions[:exit]     = [:int]
