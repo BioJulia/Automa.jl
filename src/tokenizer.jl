@@ -92,7 +92,9 @@ function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,E
         if t > 0 && (cs ≤ 0 || p > p_end ≥ 0)
             $(token_exit_code)
             p = te + 1
-            cs = $(tokenizer.machine.start_state)
+            if cs != 0
+                cs = $(tokenizer.machine.start_state)
+            end
         end
     end
 end
