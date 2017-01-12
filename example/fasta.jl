@@ -1,5 +1,5 @@
-using Automa
-using Automa.RegExp
+import Automa
+import Automa.RegExp: @re_str
 const re = Automa.RegExp
 
 # Describe a pattern in regular expression.
@@ -31,9 +31,7 @@ actions = Dict(
         description = ""
     end
 )
-machine = compile(fasta)
-init_code = generate_init_code(machine)
-exec_code = generate_exec_code(machine, actions=actions)
+machine = Automa.compile(fasta)
 
 type FASTARecord
     description::String
@@ -51,9 +49,9 @@ end
     description = ""
     mark = 0
     linenum = 1
-    $(init_code)
+    $(Automa.generate_init_code(machine))
     p_end = p_eof = endof(data)
-    $(exec_code)
+    $(Automa.generate_exec_code(machine, actions=actions))
     if cs != 0
         error("failed to parse at line ", linenum)
     end

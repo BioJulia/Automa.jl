@@ -1,5 +1,5 @@
-using Automa
-using Automa.RegExp
+import Automa
+import Automa.RegExp: @re_str
 const re = Automa.RegExp
 
 keyword = re"break|const|continue|else|elseif|end|for|function|if|return|type|using|while"
@@ -12,7 +12,7 @@ string = re.cat('"', re.rep(re"[ !#-~]" | re.cat("\\\"")), '"')
 triplestring = re.cat("\"\"\"", (re"[ -~]*" \ re"\"\"\""), "\"\"\"")
 newline = re"\r?\n"
 
-const minijulia = compile(
+const minijulia = Automa.compile(
     re","          => :(emit(:comma)),
     re":"          => :(emit(:colon)),
     re";"          => :(emit(:semicolon)),
@@ -48,12 +48,12 @@ run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
 =#
 
 @eval function tokenize(data)
-    $(generate_init_code(minijulia))
+    $(Automa.generate_init_code(minijulia))
     p_end = p_eof = sizeof(data)
     tokens = Tuple{Symbol,String}[]
     emit(kind) = push!(tokens, (kind, data[ts:te]))
     while p ≤ p_eof && cs > 0
-        $(generate_exec_code(minijulia))
+        $(Automa.generate_exec_code(minijulia))
     end
     if cs < 0
         error("failed to tokenize")

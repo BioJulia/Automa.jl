@@ -1,6 +1,6 @@
 module Test1
-    using Automa
-    using Automa.RegExp
+    import Automa
+    import Automa.RegExp: @re_str
     using Base.Test
 
     re = re""
@@ -8,7 +8,7 @@ module Test1
     re.actions[:enter] = [:enter_re]
     re.actions[:exit] = [:exit_re]
 
-    machine = compile(re)
+    machine = Automa.compile(re)
     @test ismatch(r"^Automa.Machine\(<.*>\)$", repr(machine))
 
     last, actions = Automa.execute(machine, "")
@@ -18,15 +18,14 @@ module Test1
     @test last < 0
     @test actions == []
 
-    init_code = generate_init_code(machine)
-    exec_code = generate_exec_code(machine, actions=:debug)
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        #return cs ∈ $(machine.final_states), logger
         return cs == 0, logger
     end
 
@@ -34,13 +33,12 @@ module Test1
     @test validate(b"a") == (false, Symbol[])
 
     # inlined code
-    exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        #return cs ∈ $(machine.final_states), logger
         return cs == 0, logger
     end
     @test validate2(b"") == (true, [:enter_re, :exit_re])
@@ -48,9 +46,10 @@ module Test1
 end
 
 module Test2
-    using Automa
-    using Base.Test
+    import Automa
+    import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    using Base.Test
 
     a = re.rep('a')
     b = re.cat('b', re.rep('b'))
@@ -66,14 +65,14 @@ module Test2
     ab.actions[:exit] = [:exit_re]
     ab.actions[:final] = [:final_re]
 
-    machine = compile(ab)
+    machine = Automa.compile(ab)
 
     last, actions = Automa.execute(machine, "ab")
     @test last == 0
     @test actions == [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re]
 
-    init_code = generate_init_code(machine)
-    exec_code = generate_exec_code(machine, actions=:debug)
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -89,7 +88,7 @@ module Test2
     @test validate(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
 
     # inlined code
-    exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -104,19 +103,19 @@ module Test2
 end
 
 module Test3
-    using Automa
-    using Automa.RegExp
-    using Base.Test
+    import Automa
+    import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    using Base.Test
 
     header = re"[ -~]*"
     newline = re"\r?\n"
     sequence = re.rep(re.cat(re"[A-Za-z]*", newline))
     fasta = re.rep(re.cat('>', header, newline, sequence))
 
-    machine = compile(fasta)
-    init_code = generate_init_code(machine)
-    exec_code = generate_exec_code(machine)
+    machine = Automa.compile(fasta)
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine)
 
     @eval function validate(data)
         $(init_code)
@@ -137,7 +136,7 @@ module Test3
     @test validate(b">seq1\na") == false
     @test validate(b">seq1\nac\ngt") == false
 
-    exec_code = generate_exec_code(machine, code=:inline)
+    exec_code = Automa.generate_exec_code(machine, code=:inline)
     @eval function validate2(data)
         $(init_code)
         p_end = p_eof = endof(data)
@@ -158,18 +157,18 @@ module Test3
 end
 
 module Test4
-    using Automa
-    using Automa.RegExp
-    using Base.Test
+    import Automa
+    import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    using Base.Test
 
     beg_a = re.cat('a', re"[ab]*")
     end_b = re.cat(re"[ab]*", 'b')
     beg_a_end_b = re.isec(beg_a, end_b)
 
-    machine = compile(beg_a_end_b)
-    init_code = generate_init_code(machine)
-    exec_code = generate_exec_code(machine)
+    machine = Automa.compile(beg_a_end_b)
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine)
 
     @eval function validate(data)
         $(init_code)
@@ -189,7 +188,7 @@ module Test4
     @test validate(b"b") == false
     @test validate(b"bab") == false
 
-    exec_code = generate_exec_code(machine, code=:inline)
+    exec_code = Automa.generate_exec_code(machine, code=:inline)
     @eval function validate2(data)
         $(init_code)
         p_end = p_eof = endof(data)
@@ -209,10 +208,10 @@ module Test4
 end
 
 module Test5
-    using Automa
-    using Automa.RegExp
-    using Base.Test
+    import Automa
+    import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    using Base.Test
 
     keyword = re"if|else|end|while"
     ident = re.diff(re"[a-z]+", keyword)
@@ -221,9 +220,9 @@ module Test5
     keyword.actions[:exit] = [:keyword]
     ident.actions[:exit] = [:ident]
 
-    machine = compile(token)
-    init_code = generate_init_code(machine)
-    exec_code = generate_exec_code(machine, actions=:debug)
+    machine = Automa.compile(token)
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug)
 
     @eval function validate(data)
         logger = Symbol[]
@@ -243,7 +242,7 @@ module Test5
     @test validate(b"iff") == (true, [:ident])
     @test validate(b"1if") == (false, [])
 
-    exec_code = generate_exec_code(machine, actions=:debug, code=:inline)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:inline)
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
@@ -263,22 +262,22 @@ module Test5
 end
 
 module Test6
-    using Automa
-    using Automa.RegExp
-    using Base.Test
+    import Automa
+    import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    using Base.Test
 
     foo = re.cat("foo")
     foos = re.rep(re.cat(foo, re" *"))
     foo.actions[:exit]  = [:foo]
     actions = Dict(:foo => :(push!(ret, state.p:p-1); @escape))
-    machine = compile(foos)
+    machine = Automa.compile(foos)
 
     @eval type MachineState
         p::Int
         cs::Int
         function MachineState()
-            $(generate_init_code(machine))
+            $(Automa.generate_init_code(machine))
             return new(p, cs)
         end
     end
@@ -288,7 +287,7 @@ module Test6
         p = state.p
         cs = state.cs
         p_end = p_eof = endof(data)
-        $(generate_exec_code(machine, actions=actions))
+        $(Automa.generate_exec_code(machine, actions=actions))
         state.p = p
         state.cs = cs
         return ret
@@ -308,7 +307,7 @@ module Test6
         p = state.p
         cs = state.cs
         p_end = p_eof = endof(data)
-        $(generate_exec_code(machine, actions=actions, code=:inline))
+        $(Automa.generate_exec_code(machine, actions=actions, code=:inline))
         state.p = p
         state.cs = cs
         return ret
@@ -323,16 +322,16 @@ module Test6
 end
 
 module Test7
-    using Automa
-    using Automa.RegExp
+    import Automa
+    import Automa.RegExp: @re_str
     using Base.Test
 
     re1 = re"a.*b"
-    machine = compile(re1)
+    machine = Automa.compile(re1)
     @eval function ismatch1(data)
-        $(generate_init_code(machine))
+        $(Automa.generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec_code(machine))
+        $(Automa.generate_exec_code(machine))
         return cs == 0
     end
     @test ismatch1(b"ab")
@@ -342,11 +341,11 @@ module Test7
     @test !ismatch1(b"zzzb")
 
     re2 = re"a\.*b"
-    machine = compile(re2)
+    machine = Automa.compile(re2)
     @eval function ismatch2(data)
-        $(generate_init_code(machine))
+        $(Automa.generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec_code(machine))
+        $(Automa.generate_exec_code(machine))
         return cs == 0
     end
     @test ismatch2(b"ab")
@@ -357,11 +356,11 @@ module Test7
     @test !ismatch2(b"...b")
 
     re3 = re"a\.\*b"
-    machine = compile(re3)
+    machine = Automa.compile(re3)
     @eval function ismatch3(data)
-        $(generate_init_code(machine))
+        $(Automa.generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec_code(machine))
+        $(Automa.generate_exec_code(machine))
         return cs == 0
     end
     @test ismatch3(b"a.*b")
@@ -369,10 +368,10 @@ module Test7
 end
 
 module Test8
-    using Automa
-    using Automa.RegExp
-    const re = Automa.RegExp
+    import Automa
+    import Automa.RegExp: @re_str
     using Base.Test
+    const re = Automa.RegExp
 
     int = re"[-+]?[0-9]+"
     prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
@@ -385,7 +384,7 @@ module Test8
     int.actions[:exit]     = [:int]
     float.actions[:exit]   = [:float]
 
-    machine = compile(numbers)
+    machine = Automa.compile(numbers)
 
     actions = Dict(
         :mark  => :(mark = p),
@@ -396,9 +395,9 @@ module Test8
     @eval function tokenize(data)
         tokens = Tuple{Symbol,String}[]
         mark = 0
-        $(generate_init_code(machine))
+        $(Automa.generate_init_code(machine))
         p_end = p_eof = endof(data)
-        $(generate_exec_code(machine, actions=actions))
+        $(Automa.generate_exec_code(machine, actions=actions))
         return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
 
@@ -420,23 +419,23 @@ module Test8
 end
 
 module Test9
-    using Automa
-    using Automa.RegExp
-    const re = Automa.RegExp
+    import Automa
+    import Automa.RegExp: @re_str
     using Base.Test
+    const re = Automa.RegExp
 
-    tokenizer = compile(
+    tokenizer = Automa.compile(
         re"a"      => :(emit(:a, ts:te)),
         re"a*b"    => :(emit(:ab, ts:te)),
     )
 
     @eval function tokenize(data)
-        $(generate_init_code(tokenizer))
+        $(Automa.generate_init_code(tokenizer))
         p_end = p_eof = sizeof(data)
         tokens = Tuple{Symbol,String}[]
         emit(kind, range) = push!(tokens, (kind, data[range]))
         while p ≤ p_eof && cs > 0
-            $(generate_exec_code(tokenizer))
+            $(Automa.generate_exec_code(tokenizer))
         end
         if cs < 0
             error()
@@ -459,26 +458,26 @@ module Test9
 end
 
 module Test10
-    using Automa
-    using Automa.RegExp
-    using Base.Test
+    import Automa
+    import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    using Base.Test
 
-    machine = compile(re"[^A-Z]")
+    machine = Automa.compile(re"[^A-Z]")
     @test Automa.execute(machine, "1")[1] == 0
     @test Automa.execute(machine, "A")[1] < 0
     @test Automa.execute(machine, "a")[1] == 0
 
-    machine = compile(re"[A-Z]+" & re"FOO?")
+    machine = Automa.compile(re"[A-Z]+" & re"FOO?")
     @test Automa.execute(machine, "FO")[1] == 0
     @test Automa.execute(machine, "FOO")[1] == 0
     @test Automa.execute(machine, "foo")[1] < 0
 
-    machine = compile(re"[A-Z]+" \ re"foo")
+    machine = Automa.compile(re"[A-Z]+" \ re"foo")
     @test Automa.execute(machine, "FOO")[1] == 0
     @test Automa.execute(machine, "foo")[1] < 0
 
-    machine = compile(!re"foo")
+    machine = Automa.compile(!re"foo")
     @test Automa.execute(machine, "bar")[1] == 0
     @test Automa.execute(machine, "foo")[1] < 0
 end

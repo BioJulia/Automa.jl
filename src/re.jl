@@ -7,8 +7,6 @@ import Compat: @compat
 import DataStructures: DefaultDict
 import Automa: ByteSet
 
-export @re_str
-
 function gen_empty_names()
     return Symbol[]
 end

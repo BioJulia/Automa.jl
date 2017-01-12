@@ -5,8 +5,8 @@ Automa.jl is a package for generating [finite-state machines (FSMs)](<https://en
 
 The following code is an example of tokenizing various kinds of numeric literals in Julia.
 ```julia
-using Automa
-using Automa.RegExp
+import Automa
+import Automa.RegExp: @re_str
 const re = Automa.RegExp
 
 # Describe regular expression patterns.
@@ -26,7 +26,7 @@ oct.actions[:exit]     = [:oct]
 float.actions[:exit]   = [:float]
 
 # Compile a finite-state machine.
-machine = compile(numbers)
+machine = Automa.compile(numbers)
 
 #= This generates a SVG file to visualize the state machine.
 write("numbers.dot", Automa.dfa2dot(machine.dfa))
@@ -46,10 +46,10 @@ actions = Dict(
 @eval function tokenize(data::String)
     tokens = Tuple{Symbol,String}[]
     mark = 0
-    $(generate_init_code(machine))
+    $(Automa.generate_init_code(machine))
     p_end = p_eof = endof(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
-    $(generate_exec_code(machine, actions=actions))
+    $(Automa.generate_exec_code(machine, actions=actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
 end
 
