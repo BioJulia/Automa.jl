@@ -250,9 +250,7 @@ ERROR: failed to count words
 
 ```
 
-We saw two kinds of functions to generate and splice Julia code into a function.
-
-The first function is `generate_init_code`, which generates some code to declare and initialize local variables used by FSM.
+There are two functions that generate Julia and splice Julia code into a function. The first function is `generate_init_code`, which generates some code to declare and initialize local variables used by FSM.
 ```jlcon
 julia> generate_init_code(machine)
 quote  # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 13:
@@ -264,8 +262,28 @@ end
 
 ```
 
-The input byte sequence is stored in the `data` variable, which, in this case, is passed as an argument. The variable `p` points at the next byte position in `data`. `p_end` points at the end position of data available in `data`. `p_eof` is similar to `p_end` but it points at the *actual* end of the input sequence. In the example above, `p_end` and `p_eof` are soon set to `sizeof(data)` because these two values can be determined immediately. `p_eof` would be undefined when `data` is too long to store in memory. In such a case, `p_eof` is set to a negative integer at the beginning and later set to a suitable position when the end of an input sequence is seen.
+The input byte sequence is stored in the `data` variable, which, in this case, is passed as an argument. The variable `p` points at the next byte position in `data`. `p_end` points at the end position of data available in `data`. `p_eof` is similar to `p_end` but it points at the *actual* end of the input sequence. In the example above, `p_end` and `p_eof` are soon set to `sizeof(data)` because these two values can be determined immediately. `p_eof` would be undefined when `data` is too long to store in memory. In such a case, `p_eof` is set to a negative integer at the beginning and later set to a suitable position when the end of an input sequence is seen. The `cs` variable stores the current state of a machine.
 
 The second function is `generate_exec_code`, which generates a loop to emulate the FSM by updating `cs` (current state) while reading bytes from `data`. You don't need to care about the details of generated code because it is often too complicated to read for human. In short, the generated code tries to read as many bytes as possible from `data` and stops when it reaches `p_end` or when it fails transition.
 
-After finished execution, the value stored in `cs` indicates whether the execution successfully finished or not. `cs == 0` means the FSM read all data and finished successfully. `cs < 0` means it failed somewhere. `cs > 0` means it is still in the middle of execution and needs more input data if any.
+After finished execution, the value stored in `cs` indicates whether the execution successfully finished or not. `cs == 0` means the FSM read all data and finished successfully. `cs < 0` means it failed somewhere. `cs > 0` means it is still in the middle of execution and needs more input data if any. The following snippet is a pseudocode of the machine execution:
+
+```
+# start main loop
+while p ≤ p_end && cs > 0
+    l  = {{read a byte of `data` at position `p`}}
+    ns = {{next state of `cs` with label `l`}}
+    {{execute actions if any}}
+    cs = ns  # update the state variable
+    p += 1   # increment the position variable
+end
+
+if p_eof ≥ 0 && p > p_eof && cs ∈ machine.final_states
+    let ns = 0
+        {{execute EOF actions if any}}
+        cs = ns
+    end
+elseif cs < 0
+    p -= 1  # point at the last read byte
+end
+```
