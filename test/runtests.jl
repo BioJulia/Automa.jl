@@ -12,10 +12,10 @@ module Test1
     @test ismatch(r"^Automa.Machine\(<.*>\)$", repr(machine))
 
     last, actions = Automa.execute(machine, "")
-    @test last ∈ machine.final_states
+    @test last == 0
     @test actions == [:enter_re, :exit_re]
     last, actions = Automa.execute(machine, "a")
-    @test last ∉ machine.final_states
+    @test last < 0
     @test actions == []
 
     init_code = generate_init_code(machine)
@@ -26,7 +26,8 @@ module Test1
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states), logger
+        #return cs ∈ $(machine.final_states), logger
+        return cs == 0, logger
     end
 
     @test validate(b"") == (true, [:enter_re, :exit_re])
@@ -39,7 +40,8 @@ module Test1
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states), logger
+        #return cs ∈ $(machine.final_states), logger
+        return cs == 0, logger
     end
     @test validate2(b"") == (true, [:enter_re, :exit_re])
     @test validate2(b"a") == (false, Symbol[])
@@ -67,7 +69,7 @@ module Test2
     machine = compile(ab)
 
     last, actions = Automa.execute(machine, "ab")
-    @test last ∈ machine.final_states
+    @test last == 0
     @test actions == [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re]
 
     init_code = generate_init_code(machine)
@@ -78,7 +80,7 @@ module Test2
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states), logger
+        return cs == 0, logger
     end
 
     @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
@@ -93,7 +95,7 @@ module Test2
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states), logger
+        return cs == 0, logger
     end
     @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
     @test validate2(b"a") == (false, [:enter_re,:enter_a,:final_a])
@@ -120,7 +122,7 @@ module Test3
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
 
     @test validate(b"") == true
@@ -140,7 +142,7 @@ module Test3
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
     @test validate2(b"") == true
     @test validate2(b">\naa\n") == true
@@ -173,7 +175,7 @@ module Test4
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
 
     @test validate(b"") == false
@@ -192,7 +194,7 @@ module Test4
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
     @test validate2(b"") == false
     @test validate2(b"a") == false
@@ -228,7 +230,7 @@ module Test5
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states), logger
+        return cs == 0, logger
     end
 
     @test validate(b"if") == (true, [:keyword])
@@ -247,7 +249,7 @@ module Test5
         $(init_code)
         p_end = p_eof = endof(data)
         $(exec_code)
-        return cs ∈ $(machine.final_states), logger
+        return cs == 0, logger
     end
     @test validate2(b"if") == (true, [:keyword])
     @test validate2(b"else") == (true, [:keyword])
@@ -331,7 +333,7 @@ module Test7
         $(generate_init_code(machine))
         p_end = p_eof = endof(data)
         $(generate_exec_code(machine))
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
     @test ismatch1(b"ab")
     @test ismatch1(b"azb")
@@ -345,7 +347,7 @@ module Test7
         $(generate_init_code(machine))
         p_end = p_eof = endof(data)
         $(generate_exec_code(machine))
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
     @test ismatch2(b"ab")
     @test ismatch2(b"a.b")
@@ -360,7 +362,7 @@ module Test7
         $(generate_init_code(machine))
         p_end = p_eof = endof(data)
         $(generate_exec_code(machine))
-        return cs ∈ $(machine.final_states)
+        return cs == 0
     end
     @test ismatch3(b"a.*b")
     @test !ismatch3(b"a...b")
@@ -397,7 +399,7 @@ module Test8
         $(generate_init_code(machine))
         p_end = p_eof = endof(data)
         $(generate_exec_code(machine, actions=actions))
-        return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
+        return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
 
     @test tokenize(b"") == ([], :ok)
@@ -463,22 +465,22 @@ module Test10
     const re = Automa.RegExp
 
     machine = compile(re"[^A-Z]")
-    @test Automa.execute(machine, "1")[1] ∈ machine.final_states
-    @test Automa.execute(machine, "A")[1] ∉ machine.final_states
-    @test Automa.execute(machine, "a")[1] ∈ machine.final_states
+    @test Automa.execute(machine, "1")[1] == 0
+    @test Automa.execute(machine, "A")[1] < 0
+    @test Automa.execute(machine, "a")[1] == 0
 
     machine = compile(re"[A-Z]+" & re"FOO?")
-    @test Automa.execute(machine, "FO")[1] ∈ machine.final_states
-    @test Automa.execute(machine, "FOO")[1] ∈ machine.final_states
-    @test Automa.execute(machine, "foo")[1] ∉ machine.final_states
+    @test Automa.execute(machine, "FO")[1] == 0
+    @test Automa.execute(machine, "FOO")[1] == 0
+    @test Automa.execute(machine, "foo")[1] < 0
 
     machine = compile(re"[A-Z]+" \ re"foo")
-    @test Automa.execute(machine, "FOO")[1] ∈ machine.final_states
-    @test Automa.execute(machine, "foo")[1] ∉ machine.final_states
+    @test Automa.execute(machine, "FOO")[1] == 0
+    @test Automa.execute(machine, "foo")[1] < 0
 
     machine = compile(!re"foo")
-    @test Automa.execute(machine, "bar")[1] ∈ machine.final_states
-    @test Automa.execute(machine, "foo")[1] ∉ machine.final_states
+    @test Automa.execute(machine, "bar")[1] == 0
+    @test Automa.execute(machine, "foo")[1] < 0
 end
 
 module TestFASTA

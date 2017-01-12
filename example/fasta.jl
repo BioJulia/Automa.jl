@@ -54,7 +54,7 @@ end
     $(init_code)
     p_end = p_eof = endof(data)
     $(exec_code)
-    if !(cs in $(machine.final_states))
+    if cs != 0
         error("failed to parse at line ", linenum)
     end
     return seqs

@@ -43,7 +43,7 @@ actions = Dict(
     p_end = p_eof = endof(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
     $(generate_exec_code(machine, actions=actions))
-    return tokens, cs ∈ $(machine.final_states) ? :ok : cs < 0 ? :error : :incomplete
+    return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
 end
 
 tokens, status = tokenize("1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")

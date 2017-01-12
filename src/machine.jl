@@ -26,7 +26,7 @@ function dfa2machine(dfa::DFA)
     start = dfa.start
     serial = 0
     serials = Dict(start => (serial += 1))
-    final_states = Set([0])  # zero indicates the EOF state
+    final_states = Set{Int}()
     transitions = Dict()
     eof_actions = Dict()
     unvisited = Set([start])
@@ -66,6 +66,13 @@ function execute(machine::Machine, data::Vector{UInt8})
     end
     if haskey(machine.eof_actions, cs)
         append!(actions, machine.eof_actions[cs])
+    end
+    if cs > 0
+        if cs ∈ machine.final_states
+            cs = 0
+        else
+            cs = -cs
+        end
     end
     return cs, actions
 end
