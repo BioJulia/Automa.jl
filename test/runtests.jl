@@ -456,6 +456,31 @@ module Test9
     @test_throws ErrorException tokenize("acb")
 end
 
+module Test10
+    using Automa
+    using Automa.RegExp
+    using Base.Test
+    const re = Automa.RegExp
+
+    machine = compile(re"[^A-Z]")
+    @test Automa.execute(machine, "1")[1] ∈ machine.final_states
+    @test Automa.execute(machine, "A")[1] ∉ machine.final_states
+    @test Automa.execute(machine, "a")[1] ∈ machine.final_states
+
+    machine = compile(re"[A-Z]+" & re"FOO?")
+    @test Automa.execute(machine, "FO")[1] ∈ machine.final_states
+    @test Automa.execute(machine, "FOO")[1] ∈ machine.final_states
+    @test Automa.execute(machine, "foo")[1] ∉ machine.final_states
+
+    machine = compile(re"[A-Z]+" \ re"foo")
+    @test Automa.execute(machine, "FOO")[1] ∈ machine.final_states
+    @test Automa.execute(machine, "foo")[1] ∉ machine.final_states
+
+    machine = compile(!re"foo")
+    @test Automa.execute(machine, "bar")[1] ∈ machine.final_states
+    @test Automa.execute(machine, "foo")[1] ∉ machine.final_states
+end
+
 module TestFASTA
     include("../example/fasta.jl")
     using Base.Test

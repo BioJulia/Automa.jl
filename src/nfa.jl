@@ -299,16 +299,13 @@ end
 
 function make_back_references(nfa::NFA)
     backrefs = Dict(nfa.start => Set{NFANode}())
-    unvisited = Set([nfa.start])
     function add_backref(t, s)
         if !haskey(backrefs, t)
             backrefs[t] = Set{NFANode}()
-            push!(unvisited, t)
         end
         push!(backrefs[t], s)
     end
-    while !isempty(unvisited)
-        s = pop!(unvisited)
+    for s in traverse(nfa.start)
         for l in keys(s.trans.trans)
             T = s.trans[l]
             for t in T
