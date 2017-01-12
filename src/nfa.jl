@@ -254,18 +254,6 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
     return NFA(start, final)
 end
 
-function isdisjoint{T}(set1::Set{T}, set2::Set{T})
-    if length(set2) > length(set1)
-        set2, set1 = set1, set2
-    end
-    for x in set1
-        if x ∈ set2
-            return false
-        end
-    end
-    return true
-end
-
 function remove_dead_states(nfa::NFA)
     backrefs = make_back_references(nfa)
     alive = Set{NFANode}()
