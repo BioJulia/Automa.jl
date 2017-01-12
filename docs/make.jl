@@ -8,7 +8,7 @@ makedocs(
     pages=["index.md"])
 
 deploydocs(
-    repo="github.com/bicycle1885/Automa.jl.git",
+    repo="github.com/BioJulia/Automa.jl.git",
     julia="0.5",
     target="build",
     deps=nothing)
