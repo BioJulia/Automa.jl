@@ -58,6 +58,8 @@ function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}
                 $(eof_action_code)
                 cs = ns
             end
+        elseif cs < 0
+            p -= 1
         end
     end
 end
@@ -106,6 +108,8 @@ function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr
                 $(eof_action_code)
                 cs = ns
             end
+        elseif cs < 0
+            p -= 1
         end
     end
 end

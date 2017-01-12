@@ -88,6 +88,8 @@ function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,E
                 $(eof_action_code)
                 cs = ns
             end
+        elseif cs < 0
+            p -= 1
         end
         if t > 0 && (cs ≤ 0 || p > p_end ≥ 0)
             $(token_exit_code)
