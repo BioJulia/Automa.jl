@@ -11,4 +11,5 @@ deploydocs(
     repo="github.com/BioJulia/Automa.jl.git",
     julia="0.5",
     target="build",
-    deps=nothing)
+    deps=nothing,
+    make=nothing)
