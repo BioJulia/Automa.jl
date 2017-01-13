@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · Automa.jl</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.5.0/styles/default.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Ubuntu+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="assets/documenter.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="assets/documenter.js"></script><script src="../versions.js"></script></head><body><nav class="toc"><h1>Automa.jl</h1><form class="search" action="search.html"><select id="version-selector" onChange="window.location.href=this.value"><option value="#" selected="selected" disabled="disabled">Version</option></select><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li class="current"><a class="toctext" href="index.html">Home</a><ul class="internal"><li><a class="toctext" href="#Overview-1">Overview</a></li><li><a class="toctext" href="#Regular-expressions-1">Regular expressions</a></li><li><a class="toctext" href="#Compilers-1">Compilers</a></li><li><a class="toctext" href="#Code-generators-1">Code generators</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href="index.html">Home</a></li></ul><a class="edit-page" href="https://github.com/BioJulia/Automa.jl/tree/d1eeac13ed2ec1bed5f2bf0f9d348e08a1e8e1af/docs/src/index.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/></header><h1><a class="nav-anchor" id="Home-1" href="#Home-1">Home</a></h1><p>Automa.jl is a package for generating <a href="<https://en.wikipedia.org/wiki/Finite-state_machine>">finite-state machines (FSMs)</a> and <a href="<https://en.wikipedia.org/wiki/Lexical_analysis>">tokenizers</a> in Julia.</p><p>The following code is an example of tokenizing various kinds of numeric literals in Julia.</p><pre><code class="language-julia">import Automa
+import Automa.RegExp: @re_str
+const re = Automa.RegExp
+
+# Describe regular expression patterns.
+dec      = re&quot;[-+]?[0-9]+&quot;
+hex      = re&quot;0x[0-9A-Fa-f]+&quot;
+oct      = re&quot;0o[0-7]+&quot;
+prefloat = re&quot;[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)&quot;
+float    = prefloat | re.cat(prefloat | re&quot;[-+]?[0-9]+&quot;, re&quot;[eE][-+]?[0-9]+&quot;)
+number   = dec | hex | oct | float
+numbers  = re.cat(re.opt(number), re.rep(re&quot; +&quot; * number), re&quot; *&quot;)
+
+# Register action names to regular expressions.
+number.actions[:enter] = [:mark]
+int.actions[:exit]     = [:dec]
+hex.actions[:exit]     = [:hex]
+oct.actions[:exit]     = [:oct]
+float.actions[:exit]   = [:float]
+
+# Compile a finite-state machine.
+machine = Automa.compile(numbers)
+
+#= This generates a SVG file to visualize the state machine.
+write(&quot;numbers.dot&quot;, Automa.dfa2dot(machine.dfa))
+run(`dot -Tsvg -o numbers.svg numbers.dot`)
+=#
+
+# Bind an action code for each action name.
+actions = Dict(
+    :mark  =&gt; :(mark = p),
+    :dec   =&gt; :(emit(:dec)),
+    :hex   =&gt; :(emit(:hex)),
+    :oct   =&gt; :(emit(:oct)),
+    :float =&gt; :(emit(:float)),
+)
+
+# Generate a tokenizing function from the machine.
+@eval function tokenize(data::String)
+    tokens = Tuple{Symbol,String}[]
+    mark = 0
+    $(Automa.generate_init_code(machine))
+    p_end = p_eof = endof(data)
+    emit(kind) = push!(tokens, (kind, data[mark:p-1]))
+    $(Automa.generate_exec_code(machine, actions=actions))
+    return tokens, cs == 0 ? :ok : cs &lt; 0 ? :error : :incomplete
+end
+
+tokens, status = tokenize(&quot;1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23&quot;)</code></pre><p>Finally, space-separated numbers are tokenized as follows:</p><pre><code class="language-jlcon">julia&gt; tokens
+6-element Array{Tuple{Symbol,String},1}:
+ (:dec,&quot;1&quot;)
+ (:hex,&quot;0x0123BEEF&quot;)
+ (:oct,&quot;0o754&quot;)
+ (:float,&quot;3.14&quot;)
+ (:float,&quot;1e-4&quot;)
+ (:float,&quot;+6.022045e23&quot;)
+
+julia&gt; status
+:ok
+</code></pre><p><img src="../figure/numbers.png" alt/></p><h2><a class="nav-anchor" id="Overview-1" href="#Overview-1">Overview</a></h2><p>Automa.jl is composed of three elements: regular expressions, compilers, and code generators. Regular expressions are used to specify patterns that you want to match and bind actions to. A regular expression can be built using APIs provided from the <code>Automa.RegExp</code> module. The regular expression with actions is then fed to a compiler function that creates a finite state machine and optimizes it to minimize the number of states. Finally, the machine object is used to generate Julia code that can be spliced into functions.</p><p>Machines are byte-oriented in a sense that input data fed into a machine is a sequence of bytes. The generated code of a machine reads input data byte by byte and updates a current state variable based on transition rules defined by regular expressions. If one or more actions are associated to a state transition they will be executed before reading a next byte. If no transition rule is found for a byte of a specific state the machine sets the current state to an error value, stops executing, and breaks from a loop.</p><h2><a class="nav-anchor" id="Regular-expressions-1" href="#Regular-expressions-1">Regular expressions</a></h2><p>Regular expressions in Automa.jl is somewhat more restricted than usual regular expressions in Julia. Some features like lookahead or backreference are not provided. In Automa.jl, <code>re&quot;...&quot;</code> is used instead of <code>r&quot;...&quot;</code> because these are different regular expressions. However, the syntax of Automa.jl&#39;s regular expressions is a subset of Julia&#39;s ones and hence it would be already familiar. Some examples are shown below:</p><pre><code class="language-julia">decimal    = re&quot;[-+]?[0-9]+&quot;
+keyword    = re&quot;if|else|while|end&quot;
+identifier = re&quot;[A-Za-z_][0-9A-Za-z_]*&quot;</code></pre><p>An important feature of regular expressions is composition of (sub-) regular expressions. One or more regular expressions can be composed using following functions:</p><table><tr><th>Function</th><th>Alias</th><th>Meaning</th></tr><tr><td><code>cat(re...)</code></td><td><code>*</code></td><td>concatenation</td></tr><tr><td><code>alt(re1, re2...)</code></td><td><code>|</code></td><td>alternation</td></tr><tr><td><code>rep(re)</code></td><td></td><td>zero or more repetition</td></tr><tr><td><code>rep1(re)</code></td><td></td><td>one or more repetition</td></tr><tr><td><code>opt(re)</code></td><td></td><td>zero or one repetition</td></tr><tr><td><code>isec(re1, re2)</code></td><td><code>&amp;</code></td><td>intersection</td></tr><tr><td><code>diff(re1, re2)</code></td><td><code>\</code></td><td>difference (subtraction)</td></tr><tr><td><code>neg(re)</code></td><td><code>!</code></td><td>negation</td></tr></table><p>Actions can be bind to regular expressions. Currently, there are three kinds of actions: enter, exit, and final. Enter actions will be executed when it enters the regular expression. In contrast, exit actions will be executed when it exits from the regular expression. Final actions will be executed every time when it reaches a final (or accept) state. The following code and figure demonstrate transitions and actions between states.</p><pre><code class="language-julia">using Automa
+using Automa.RegExp
+const re = Automa.RegExp
+
+a = re&quot;a*&quot;
+b = re&quot;b&quot;
+ab = a * b
+
+a.actions[:enter] = [:enter_a]
+a.actions[:exit]  = [:exit_a]
+a.actions[:final] = [:final_a]
+b.actions[:enter] = [:enter_b]
+b.actions[:exit]  = [:exit_b]
+b.actions[:final] = [:final_b]</code></pre><p><img src="../figure/actions.png" alt/></p><h2><a class="nav-anchor" id="Compilers-1" href="#Compilers-1">Compilers</a></h2><p>After finished defining a regular expression with optional actions you can compile it into a finite-state machine using the <code>compile</code> function. The <code>Machine</code> type is defined as follows:</p><pre><code class="language-julia">type Machine
+    states::UnitRange{Int}
+    start_state::Int
+    final_states::Set{Int}
+    transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Symbol}}}}
+    eof_actions::Dict{Int,Vector{Symbol}}
+    dfa::DFA
+end</code></pre><p>For the purpose of debugging, Automa.jl offers the <code>execute</code> function, which emulates the machine execution and returns the last state with the action log. Let&#39;s execute a machine of <code>re&quot;a*b&quot;</code> with actions used in the previous example.</p><pre><code class="language-jlcon">julia&gt; machine = compile(ab)
+Automa.Machine(&lt;states=1:3,start_state=1,final_states=Set([0,2])&gt;)
+
+julia&gt; Automa.execute(machine, &quot;b&quot;)
+(2,Symbol[:enter_a,:exit_a,:enter_b,:final_b,:exit_b])
+
+julia&gt; Automa.execute(machine, &quot;ab&quot;)
+(2,Symbol[:enter_a,:final_a,:exit_a,:enter_b,:final_b,:exit_b])
+
+julia&gt; Automa.execute(machine, &quot;aab&quot;)
+(2,Symbol[:enter_a,:final_a,:final_a,:exit_a,:enter_b,:final_b,:exit_b])
+</code></pre><p>The <code>Tokenizer</code> type is also a useful tool built on top of <code>Machine</code>:</p><pre><code class="language-julia">type Tokenizer
+    machine::Machine
+    actions_code::Vector{Tuple{Symbol,Expr}}
+end</code></pre><p>A tokenizer can be created using the <code>compile</code> function as well but the argument types are different. When defining a tokenizer, <code>compile</code> takes a list of pattern and action pairs as follows:</p><pre><code class="language-julia">tokenizer = compile(
+    re&quot;if|else|while|end&quot;      =&gt; :(emit(:keyword)),
+    re&quot;[A-Za-z_][0-9A-Za-z_]*&quot; =&gt; :(emit(:identifier)),
+    re&quot;[0-9]+&quot;                 =&gt; :(emit(:decimal)),
+    re&quot;=&quot;                      =&gt; :(emit(:assign)),
+    re&quot;(&quot;                      =&gt; :(emit(:lparen)),
+    re&quot;)&quot;                      =&gt; :(emit(:rparen)),
+    re&quot;[-+*/]&quot;                 =&gt; :(emit(:operator)),
+    re&quot;[\n\t ]+&quot;               =&gt; :(),
+)</code></pre><p>A tokenizer tries to find the longest token that is available from the current reading position. When multiple patterns match a substring of the same length, higher priority token placed at a former position in the arguments list will be selected. For example, <code>&quot;else&quot;</code> matches both <code>:keyword</code> and <code>:identifier</code> but the <code>:keyword</code> action will be run because it is placed before <code>:identifier</code> in the arguments list.</p><h2><a class="nav-anchor" id="Code-generators-1" href="#Code-generators-1">Code generators</a></h2><p>Once a machine or a tokenizer is created it&#39;s ready to generate Julia code using metaprogramming techniques.  Here is an example to count the number of words in a string:</p><pre><code class="language-julia">using Automa
+using Automa.RegExp
+const re = Automa.RegExp
+
+word = re&quot;[A-Za-z]+&quot;
+words = re.cat(re.opt(word), re.rep(re&quot; +&quot; * word), re&quot; *&quot;)
+
+word.actions[:exit] = [:word]
+
+machine = compile(words)
+
+actions = Dict(:word =&gt; :(count += 1))
+
+# Generate a function using @eval.
+@eval function count_words(data)
+    # initialize a result variable
+    count = 0
+
+    # generate code to initialize variables used by FSM
+    $(generate_init_code(machine))
+
+    # set end and EOF positions of data buffer
+    p_end = p_eof = endof(data)
+
+    # generate code to execute FSM
+    $(generate_exec_code(machine, actions=actions))
+
+    # check if FSM properly finished
+    if cs != 0
+        error(&quot;failed to count words&quot;)
+    end
+
+    return count
+end</code></pre><p>This will work as we expect:</p><pre><code class="language-jlcon">julia&gt; count_words(&quot;&quot;)
+0
+
+julia&gt; count_words(&quot;The&quot;)
+1
+
+julia&gt; count_words(&quot;The quick&quot;)
+2
+
+julia&gt; count_words(&quot;The quick brown&quot;)
+3
+
+julia&gt; count_words(&quot;The quick brown fox&quot;)
+4
+
+julia&gt; count_words(&quot;A!&quot;)
+ERROR: failed to count words
+ in count_words(::String) at ./REPL[10]:16
+</code></pre><p>There are two functions that generate Julia and splice Julia code into a function. The first function is <code>generate_init_code</code>, which generates some code to declare and initialize local variables used by FSM.</p><pre><code class="language-jlcon">julia&gt; generate_init_code(machine)
+quote  # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 13:
+    p::Int = 1 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 14:
+    p_end::Int = 0 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 15:
+    p_eof::Int = -1 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 16:
+    cs::Int = 1
+end
+</code></pre><p>The input byte sequence is stored in the <code>data</code> variable, which, in this case, is passed as an argument. The variable <code>p</code> points at the next byte position in <code>data</code>. <code>p_end</code> points at the end position of data available in <code>data</code>. <code>p_eof</code> is similar to <code>p_end</code> but it points at the <em>actual</em> end of the input sequence. In the example above, <code>p_end</code> and <code>p_eof</code> are soon set to <code>sizeof(data)</code> because these two values can be determined immediately. <code>p_eof</code> would be undefined when <code>data</code> is too long to store in memory. In such a case, <code>p_eof</code> is set to a negative integer at the beginning and later set to a suitable position when the end of an input sequence is seen. The <code>cs</code> variable stores the current state of a machine.</p><p>The second function is <code>generate_exec_code</code>, which generates a loop to emulate the FSM by updating <code>cs</code> (current state) while reading bytes from <code>data</code>. You don&#39;t need to care about the details of generated code because it is often too complicated to read for human. In short, the generated code tries to read as many bytes as possible from <code>data</code> and stops when it reaches <code>p_end</code> or when it fails transition.</p><p>After finished execution, the value stored in <code>cs</code> indicates whether the execution successfully finished or not. <code>cs == 0</code> means the FSM read all data and finished successfully. <code>cs &lt; 0</code> means it failed somewhere. <code>cs &gt; 0</code> means it is still in the middle of execution and needs more input data if any. The following snippet is a pseudocode of the machine execution:</p><pre><code class="language-none"># start main loop
+while p ≤ p_end &amp;&amp; cs &gt; 0
+    l  = {{read a byte of `data` at position `p`}}
+    ns = {{next state of `cs` with label `l`}}
+    {{execute actions if any}}
+    cs = ns  # update the state variable
+    p += 1   # increment the position variable
+end
+
+if p_eof ≥ 0 &amp;&amp; p &gt; p_eof &amp;&amp; cs ∈ machine.final_states
+    let ns = 0
+        {{execute EOF actions if any}}
+        cs = ns
+    end
+elseif cs &lt; 0
+    p -= 1  # point at the last read byte
+end</code></pre><footer><hr/></footer></article></body></html>
