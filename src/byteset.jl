@@ -59,19 +59,19 @@ function Base.next(::ByteSet, abcd)
     a, b, c, d = abcd
     if a != 0
         byte = UInt8(trailing_zeros(a))
-        a $= UInt64(1) << byte
+        a = xor(a, UInt64(1) << byte)
         byte += 0x00
     elseif b != 0
         byte = UInt8(trailing_zeros(b))
-        b $= UInt64(1) << byte
+        b = xor(b, UInt64(1) << byte)
         byte += 0x40
     elseif c != 0
         byte = UInt8(trailing_zeros(c))
-        c $= UInt64(1) << byte
+        c = xor(c, UInt64(1) << byte)
         byte += 0x80
     else
         byte = UInt8(trailing_zeros(d))
-        d $= UInt64(1) << byte
+        d = xor(d, UInt64(1) << byte)
         byte += 0xc0
     end
     return byte, (a, b, c, d)

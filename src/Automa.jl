@@ -1,6 +1,6 @@
 module Automa
 
-import Compat: @compat
+import Compat: @compat, xor
 import DataStructures: DefaultDict
 
 include("byteset.jl")
