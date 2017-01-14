@@ -63,12 +63,11 @@ function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
     return generate_table_code(tokenizer, actions, true)
 end
 
-function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,Expr}, docheck::Bool)
+function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,Expr}, check::Bool)
     trans_table = generate_transition_table(tokenizer.machine)
     action_code = generate_table_action_code(tokenizer.machine, actions)
     eof_action_code = generate_eof_action_code(tokenizer.machine, actions)
-    check_code = generate_check_code(docheck)
-    getbyte_code = generate_geybyte_code()
+    getbyte_code = generate_geybyte_code(check)
     token_exit_code = generate_token_exit_code(tokenizer)
     ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
     @assert size(trans_table, 1) == 256
@@ -76,7 +75,6 @@ function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,E
         t = 0
         ts = 0
         while p ≤ p_end && cs > 0
-            $(check_code)
             $(getbyte_code)
             $(ns_code)
             $(action_code)

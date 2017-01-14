@@ -38,17 +38,15 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
     end
 end
 
-function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, docheck::Bool)
+function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
     trans_table = generate_transition_table(machine)
     action_code = generate_table_action_code(machine, actions)
     eof_action_code = generate_eof_action_code(machine, actions)
-    check_code = generate_check_code(docheck)
-    getbyte_code = generate_geybyte_code()
+    getbyte_code = generate_geybyte_code(check)
     ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
     @assert size(trans_table, 1) == 256
     return quote
         while p ≤ p_end && cs > 0
-            $(check_code)
             $(getbyte_code)
             $(ns_code)
             $(action_code)
@@ -92,14 +90,12 @@ function generate_table_action_code(machine::Machine, actions::Associative{Symbo
     end
 end
 
-function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, docheck::Bool)
+function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
     trans_code = generate_transition_code(machine, actions)
     eof_action_code = generate_eof_action_code(machine, actions)
-    check_code = generate_check_code(docheck)
-    getbyte_code = generate_geybyte_code()
+    getbyte_code = generate_geybyte_code(check)
     return quote
         while p ≤ p_end && cs > 0
-            $(check_code)
             $(getbyte_code)
             $(trans_code)
             cs = ns
@@ -140,7 +136,7 @@ function compact_transition{T}(trans::Dict{UInt8,T})
     return [(ByteSet(ls), t_as) for (t_as, ls) in revtrans]
 end
 
-function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr}, docheck::Bool)
+function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
     actions_in = Dict(s => Set{Vector{Symbol}}() for s in machine.states)
     for s in machine.states
         for (_, (t, as)) in machine.transitions[s]
@@ -185,8 +181,7 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
         end
         append_code!(block, quote
             @label $(Symbol("state_case_", s))
-            $(generate_check_code(docheck))
-            $(generate_geybyte_code())
+            $(generate_geybyte_code(check))
             $(dispatch_code)
         end)
         push!(blocks, block)
@@ -233,16 +228,19 @@ function generate_action_code(names::Vector{Symbol}, actions::Associative{Symbol
     return Expr(:block, (actions[n] for n in names)...)
 end
 
-function generate_check_code(docheck::Bool)
+function generate_geybyte_code(docheck::Bool)
+    block = Expr(:block)
     if docheck
-        return :(if !$(check)(data, p); throw(BoundsError(data, p)); end)
-    else
-        return :()
+        append_code!(block, quote
+            if !$(check)(data, p)
+                throw(BoundsError(data, p))
+            end
+        end)
     end
-end
-
-function generate_geybyte_code()
-    return :(l = $(getbyte)(data, p))
+    append_code!(block, quote
+        l = $(getbyte)(data, p)
+    end)
+    return block
 end
 
 function state_condition(s::Int)
