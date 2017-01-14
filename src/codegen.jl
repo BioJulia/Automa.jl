@@ -157,21 +157,22 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
 
     blocks = Expr[]
     for s in machine.states
-        actions_code = Expr(:block)
+        block = Expr(:block)
         for (names, label) in action_label[s]
-            push!(actions_code.args, quote
+            append_code!(block, quote
                 @label $(label)
                 $(rewrite_special_macros(generate_action_code(names, actions), false, Nullable(s)))
                 @goto $(Symbol("state_", s))
             end)
         end
-        next_code = quote
+        append_code!(block, quote
+            @label $(Symbol("state_", s))
             p += 1
             if p > p_end
                 cs = $(s)
                 @goto exit
             end
-        end
+        end)
         default = :(cs = $(-s); @goto exit)
         dispatch_code = foldr(default, compact_transition(machine.transitions[s])) do branch, els
             ls, (t, as) = branch
@@ -182,15 +183,12 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
             end
             return Expr(:if, label_condition(ls), goto_code, els)
         end
-        block = quote
-            $(actions_code)
-            @label $(Symbol("state_", s))
-            $(next_code)
+        append_code!(block, quote
             @label $(Symbol("state_case_", s))
             $(generate_check_code(docheck))
             $(generate_geybyte_code())
             $(dispatch_code)
-        end
+        end)
         push!(blocks, block)
     end
 
@@ -214,6 +212,13 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
             p -= 1
         end
     end
+end
+
+function append_code!(block::Expr, code::Expr)
+    @assert block.head == :block
+    @assert code.head == :block
+    append!(block.args, code.args)
+    return block
 end
 
 function generate_eof_action_code(machine::Machine, actions::Associative{Symbol,Expr})
