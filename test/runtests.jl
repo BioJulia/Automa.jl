@@ -43,6 +43,18 @@ module Test1
     end
     @test validate2(b"") == (true, [:enter_re, :exit_re])
     @test validate2(b"a") == (false, Symbol[])
+
+    # goto code
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:goto)
+    @eval function validate3(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate3(b"") == (true, [:enter_re, :exit_re])
+    @test validate3(b"a") == (false, Symbol[])
 end
 
 module Test2
@@ -100,6 +112,20 @@ module Test2
     @test validate2(b"a") == (false, [:enter_re,:enter_a,:final_a])
     @test validate2(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
     @test validate2(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
+
+    # goto code
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:goto)
+    @eval function validate3(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate3(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate3(b"a") == (false, [:enter_re,:enter_a,:final_a])
+    @test validate3(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate3(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
 end
 
 module Test3
@@ -154,6 +180,25 @@ module Test3
     @test validate2(b">") == false
     @test validate2(b">seq1\na") == false
     @test validate2(b">seq1\nac\ngt") == false
+
+    exec_code = Automa.generate_exec_code(machine, code=:goto)
+    @eval function validate3(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0
+    end
+    @test validate3(b"") == true
+    @test validate3(b">\naa\n") == true
+    @test validate3(b">seq1\n") == true
+    @test validate3(b">seq1\na\n") == true
+    @test validate3(b">seq1\nac\ngt\n") == true
+    @test validate3(b">seq1\r\nacgt\r\n") == true
+    @test validate3(b">seq1\nac\n>seq2\ngt\n") == true
+    @test validate3(b"a") == false
+    @test validate3(b">") == false
+    @test validate3(b">seq1\na") == false
+    @test validate3(b">seq1\nac\ngt") == false
 end
 
 module Test4
@@ -205,6 +250,24 @@ module Test4
     @test validate2(b"abbb") == true
     @test validate2(b"b") == false
     @test validate2(b"bab") == false
+
+    exec_code = Automa.generate_exec_code(machine, code=:goto)
+    @eval function validate3(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0
+    end
+    @test validate3(b"") == false
+    @test validate3(b"a") == false
+    @test validate3(b"aab") == true
+    @test validate3(b"ab") == true
+    @test validate3(b"aba") == false
+    @test validate3(b"abab") == true
+    @test validate3(b"abb") == true
+    @test validate3(b"abbb") == true
+    @test validate3(b"b") == false
+    @test validate3(b"bab") == false
 end
 
 module Test5
@@ -259,6 +322,24 @@ module Test5
     @test validate2(b"i") == (true, [:ident])
     @test validate2(b"iff") == (true, [:ident])
     @test validate2(b"1if") == (false, [])
+
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:goto)
+    @eval function validate3(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate3(b"if") == (true, [:keyword])
+    @test validate3(b"else") == (true, [:keyword])
+    @test validate3(b"end") == (true, [:keyword])
+    @test validate3(b"while") == (true, [:keyword])
+    @test validate3(b"e") == (true, [:ident])
+    @test validate3(b"eif") == (true, [:ident])
+    @test validate3(b"i") == (true, [:ident])
+    @test validate3(b"iff") == (true, [:ident])
+    @test validate3(b"1if") == (false, [])
 end
 
 module Test6
@@ -319,6 +400,24 @@ module Test6
     @test run2!(state, data) == [12:16]
     @test run2!(state, data) == []
     @test run2!(state, data) == []
+
+    @eval function run3!(state, data)
+        ret = []
+        p = state.p
+        cs = state.cs
+        p_end = p_eof = endof(data)
+        $(Automa.generate_exec_code(machine, actions=actions, code=:goto))
+        state.p = p
+        state.cs = cs
+        return ret
+    end
+    state = MachineState()
+    @test run3!(state, data) == [1:3]
+    @test run3!(state, data) == [5:7]
+    @test run3!(state, data) == [9:10]
+    @test run3!(state, data) == [12:16]
+    @test run3!(state, data) == []
+    @test run3!(state, data) == []
 end
 
 module Test7

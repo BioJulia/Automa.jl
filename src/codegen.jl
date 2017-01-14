@@ -31,6 +31,8 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
         return generate_table_code(machine, actions, check)
     elseif code == :inline
         return generate_inline_code(machine, actions, check)
+    elseif code == :goto
+        return generate_goto_code(machine, actions, check)
     else
         throw(ArgumentError("invalid code: $(code)"))
     end
@@ -138,6 +140,82 @@ function compact_transition{T}(trans::Dict{UInt8,T})
     return [(ByteSet(ls), t_as) for (t_as, ls) in revtrans]
 end
 
+function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr}, docheck::Bool)
+    actions_in = Dict(s => Set{Vector{Symbol}}() for s in machine.states)
+    for s in machine.states
+        for (_, (t, as)) in machine.transitions[s]
+            push!(actions_in[t], as)
+        end
+    end
+
+    action_label = Dict(s => Dict{Vector{Symbol},Symbol}() for s in machine.states)
+    for s in machine.states
+        for (i, as) in enumerate(actions_in[s])
+            action_label[s][as] = Symbol("state_", s, "_action_", i)
+        end
+    end
+
+    blocks = Expr[]
+    for s in machine.states
+        actions_code = Expr(:block)
+        for (names, label) in action_label[s]
+            push!(actions_code.args, quote
+                @label $(label)
+                $(rewrite_special_macros(generate_action_code(names, actions), false, Nullable(s)))
+                @goto $(Symbol("state_", s))
+            end)
+        end
+        next_code = quote
+            p += 1
+            if p > p_end
+                cs = $(s)
+                @goto exit
+            end
+        end
+        default = :(cs = $(-s); @goto exit)
+        dispatch_code = foldr(default, compact_transition(machine.transitions[s])) do branch, els
+            ls, (t, as) = branch
+            if isempty(as)
+                goto_code = :(@goto $(Symbol("state_", t)))
+            else
+                goto_code = :(@goto $(action_label[t][as]))
+            end
+            return Expr(:if, label_condition(ls), goto_code, els)
+        end
+        block = quote
+            $(actions_code)
+            @label $(Symbol("state_", s))
+            $(next_code)
+            @label $(Symbol("state_case_", s))
+            $(generate_check_code(docheck))
+            $(generate_geybyte_code())
+            $(dispatch_code)
+        end
+        push!(blocks, block)
+    end
+
+    enter_code = foldr(:(@goto exit), machine.states) do s, els
+        return Expr(:if, :(cs == $(s)), :(@goto $(Symbol("state_case_", s))), els)
+    end
+
+    eof_action_code = generate_eof_action_code(machine, actions)
+
+    return quote
+        if p > p_end
+            @goto exit
+        end
+        $(enter_code)
+        $(Expr(:block, blocks...))
+        @label exit
+        if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
+            $(eof_action_code)
+            cs = 0
+        elseif cs < 0
+            p -= 1
+        end
+    end
+end
+
 function generate_eof_action_code(machine::Machine, actions::Associative{Symbol,Expr})
     return foldr(:(), collect(machine.eof_actions)) do s_as, els
         s, as = s_as
@@ -185,12 +263,18 @@ function compact_labels(set::ByteSet)
     return labels′
 end
 
-function rewrite_special_macros(ex::Expr, eof_action::Bool)
+function rewrite_special_macros(ex::Expr, eof_action::Bool, ns::Nullable{Int}=Nullable{Int}())
     args = []
     for arg in ex.args
         if arg == :(@escape)
             if eof_action
                 # pass
+            elseif !isnull(ns)  # used by the goto code generator
+                push!(args, quote
+                    cs = $(get(ns))
+                    p += 1
+                    @goto exit
+                end)
             else
                 push!(args, quote
                     cs = ns
@@ -199,7 +283,7 @@ function rewrite_special_macros(ex::Expr, eof_action::Bool)
                 end)
             end
         elseif isa(arg, Expr)
-            push!(args, rewrite_special_macros(arg, eof_action))
+            push!(args, rewrite_special_macros(arg, eof_action, ns))
         else
             push!(args, arg)
         end
