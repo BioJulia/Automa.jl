@@ -16,7 +16,7 @@ function generate_init_code(machine::Machine)
     end
 end
 
-function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:table, check::Bool=true)
+function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:table, check::Bool=true, clean::Bool=false)
     if actions == nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
@@ -26,14 +26,21 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
     else
         throw(ArgumentError("invalid actions argument"))
     end
+
     if code == :table
-        return generate_table_code(machine, actions, check)
+        code = generate_table_code(machine, actions, check)
     elseif code == :inline
-        return generate_inline_code(machine, actions, check)
+        code = generate_inline_code(machine, actions, check)
     elseif code == :goto
-        return generate_goto_code(machine, actions, check)
+        code = generate_goto_code(machine, actions, check)
     else
         throw(ArgumentError("invalid code: $(code)"))
+    end
+
+    if clean
+        return cleanup(code)
+    else
+        return code
     end
 end
 
@@ -307,6 +314,24 @@ function rewrite_special_macros(ex::Expr, eof_action::Bool, cs::Nullable{Int}=Nu
             end
         elseif isa(arg, Expr)
             push!(args, rewrite_special_macros(arg, eof_action, cs))
+        else
+            push!(args, arg)
+        end
+    end
+    return Expr(ex.head, args...)
+end
+
+function cleanup(ex::Expr)
+    args = []
+    for arg in ex.args
+        if isa(arg, Expr)
+            if arg.head == :line
+                # pass
+            elseif ex.head == :block && arg.head == :block
+                append!(args, cleanup(arg).args)
+            else
+                push!(args, cleanup(arg))
+            end
         else
             push!(args, arg)
         end
