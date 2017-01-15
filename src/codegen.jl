@@ -6,7 +6,6 @@
 #   * `p_end::Int`: end position of data
 #   * `p_eof::Int`: end position of file stream
 #   * `cs::Int`: current state
-#   * `ns::Int`: next state
 
 function generate_init_code(machine::Machine)
     return quote
@@ -39,25 +38,24 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
 end
 
 function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
+    action_dispatch_code, action_table = generate_action_dispatch_code(machine, actions)
     trans_table = generate_transition_table(machine)
-    action_code = generate_table_action_code(machine, actions)
-    eof_action_code = generate_eof_action_code(machine, actions)
     getbyte_code = generate_geybyte_code(check)
-    ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
-    @assert size(trans_table, 1) == 256
+    act_code = :(act = $(action_table)[(cs - 1) << 8 + l + 1])
+    cs_code = :(cs = $(trans_table)[(cs - 1) << 8 + l + 1])
+    eof_action_code = generate_eof_action_code(machine, actions)
+    @assert size(action_table, 1) == size(trans_table, 1) == 256
     return quote
         while p ≤ p_end && cs > 0
             $(getbyte_code)
-            $(ns_code)
-            $(action_code)
-            cs = ns
+            $(act_code)
+            $(cs_code)
+            $(action_dispatch_code)
             p += 1
         end
         if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
-            let ns = 0
-                $(eof_action_code)
-                cs = ns
-            end
+            $(eof_action_code)
+            cs = 0
         elseif cs < 0
             p -= 1
         end
@@ -77,17 +75,25 @@ function generate_transition_table(machine::Machine)
     return trans_table
 end
 
-function generate_table_action_code(machine::Machine, actions::Associative{Symbol,Expr})
-    default = :()
-    return foldr(default, collect(machine.transitions)) do s_trans, els
-        s, trans = s_trans
-        then = foldr(default, compact_transition(trans)) do branch, els′
-            l, (t, as) = branch
-            action_code = rewrite_special_macros(generate_action_code(as, actions), false)
-            Expr(:if, label_condition(l), action_code, els′)
+function generate_action_dispatch_code(machine::Machine, actions::Associative{Symbol,Expr})
+    action_table = Matrix{Int}(256, length(machine.states))
+    fill!(action_table, 0)
+    action_ids = Dict{Vector{Symbol},Int}()
+    for s in machine.states
+        for (l, (t, as)) in machine.transitions[s]
+            if !haskey(action_ids, as)
+                action_ids[as] = length(action_ids) + 1
+            end
+            action_table[l+1,s] = action_ids[as]
         end
-        Expr(:if, state_condition(s), then, els)
     end
+    default = :()
+    action_dispatch_code = foldr(default, collect(action_ids)) do as_id, els
+        as, id = as_id
+        action_code = rewrite_special_macros(generate_action_code(as, actions), false)
+        return Expr(:if, :(act == $(id)), action_code, els)
+    end
+    return action_dispatch_code, action_table
 end
 
 function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
@@ -98,14 +104,11 @@ function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr
         while p ≤ p_end && cs > 0
             $(getbyte_code)
             $(trans_code)
-            cs = ns
             p += 1
         end
         if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
-            let ns = 0
-                $(eof_action_code)
-                cs = ns
-            end
+            $(eof_action_code)
+            cs = 0
         elseif cs < 0
             p -= 1
         end
@@ -113,13 +116,13 @@ function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr
 end
 
 function generate_transition_code(machine::Machine, actions::Associative{Symbol,Expr})
-    default = :(ns = -cs)
+    default = :(cs = -cs)
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
         then = foldr(default, compact_transition(trans)) do branch, els′
             l, (t, as) = branch
             action_code = rewrite_special_macros(generate_action_code(as, actions), false)
-            Expr(:if, label_condition(l), :(ns = $(t); $(action_code)), els′)
+            Expr(:if, label_condition(l), :(cs = $(t); $(action_code)), els′)
         end
         Expr(:if, state_condition(s), then, els)
     end
@@ -137,16 +140,10 @@ function compact_transition{T}(trans::Dict{UInt8,T})
 end
 
 function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
-    actions_in = Dict(s => Set{Vector{Symbol}}() for s in machine.states)
-    for s in machine.states
-        for (_, (t, as)) in machine.transitions[s]
-            push!(actions_in[t], as)
-        end
-    end
-
+    actions_in = make_actions_in(machine)
     action_label = Dict(s => Dict{Vector{Symbol},Symbol}() for s in machine.states)
     for s in machine.states
-        for (i, as) in enumerate(actions_in[s])
+        for (i, as) in enumerate(keys(actions_in[s]))
             action_label[s][as] = Symbol("state_", s, "_action_", i)
         end
     end
@@ -191,7 +188,7 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
         return Expr(:if, :(cs == $(s)), :(@goto $(Symbol("state_case_", s))), els)
     end
 
-    eof_action_code = generate_eof_action_code(machine, actions)
+    eof_action_code = rewrite_special_macros(generate_eof_action_code(machine, actions), true)
 
     return quote
         if p > p_end
@@ -266,27 +263,40 @@ function compact_labels(set::ByteSet)
     return labels′
 end
 
-function rewrite_special_macros(ex::Expr, eof_action::Bool, ns::Nullable{Int}=Nullable{Int}())
+function make_actions_in(machine::Machine)
+    actions_in = Dict(t => Dict{Vector{Symbol},Set{UInt8}}() for t in machine.states)
+    for s in machine.states
+        for (l, (t, as)) in machine.transitions[s]
+            #push!(actions_in[t], as)
+            if !haskey(actions_in[t], as)
+                actions_in[t][as] = Set{UInt8}()
+            end
+            push!(actions_in[t][as], l)
+        end
+    end
+    return actions_in
+end
+
+function rewrite_special_macros(ex::Expr, eof_action::Bool, cs::Nullable{Int}=Nullable{Int}())
     args = []
     for arg in ex.args
         if arg == :(@escape)
             if eof_action
                 # pass
-            elseif !isnull(ns)  # used by the goto code generator
+            elseif !isnull(cs)  # used by the goto code generator
                 push!(args, quote
-                    cs = $(get(ns))
+                    cs = $(get(cs))
                     p += 1
                     @goto exit
                 end)
             else
                 push!(args, quote
-                    cs = ns
                     p += 1
                     break
                 end)
             end
         elseif isa(arg, Expr)
-            push!(args, rewrite_special_macros(arg, eof_action, ns))
+            push!(args, rewrite_special_macros(arg, eof_action, cs))
         else
             push!(args, arg)
         end

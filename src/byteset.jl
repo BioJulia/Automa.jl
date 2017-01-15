@@ -8,7 +8,7 @@ immutable ByteSet
     d::UInt64
 end
 
-function ByteSet(bytes::AbstractVector{UInt8})
+function ByteSet(bytes::Union{AbstractVector{UInt8},Set{UInt8}})
     a = b = c = d = UInt64(0)
     for byte in bytes
         if byte < 0x40

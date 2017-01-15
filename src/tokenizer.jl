@@ -64,28 +64,27 @@ function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
 end
 
 function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,Expr}, check::Bool)
+    action_dispatch_code, action_table = generate_action_dispatch_code(tokenizer.machine, actions)
     trans_table = generate_transition_table(tokenizer.machine)
-    action_code = generate_table_action_code(tokenizer.machine, actions)
-    eof_action_code = generate_eof_action_code(tokenizer.machine, actions)
     getbyte_code = generate_geybyte_code(check)
+    act_code = :(act = $(action_table)[(cs - 1) << 8 + l + 1])
+    cs_code = :(cs = $(trans_table)[(cs - 1) << 8 + l + 1])
+    eof_action_code = generate_eof_action_code(tokenizer.machine, actions)
     token_exit_code = generate_token_exit_code(tokenizer)
-    ns_code = :(ns = $(trans_table)[(cs - 1) << 8 + l + 1])
-    @assert size(trans_table, 1) == 256
+    @assert size(action_table, 1) == size(trans_table, 1) == 256
     return quote
         t = 0
         ts = 0
         while p ≤ p_end && cs > 0
             $(getbyte_code)
-            $(ns_code)
-            $(action_code)
-            cs = ns
+            $(act_code)
+            $(cs_code)
+            $(action_dispatch_code)
             p += 1
         end
         if p > p_eof ≥ 0 && cs ∈ $(tokenizer.machine.final_states)
-            let ns = 0
-                $(eof_action_code)
-                cs = ns
-            end
+            $(eof_action_code)
+            cs = 0
         elseif cs < 0
             p -= 1
         end
