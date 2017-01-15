@@ -271,18 +271,19 @@ After finished execution, the value stored in `cs` indicates whether the executi
 ```
 # start main loop
 while p ≤ p_end && cs > 0
-    l  = {{read a byte of `data` at position `p`}}
-    ns = {{next state of `cs` with label `l`}}
-    {{execute actions if any}}
-    cs = ns  # update the state variable
-    p += 1   # increment the position variable
+    l = {{ read a byte of `data` at position `p` }}
+    if {{ transferable from `cs` with `l` }}
+        cs = {{ next state of `cs` with `l` }}
+        {{ execute actions if any }}
+    else
+        cs = -cs
+    end
+    p += 1  # increment the position variable
 end
 
 if p_eof ≥ 0 && p > p_eof && cs ∈ machine.final_states
-    let ns = 0
-        {{execute EOF actions if any}}
-        cs = ns
-    end
+    {{ execute EOF actions if any }}
+    cs = 0
 elseif cs < 0
     p -= 1  # point at the last read byte
 end
