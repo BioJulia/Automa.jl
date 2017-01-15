@@ -81,7 +81,9 @@ function generate_action_dispatch_code(machine::Machine, actions::Associative{Sy
     action_ids = Dict{Vector{Symbol},Int}()
     for s in machine.states
         for (l, (t, as)) in machine.transitions[s]
-            if !haskey(action_ids, as)
+            if isempty(as)
+                continue
+            elseif !haskey(action_ids, as)
                 action_ids[as] = length(action_ids) + 1
             end
             action_table[l+1,s] = action_ids[as]
@@ -121,10 +123,15 @@ function generate_transition_code(machine::Machine, actions::Associative{Symbol,
         s, trans = s_trans
         then = foldr(default, compact_transition(trans)) do branch, els′
             l, (t, as) = branch
-            action_code = rewrite_special_macros(generate_action_code(as, actions), false)
-            Expr(:if, label_condition(l), :(cs = $(t); $(action_code)), els′)
+            if isempty(as)
+                then′ = :(cs = $(t))
+            else
+                action_code = rewrite_special_macros(generate_action_code(as, actions), false)
+                then′ = :(cs = $(t); $(action_code))
+            end
+            return Expr(:if, label_condition(l), then′, els′)
         end
-        Expr(:if, state_condition(s), then, els)
+        return Expr(:if, state_condition(s), then, els)
     end
 end
 
@@ -152,6 +159,9 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
     for s in machine.states
         block = Expr(:block)
         for (names, label) in action_label[s]
+            if isempty(names)
+                continue
+            end
             append_code!(block, quote
                 @label $(label)
                 $(rewrite_special_macros(generate_action_code(names, actions), false, Nullable(s)))
