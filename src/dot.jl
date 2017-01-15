@@ -87,11 +87,22 @@ function label2str(label)
         label = compact_labels(label)
         ss = []
         for range in label
-            s = label2str(first(range))
-            if length(range) ≥ 2
-                s = string(s, ':', label2str(last(range)))
+            s = first(range)
+            if s ≤ 0x7f
+                s = repr(Char(s))
+            else
+                s = repr(s)
             end
-            push!(ss, s)
+            if length(range) ≥ 2
+                t = last(range)
+                if t ≤ 0x7f
+                    t = repr(Char(t))
+                else
+                    t = repr(t)
+                end
+                s = string(s, ':', t)
+            end
+            push!(ss, escape_string(s))
         end
         return join(ss, ',')
     else
