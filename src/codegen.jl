@@ -48,8 +48,8 @@ function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}
     action_dispatch_code, action_table = generate_action_dispatch_code(machine, actions)
     trans_table = generate_transition_table(machine)
     getbyte_code = generate_geybyte_code(check)
-    act_code = :(act = $(action_table)[(cs - 1) << 8 + l + 1])
-    cs_code = :(cs = $(trans_table)[(cs - 1) << 8 + l + 1])
+    act_code = :(@inbounds act = $(action_table)[(cs - 1) << 8 + l + 1])
+    cs_code = :(@inbounds cs = $(trans_table)[(cs - 1) << 8 + l + 1])
     eof_action_code = generate_eof_action_code(machine, actions)
     @assert size(action_table, 1) == size(trans_table, 1) == 256
     return quote
