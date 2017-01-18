@@ -72,7 +72,7 @@ julia> status
 
 ```
 
-![](../figure/numbers.png)
+![](figure/numbers.png)
 
 
 Overview
@@ -126,7 +126,7 @@ b.actions[:exit]  = [:exit_b]
 b.actions[:final] = [:final_b]
 ```
 
-![](../figure/actions.png)
+![](figure/actions.png)
 
 Compilers
 ---------
