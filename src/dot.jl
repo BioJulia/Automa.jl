@@ -84,30 +84,46 @@ function label2str(label)
     elseif label == :eof
         return "EOF"
     elseif isa(label, ByteSet)
-        label = compact_labels(label)
-        ss = []
-        for range in label
-            s = first(range)
-            if s ≤ 0x7f
-                s = repr(Char(s))
-            else
-                s = repr(s)
-            end
-            if length(range) ≥ 2
-                t = last(range)
-                if t ≤ 0x7f
-                    t = repr(Char(t))
+        if length(label) == 1
+            return escape_string(byte2str(first(label), false))
+        else
+            @assert length(label) != 0
+            ss = []
+            hyphen = false
+            for r in compact_labels(label)
+                if length(r) == 1
+                    if first(r) == UInt8('-')
+                        hyphen = true
+                    else
+                        push!(ss, byte2str(first(r), true))
+                    end
                 else
-                    t = repr(t)
+                    push!(ss, byte2str(first(r), true), '-', byte2str(last(r), true))
                 end
-                s = string(s, ':', t)
             end
-            push!(ss, escape_string(s))
+            if hyphen
+                # put hyphen first
+                unshift!(ss, byte2str(UInt8('-'), true))
+            end
+            return escape_string(string('[', join(ss), ']'))
         end
-        return join(ss, ',')
     else
         return escape_string(repr(label))
     end
+end
+
+function byte2str(b::UInt8, unquote::Bool)
+    if b == UInt8(']')
+        s = "'\\]'"
+    elseif b ≤ 0x7f
+        s = repr(Char(b))
+    else
+        s = @sprintf("'\\x%x'", b)
+    end
+    if unquote
+        s = s[2:end-1]
+    end
+    return s
 end
 
 function actions2str(actions)
