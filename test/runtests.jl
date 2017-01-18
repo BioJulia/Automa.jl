@@ -609,8 +609,10 @@ end
 module TestFASTA
     include("../example/fasta.jl")
     using Base.Test
-    @test seqs["foo"] == FASTARecord("", b"ACGT\nACGT\n")
-    @test seqs["bar"] == FASTARecord("some description", b"ACGTACGT\n")
+    @test records[1].identifier == "NP_003172.1"
+    @test records[1].description == "brachyury protein isoform 1 [Homo sapiens]"
+    @test records[1].sequence[1:5] == b"MSSPG"
+    @test records[1].sequence[end-4:end] == b"SPPSM"
 end
 
 module TestNumbers

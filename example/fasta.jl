@@ -1,68 +1,90 @@
+# A simple and practical FASTA file parser
+# ========================================
+
 import Automa
 import Automa.RegExp: @re_str
+import Compat: take!
 const re = Automa.RegExp
 
-# Describe a pattern in regular expression.
-newline     = re"\r?\n"
-identifier  = re"[!-~]*"
-description = re"[!-~][ -~]*"
-header      = re.cat(identifier, re.opt(re.cat(re" ", description)))
-sequence    = re.rep(re.cat(re"[!-~]*", newline))
-fasta       = re.rep(re.cat(re">", header, newline, sequence))
+# Create a machine of FASTA.
+fasta_machine = (function ()
+    # First, describe FASTA patterns in regular expression.
+    lf          = re"\n"
+    newline     = re"\r?" * lf
+    identifier  = re"[!-~]*"
+    description = re"[!-~][ -~]*"
+    letters     = re"[A-Za-z*-]*"
+    sequence    = re.cat(letters, re.rep(newline * letters))
+    record      = re.cat('>', identifier, re.opt(re" " * description), newline, sequence)
+    fasta       = re.rep(record)
 
-# Register actions.
-newline.actions[:enter]     = [:newline]
-identifier.actions[:enter]  = [:mark]
-identifier.actions[:exit]   = [:identifier]
-description.actions[:enter] = [:mark]
-description.actions[:exit]  = [:description]
-sequence.actions[:enter]    = [:mark]
-sequence.actions[:exit]     = [:sequence]
+    # Second, bind action names to each regular expression.
+    lf.actions[:enter]          = [:count_line]
+    identifier.actions[:enter]  = [:mark]
+    identifier.actions[:exit]   = [:identifier]
+    description.actions[:enter] = [:mark]
+    description.actions[:exit]  = [:description]
+    letters.actions[:enter]     = [:mark]
+    letters.actions[:exit]      = [:letters]
+    record.actions[:exit]       = [:record]
 
-# Compile a machine with actions.
-actions = Dict(
-    :newline     => :(linenum += 1),
+    # Finally, compile the final FASTA pattern into a state machine.
+    return Automa.compile(fasta)
+end)()
+
+# It is useful to visualize the state machine for debugging.
+# write("fasta.dot", Automa.dfa2dot(fasta_machine.dfa))
+# run(`dot -Tsvg -o fasta.svg fasta.dot`)
+
+# Bind Julia code to each action name (see the `parse_fasta` function defined below).
+fasta_actions = Dict(
+    :count_line  => :(linenum += 1),
     :mark        => :(mark = p),
-    :identifier  => :(identifier = String(data[mark:p-1])),
-    :description => :(description = String(data[mark:p-1])),
-    :sequence    => quote
-        seqs[identifier] = FASTARecord(description, data[mark:p-1])
-        identifier = ""
-        description = ""
-    end
-)
-machine = Automa.compile(fasta)
+    :identifier  => :(identifier = mark == 0 ? "" : String(data[mark:p-1]); mark = 0),
+    :description => :(description = mark == 0 ? "" : String(data[mark:p-1]); mark = 0),
+    :letters     => :(mark > 0 && unsafe_write(buffer, pointer(data, mark), p - mark); mark = 0),
+    :record      => :(push!(records, FASTARecord(identifier, description, take!(buffer)))))
 
+# Define a type to store a FASTA record.
 type FASTARecord
+    identifier::String
     description::String
     sequence::Vector{UInt8}
 end
 
-function Base.:(==)(r1::FASTARecord, r2::FASTARecord)
-    return r1.description == r2.description && r1.sequence == r2.sequence
-end
-
-# Generate a function to run the machine.
-@eval function parse_fasta(data::Vector{UInt8})
-    seqs = Dict{String,FASTARecord}()
-    identifier = ""
-    description = ""
+# Generate a parser function from `fasta_machine` and `fasta_actions`.
+@eval function parse_fasta(data::Union{String,Vector{UInt8}})
+    # Initialize variables you use in the action code.
+    records = FASTARecord[]
     mark = 0
     linenum = 1
-    $(Automa.generate_init_code(machine))
+    identifier = description = ""
+    buffer = IOBuffer()
+
+    # Initialize variables used by the state machine.
+    $(Automa.generate_init_code(fasta_machine))
     p_end = p_eof = endof(data)
-    $(Automa.generate_exec_code(machine, actions=actions))
+
+    # This is the main loop to iterate over the input data.
+    $(Automa.generate_exec_code(fasta_machine, actions=fasta_actions, code=:goto, check=false))
+
+    # Check the last state the machine reached.
     if cs != 0
-        error("failed to parse at line ", linenum)
+        error("failed to parse on line ", linenum)
     end
-    return seqs
+
+    # Finally, return records accumulated in the action code.
+    return records
 end
 
-# Run the machine.
-seqs = parse_fasta(b"""
->foo
-ACGT
-ACGT
->bar some description
-ACGTACGT
+# Run the FASTA parser.
+records = parse_fasta("""
+>NP_003172.1 brachyury protein isoform 1 [Homo sapiens]
+MSSPGTESAGKSLQYRVDHLLSAVENELQAGSEKGDPTERELRVGLEESELWLRFKELTNEMIVTKNGRR
+MFPVLKVNVSGLDPNAMYSFLLDFVAADNHRWKYVNGEWVPGGKPEPQAPSCVYIHPDSPNFGAHWMKAP
+VSFSKVKLTNKLNGGGQIMLNSLHKYEPRIHIVRVGGPQRMITSHCFPETQFIAVTAYQNEEITALKIKY
+NPFAKAFLDAKERSDHKEMMEEPGDSQQPGYSQWGWLLPGTSTLCPPANPHPQFGGALSLPSTHSCDRYP
+TLRSHRSSPYPSPYAHRNNSPTYSDNSPACLSMLQSHDNWSSLGMPAHPSMLPVSHNASPPTSSSQYPSL
+WSVSNGAVTPGSQAAAVSNGLGAQFFRGSPAHYTPLTHPVSAPSSSGSPLYEGAAAATDIVDSQYDAAAQ
+GRLIASWTPVSPPSM
 """)
