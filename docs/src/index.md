@@ -110,9 +110,8 @@ An important feature of regular expressions is composition of (sub-) regular exp
 Actions can be bind to regular expressions. Currently, there are three kinds of actions: enter, exit, and final. Enter actions will be executed when it enters the regular expression. In contrast, exit actions will be executed when it exits from the regular expression. Final actions will be executed every time when it reaches a final (or accept) state. The following code and figure demonstrate transitions and actions between states.
 
 ```julia
-using Automa
-using Automa.RegExp
-const re = Automa.RegExp
+import Automa
+import Automa.RegExp: @re_str
 
 a = re"a*"
 b = re"b"
@@ -146,7 +145,7 @@ end
 
 For the purpose of debugging, Automa.jl offers the `execute` function, which emulates the machine execution and returns the last state with the action log. Let's execute a machine of `re"a*b"` with actions used in the previous example.
 ```jlcon
-julia> machine = compile(ab)
+julia> machine = Automa.compile(ab)
 Automa.Machine(<states=1:3,start_state=1,final_states=Set([0,2])>)
 
 julia> Automa.execute(machine, "b")
@@ -171,7 +170,7 @@ end
 
 A tokenizer can be created using the `compile` function as well but the argument types are different. When defining a tokenizer, `compile` takes a list of pattern and action pairs as follows:
 ```julia
-tokenizer = compile(
+tokenizer = Automa.compile(
     re"if|else|while|end"      => :(emit(:keyword)),
     re"[A-Za-z_][0-9A-Za-z_]*" => :(emit(:identifier)),
     re"[0-9]+"                 => :(emit(:decimal)),
@@ -191,8 +190,8 @@ Code generators
 Once a machine or a tokenizer is created it's ready to generate Julia code using metaprogramming techniques. 
 Here is an example to count the number of words in a string:
 ```julia
-using Automa
-using Automa.RegExp
+import Automa
+import Automa.RegExp: @re_str
 const re = Automa.RegExp
 
 word = re"[A-Za-z]+"
@@ -200,7 +199,7 @@ words = re.cat(re.opt(word), re.rep(re" +" * word), re" *")
 
 word.actions[:exit] = [:word]
 
-machine = compile(words)
+machine = Automa.compile(words)
 
 actions = Dict(:word => :(count += 1))
 
@@ -210,13 +209,13 @@ actions = Dict(:word => :(count += 1))
     count = 0
 
     # generate code to initialize variables used by FSM
-    $(generate_init_code(machine))
+    $(Automa.generate_init_code(machine))
 
     # set end and EOF positions of data buffer
     p_end = p_eof = endof(data)
 
     # generate code to execute FSM
-    $(generate_exec_code(machine, actions=actions))
+    $(Automa.generate_exec_code(machine, actions=actions))
 
     # check if FSM properly finished
     if cs != 0
@@ -252,7 +251,7 @@ ERROR: failed to count words
 
 There are two functions that generate Julia and splice Julia code into a function. The first function is `generate_init_code`, which generates some code to declare and initialize local variables used by FSM.
 ```jlcon
-julia> generate_init_code(machine)
+julia> Automa.generate_init_code(machine)
 quote  # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 13:
     p::Int = 1 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 14:
     p_end::Int = 0 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 15:
@@ -288,3 +287,5 @@ elseif cs < 0
     p -= 1  # point at the last read byte
 end
 ```
+
+Automa.jl has three kinds of code generators. The first and default one uses two lookup tables to pick up the next state and the actions for the current state and input. The second one expands these lookup tables into a series of if-else branches. The third one is based on `@goto` jumps. These three code generators are named as `:table`, `:inline`, and `:goto`, respectively. To sepcify a code generator, you can pass the `code=:table|:inline|:goto` argument to `Automa.generate_exec_code`. The generated code size and its runtime speed highly depends on the machine and actions. However, as a rule of thumb, the code size and the runtime speed follow this order (i.e. `:table` will generates the smallest but the slowest code while `:goto` will the largest but the fastest). Also, specifying `check=false` turns off bounds checking while executing and often improves the runtime performance slightly.
