@@ -35,6 +35,9 @@ function nfa2dfa(nfa::NFA)
             end
             actions = Set{Action}()
             for s in S
+                if !haskey(s.trans, l)
+                    continue
+                end
                 T′ = s.trans[l]
                 for t in T′
                     union!(actions, s.actions[(l, t)])
