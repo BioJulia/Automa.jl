@@ -122,7 +122,7 @@ function reduce_states(dfa::DFA)
     new_dfanode(s) = DFANode(Dict(), Set{Action}(), s.final, Set{NFANode}())
     start = new_dfanode(dfa.start)
     S_start = equivalent(dfa.start)
-    dfanodes = Dict([S_start => start])
+    dfanodes = Dict(S_start => start)
     unvisited = [(S_start, start)]
     while !isempty(unvisited)
         S, s′ = pop!(unvisited)
