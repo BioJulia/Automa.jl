@@ -262,6 +262,67 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
     return NFA(start, final)
 end
 
+function reduce_states(nfa::NFA)
+    return nfa
+    #=
+    backrefs = make_back_references(nfa)
+    newnodes = Dict{NFANode,NFANode}()
+    for s in traverse(nfa.start)
+        keys = bytekeys(s.trans)
+        if isempty(keys) && length(s.trans[:eps]) == 1 && isempty(s.actions[(:eps, first(s.trans[:eps]))])
+            print('.')
+        else
+            print('x')
+        end
+        if false && isempty(keys) && length(s.trans[:eps]) == 1 && isempty(s.actions[(:eps, first(s.trans[:eps]))])
+            # deterministic epsilon transition with no actions
+            t = first(s.trans[:eps])
+            if !haskey(newnodes, t)
+                newnodes[t] = NFANode()
+            end
+            t′ = newnodes[t]
+            for r in backrefs[s]
+                # r -> s -> t
+                if !haskey(newnodes, r)
+                    newnodes[r] = NFANode()
+                end
+                r′ = newnodes[r]
+                for l in bytekeys(r.trans)
+                    if s ∈ r.trans[l]
+                        addtrans!(r′, (l, t′), r.actions[(l, s)])
+                    end
+                end
+                if s ∈ r.trans[:eps]
+                    addtrans!(r′, (:eps, t′), r.actions[(:eps, s)])
+                end
+            end
+        else
+            if !haskey(newnodes, s)
+                newnodes[s] = NFANode()
+            end
+            s′ = newnodes[s]
+            for l in keys
+                for t in s.trans[l]
+                    if !haskey(newnodes, t)
+                        newnodes[t] = NFANode()
+                    end
+                    t′ = newnodes[t]
+                    addtrans!(s′, (l, t′), s.actions[(l, t)])
+                end
+            end
+            for t in s.trans[:eps]
+                if !haskey(newnodes, t)
+                    newnodes[t] = NFANode()
+                end
+                t′ = newnodes[t]
+                addtrans!(s′, (:eps, t′), s.actions[(:eps, t)])
+            end
+        end
+    end
+    return NFA(newnodes[nfa.start], newnodes[nfa.final])
+    =#
+end
+
 function remove_dead_states(nfa::NFA)
     backrefs = make_back_references(nfa)
     alive = Set{NFANode}()

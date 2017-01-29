@@ -15,7 +15,7 @@ function Base.show(io::IO, machine::Machine)
 end
 
 function compile(re::RegExp.RE; optimize::Bool=true)
-    dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
+    dfa = nfa2dfa(reduce_states(remove_dead_states(re2nfa(re))))
     if optimize
         dfa = remove_dead_states(reduce_states(dfa))
     end
