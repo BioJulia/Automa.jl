@@ -39,6 +39,10 @@ function NFATransition()
     return NFATransition(trans, trans_eps)
 end
 
+function bytekeys(trans::NFATransition)
+    return keys(trans.trans)
+end
+
 function Base.haskey(trans::NFATransition, label::UInt8)
     return haskey(trans.trans, label)
 end

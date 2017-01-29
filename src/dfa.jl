@@ -25,7 +25,7 @@ function nfa2dfa(nfa::NFA)
     while !isempty(unvisited)
         S = pop!(unvisited)
         S_actions = accumulate_actions(S)
-        for l in 0x00:0xff
+        for l in keyrange(S)
             T = epsilon_closure(move(S, l))
             if isempty(T)
                 continue
@@ -50,6 +50,18 @@ function nfa2dfa(nfa::NFA)
         end
     end
     return DFA(start)
+end
+
+function keyrange(S::Set{NFANode})
+    lo = 0xff
+    hi = 0x00
+    for s in S
+        for l in bytekeys(s.trans)
+            lo = min(l, lo)
+            hi = max(l, hi)
+        end
+    end
+    return lo:hi
 end
 
 function move(S::Set{NFANode}, label::UInt8)
