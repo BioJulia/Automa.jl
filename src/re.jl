@@ -50,7 +50,7 @@ function primitive(str::String)
 end
 
 function primitive(bs::Vector{UInt8})
-    return RE(:bytes, [bs])
+    return RE(:bytes, copy(bs))
 end
 
 function primitive(x::Primitive, actions)
@@ -325,9 +325,9 @@ function expand(re::RE)
             return expand(primitive(string(char), re.actions))
         end
     elseif re.head == :str
-        return expand(primitive(convert(Vector{UInt8}, re.args[1]), re.actions))
+        return RE(:bytes, convert(Vector{UInt8}, re.args[1]), re.actions)
     elseif re.head == :bytes
-        return RE(:cat, [primitive(ByteSet([b])) for b in re.args[1]], re.actions)
+        return re
     else
         @assert re.head ∉ PRIMITIVE
         return RE(re.head, [expand(arg) for arg in re.args], re.actions)

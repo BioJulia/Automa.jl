@@ -162,6 +162,18 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         for b in re.args[1]
             addtrans!(start, b => final)
         end
+    elseif re.head == :bytes
+        if isempty(re.args)
+            addtrans!(start, :eps => final)
+        else
+            node = start
+            for b::UInt8 in re.args
+                next = NFANode()
+                addtrans!(node, b => next)
+                node = next
+            end
+            final = node
+        end
     elseif re.head == :cat
         lastnfa = NFA(start, final)
         addtrans!(start, :eps => final)
