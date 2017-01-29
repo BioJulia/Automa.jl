@@ -39,6 +39,14 @@ function NFATransition()
     return NFATransition(trans, trans_eps)
 end
 
+function bytekeys(trans::NFATransition)
+    return keys(trans.trans)
+end
+
+function Base.haskey(trans::NFATransition, label::UInt8)
+    return haskey(trans.trans, label)
+end
+
 function Base.getindex(trans::NFATransition, label::UInt8)
     return trans.trans[label]
 end
@@ -153,6 +161,18 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         check_arity(n -> n == 1)
         for b in re.args[1]
             addtrans!(start, b => final)
+        end
+    elseif re.head == :bytes
+        if isempty(re.args)
+            addtrans!(start, :eps => final)
+        else
+            node = start
+            for b::UInt8 in re.args
+                next = NFANode()
+                addtrans!(node, b => next)
+                node = next
+            end
+            final = node
         end
     elseif re.head == :cat
         lastnfa = NFA(start, final)

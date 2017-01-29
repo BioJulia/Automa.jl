@@ -21,11 +21,11 @@ function nfa2dfa(nfa::NFA)
     S = epsilon_closure(Set([nfa.start]))
     start = new_dfanode(S)
     dfanodes = Dict([S => start])
-    unvisited = Set([S])
+    unvisited = [S]
     while !isempty(unvisited)
         S = pop!(unvisited)
         S_actions = accumulate_actions(S)
-        for l in 0x00:0xff
+        for l in keyrange(S)
             T = epsilon_closure(move(S, l))
             if isempty(T)
                 continue
@@ -35,6 +35,9 @@ function nfa2dfa(nfa::NFA)
             end
             actions = Set{Action}()
             for s in S
+                if !haskey(s.trans, l)
+                    continue
+                end
                 T′ = s.trans[l]
                 for t in T′
                     union!(actions, s.actions[(l, t)])
@@ -52,17 +55,31 @@ function nfa2dfa(nfa::NFA)
     return DFA(start)
 end
 
+function keyrange(S::Set{NFANode})
+    lo = 0xff
+    hi = 0x00
+    for s in S
+        for l in bytekeys(s.trans)
+            lo = min(l, lo)
+            hi = max(l, hi)
+        end
+    end
+    return lo:hi
+end
+
 function move(S::Set{NFANode}, label::UInt8)
     T = Set{NFANode}()
     for s in S
-        union!(T, s.trans[label])
+        if haskey(s.trans, label)
+            union!(T, s.trans[label])
+        end
     end
     return T
 end
 
 function epsilon_closure(S::Set{NFANode})
     closure = Set{NFANode}()
-    unvisited = Set(copy(S))
+    unvisited = collect(S)
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(closure, s)
@@ -105,7 +122,7 @@ function reduce_states(dfa::DFA)
     new_dfanode(s) = DFANode(Dict(), Set{Action}(), s.final, Set{NFANode}())
     start = new_dfanode(dfa.start)
     S_start = equivalent(dfa.start)
-    dfanodes = Dict([S_start => start])
+    dfanodes = Dict(S_start => start)
     unvisited = [(S_start, start)]
     while !isempty(unvisited)
         S, s′ = pop!(unvisited)
