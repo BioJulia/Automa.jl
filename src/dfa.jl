@@ -55,7 +55,9 @@ end
 function move(S::Set{NFANode}, label::UInt8)
     T = Set{NFANode}()
     for s in S
-        union!(T, s.trans[label])
+        if haskey(s.trans, label)
+            union!(T, s.trans[label])
+        end
     end
     return T
 end

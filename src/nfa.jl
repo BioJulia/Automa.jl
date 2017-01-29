@@ -39,6 +39,10 @@ function NFATransition()
     return NFATransition(trans, trans_eps)
 end
 
+function Base.haskey(trans::NFATransition, label::UInt8)
+    return haskey(trans.trans, label)
+end
+
 function Base.getindex(trans::NFATransition, label::UInt8)
     return trans.trans[label]
 end
