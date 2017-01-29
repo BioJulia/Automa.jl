@@ -21,7 +21,7 @@ function nfa2dfa(nfa::NFA)
     S = epsilon_closure(Set([nfa.start]))
     start = new_dfanode(S)
     dfanodes = Dict([S => start])
-    unvisited = Set([S])
+    unvisited = [S]
     while !isempty(unvisited)
         S = pop!(unvisited)
         S_actions = accumulate_actions(S)
@@ -64,7 +64,7 @@ end
 
 function epsilon_closure(S::Set{NFANode})
     closure = Set{NFANode}()
-    unvisited = Set(copy(S))
+    unvisited = collect(S)
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(closure, s)
