@@ -171,7 +171,7 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
             end
             append_code!(block, quote
                 @label $(label)
-                $(rewrite_special_macros(generate_action_code(names, actions), false, Nullable(s)))
+                $(rewrite_special_macros(generate_action_code(names, actions), false, s))
                 @goto $(Symbol("state_", s))
             end)
         end
@@ -294,26 +294,40 @@ function make_actions_in(machine::Machine)
     return actions_in
 end
 
-function rewrite_special_macros(ex::Expr, eof_action::Bool, cs::Nullable{Int}=Nullable{Int}())
+# Used by the :table and :inline code generators.
+function rewrite_special_macros(ex::Expr, eof::Bool)
     args = []
     for arg in ex.args
         if arg == :(@escape)
-            if eof_action
-                # pass
-            elseif !isnull(cs)  # used by the goto code generator
-                push!(args, quote
-                    cs = $(get(cs))
-                    p += 1
-                    @goto exit
-                end)
-            else
+            if !eof
                 push!(args, quote
                     p += 1
                     break
                 end)
             end
         elseif isa(arg, Expr)
-            push!(args, rewrite_special_macros(arg, eof_action, cs))
+            push!(args, rewrite_special_macros(arg, eof))
+        else
+            push!(args, arg)
+        end
+    end
+    return Expr(ex.head, args...)
+end
+
+# Used by the :goto code generator.
+function rewrite_special_macros(ex::Expr, eof::Bool, cs::Int)
+    args = []
+    for arg in ex.args
+        if arg == :(@escape)
+            if !eof
+                push!(args, quote
+                    cs = $(cs)
+                    p += 1
+                    @goto exit
+                end)
+            end
+        elseif isa(arg, Expr)
+            push!(args, rewrite_special_macros(arg, eof, cs))
         else
             push!(args, arg)
         end
