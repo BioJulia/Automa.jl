@@ -61,6 +61,21 @@ end
 tokens, status = tokenize("1 0x0123BEEF 0o754 3.14 -1e4 +6.022045e23")
 ```
 
+This emits tokens and the final status:
+
+    ~/.j/v/Automa (master) $ julia -qL example/numbers.jl
+    julia> tokens
+    6-element Array{Tuple{Symbol,String},1}:
+     (:dec,"1")
+     (:hex,"0x0123BEEF")
+     (:oct,"0o754")
+     (:float,"3.14")
+     (:float,"-1e4")
+     (:float,"+6.022045e23")
+
+    julia> status
+    :ok
+
 The compiled deterministic finite automaton (DFA) looks like this:
 ![DFA](/docs/src/figure/numbers.png)
 
