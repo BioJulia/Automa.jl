@@ -49,7 +49,7 @@ function Base.next(t::Traverser{DFANode}, state)
     visited, unvisited = state
     s = pop!(unvisited)
     push!(visited, s)
-    for (t, _) in values(s.next)
+    for (_, t) in s.trans.trans
         if t ∉ visited
             push!(unvisited, t)
         end
