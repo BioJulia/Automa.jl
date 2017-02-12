@@ -5,6 +5,7 @@ import DataStructures: DefaultDict
 
 include("byteset.jl")
 include("re.jl")
+include("action.jl")
 include("nfa.jl")
 include("dfa.jl")
 include("dot.jl")

@@ -1,31 +1,11 @@
 # Non-deterministic Finite Automaton
 # ==================================
 
-immutable Action
-    name::Symbol
-    order::Int
-end
-
-function sorted_actions(actions::Set{Action})
-    return sort!(collect(actions), by=a->a.order)
-end
-
-function sorted_unique_action_names(actions::Set{Action})
-    names = Symbol[]
-    for a in sorted_actions(actions)
-        if a.name ∉ names
-            push!(names, a.name)
-        end
-    end
-    return names
-end
+# NFATransition
+# -------------
 
 function gen_empty_nfanode_set()
     return Set{NFANode}()
-end
-
-function gen_empty_actions()
-    return Set{Action}()
 end
 
 type NFATransition{T}
@@ -56,6 +36,14 @@ function Base.getindex(trans::NFATransition, label::Symbol)
     return trans.trans_eps
 end
 
+
+# NFANode
+# -------
+
+function gen_empty_actions()
+    return Set{Action}()
+end
+
 type NFANode
     trans::NFATransition{NFANode}
     actions::DefaultDict{Tuple{Any,NFANode},Set{Action},typeof(gen_empty_actions)}
@@ -66,6 +54,30 @@ function NFANode()
     actions = DefaultDict{Tuple{Any,NFANode},Set{Action}}(gen_empty_actions)
     return NFANode(trans, actions)
 end
+
+function addtrans!(node::NFANode, trans::Pair{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
+    label, target = trans
+    push!(node.trans[label], target)
+    union!(node.actions[(label, target)], actions)
+    return node
+end
+
+function addtrans!(node::NFANode, trans::Pair{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
+    label, target = trans
+    @assert label == :eps
+    push!(node.trans.trans_eps, target)
+    union!(node.actions[(label, target)], actions)
+    return node
+end
+
+function addactions!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action})
+    union!(node.actions[trans], actions)
+    return node
+end
+
+
+# NFATraverser
+# ------------
 
 immutable NFATraverser
     start::NFANode
@@ -105,25 +117,9 @@ function Base.next(traverser::NFATraverser, state)
     return s, (visited, unvisited)
 end
 
-function addtrans!(node::NFANode, trans::Pair{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
-    label, target = trans
-    push!(node.trans[label], target)
-    union!(node.actions[(label, target)], actions)
-    return node
-end
 
-function addtrans!(node::NFANode, trans::Pair{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
-    label, target = trans
-    @assert label == :eps
-    push!(node.trans.trans_eps, target)
-    union!(node.actions[(label, target)], actions)
-    return node
-end
-
-function addactions!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action})
-    union!(node.actions[trans], actions)
-    return node
-end
+# NFA
+# ---
 
 # Canonical NFA type.
 type NFA
@@ -290,21 +286,19 @@ function remove_dead_states(nfa::NFA)
     @assert nfa.final ∈ alive
 
     newnodes = Dict{NFANode,NFANode}(nfa.start => NFANode())
-    unvisited = Set([nfa.start])
     function copy_trans(s, t, l)
         if !haskey(newnodes, t)
             newnodes[t] = NFANode()
-            push!(unvisited, t)
         end
         addtrans!(newnodes[s], l => newnodes[t], s.actions[(l, t)])
     end
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        for (l, T) in s.trans.trans
-            for t in T
-                if t ∈ alive
-                    copy_trans(s, t, l)
-                end
+    for s in traverse(nfa.start)
+        if s ∉ alive
+            continue
+        end
+        for (l, T) in s.trans.trans, t in T
+            if t ∈ alive
+                copy_trans(s, t, l)
             end
         end
         for t in s.trans.trans_eps
@@ -325,11 +319,8 @@ function make_back_references(nfa::NFA)
         push!(backrefs[t], s)
     end
     for s in traverse(nfa.start)
-        for l in keys(s.trans.trans)
-            T = s.trans[l]
-            for t in T
-                add_backref(t, s)
-            end
+        for l in keys(s.trans.trans), t in (T = s.trans[l])
+            add_backref(t, s)
         end
         for t in s.trans.trans_eps
             add_backref(t, s)
