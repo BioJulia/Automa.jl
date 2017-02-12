@@ -1,7 +1,7 @@
 # Tokenizer
 # =========
 
-type Tokenizer
+immutable Tokenizer
     machine::Machine
     actions_code::Vector{Tuple{Symbol,Expr}}
 end
@@ -22,8 +22,8 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
         name = Symbol(:__token, i)
         push!(re′.actions[:final], name)
         nfa = re2nfa_rec(re′, actions)
-        addtrans!(start, (:eps, nfa.start))
-        addtrans!(nfa.final, (:eps, final))
+        addtrans!(start, :eps => nfa.start)
+        addtrans!(nfa.final, :eps => final)
         push!(actions_code, (name, code))
     end
     nfa = NFA(start, final)

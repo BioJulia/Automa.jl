@@ -49,16 +49,16 @@ function dfa2dot(dfa::DFA)
     unvisited = Set([dfa.start])
     while !isempty(unvisited)
         s = pop!(unvisited)
-        for (l, (t, as)) in compact_transition(s.next)
+        for (l, t) in compact_transition(s.trans.trans)
             if !haskey(serials, t)
                 serials[t] = (serial += 1)
                 push!(unvisited, t)
             end
-            label = label2str(l, as)
+            label = label2str(l, s.actions[l])
             println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label)\" ];")
         end
         if s.final
-            label = label2str(:eof, s.eof_actions)
+            label = label2str(s.actions[:eof])
             println(buf, "  $(serials[s]) -> final [ label = \"$(label)\", style = dashed ];")
         end
     end

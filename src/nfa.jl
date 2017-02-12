@@ -1,34 +1,14 @@
 # Non-deterministic Finite Automaton
 # ==================================
 
-immutable Action
-    name::Symbol
-    order::Int
-end
-
-function sorted_actions(actions::Set{Action})
-    return sort!(collect(actions), by=a->a.order)
-end
-
-function sorted_unique_action_names(actions::Set{Action})
-    names = Symbol[]
-    for a in sorted_actions(actions)
-        if a.name ∉ names
-            push!(names, a.name)
-        end
-    end
-    return names
-end
+# NFATransition
+# -------------
 
 function gen_empty_nfanode_set()
     return Set{NFANode}()
 end
 
-function gen_empty_actions()
-    return Set{Action}()
-end
-
-type NFATransition{T}
+immutable NFATransition{T}
     trans::DefaultDict{UInt8,Set{T},typeof(gen_empty_nfanode_set)}
     trans_eps::Set{T}
 end
@@ -56,7 +36,15 @@ function Base.getindex(trans::NFATransition, label::Symbol)
     return trans.trans_eps
 end
 
-type NFANode
+
+# NFANode
+# -------
+
+function gen_empty_actions()
+    return Set{Action}()
+end
+
+immutable NFANode
     trans::NFATransition{NFANode}
     actions::DefaultDict{Tuple{Any,NFANode},Set{Action},typeof(gen_empty_actions)}
 end
@@ -67,56 +55,18 @@ function NFANode()
     return NFANode(trans, actions)
 end
 
-immutable NFATraverser
-    start::NFANode
-end
-
-function traverse(node::NFANode)
-    return NFATraverser(node)
-end
-
-function Base.start(traverser::NFATraverser)
-    visited = Set{NFANode}()
-    unvisited = [traverser.start]
-    return visited, unvisited
-end
-
-function Base.done(traverser::NFATraverser, state)
-    _, unvisited = state
-    return isempty(unvisited)
-end
-
-function Base.next(traverser::NFATraverser, state)
-    visited, unvisited = state
-    s = pop!(unvisited)
-    push!(visited, s)
-    for (_, T) in s.trans.trans
-        for t in T
-            if t ∉ visited
-                push!(unvisited, t)
-            end
-        end
-    end
-    for t in s.trans[:eps]
-        if t ∉ visited
-            push!(unvisited, t)
-        end
-    end
-    return s, (visited, unvisited)
-end
-
-function addtrans!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
+function addtrans!(node::NFANode, trans::Pair{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     push!(node.trans[label], target)
-    union!(node.actions[trans], actions)
+    union!(node.actions[(label, target)], actions)
     return node
 end
 
-function addtrans!(node::NFANode, trans::Tuple{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
+function addtrans!(node::NFANode, trans::Pair{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     @assert label == :eps
     push!(node.trans.trans_eps, target)
-    union!(node.actions[trans], actions)
+    union!(node.actions[(label, target)], actions)
     return node
 end
 
@@ -125,8 +75,12 @@ function addactions!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Ac
     return node
 end
 
+
+# NFA
+# ---
+
 # Canonical NFA type.
-type NFA
+immutable NFA
     start::NFANode
     final::NFANode
 end
@@ -156,7 +110,6 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
 
     start = NFANode()
     final = NFANode()
-    =>(x, y) = (x, y)
     if re.head == :set
         check_arity(n -> n == 1)
         for b in re.args[1]
@@ -206,7 +159,7 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         addtrans!(nfa1.final, :eps => final)
         addtrans!(nfa2.final, :eps => final)
         dfa = nfa2dfa(NFA(start, final))
-        revoke_finals!(s -> !(nfa1.final ∈ s.nfanodes && nfa2.final ∈ s.nfanodes), dfa)
+        dfa = revoke_finals(s -> !(nfa1.final ∈ s.nfanodes && nfa2.final ∈ s.nfanodes), dfa)
         nfa = dfa2nfa(dfa)
         start = nfa.start
         final = nfa.final
@@ -219,7 +172,7 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         addtrans!(nfa1.final, :eps => final)
         addtrans!(nfa2.final, :eps => final)
         dfa = nfa2dfa(NFA(start, final))
-        revoke_finals!(s -> nfa2.final ∈ s.nfanodes, dfa)
+        dfa = revoke_finals(s -> nfa2.final ∈ s.nfanodes, dfa)
         nfa = dfa2nfa(dfa)
         start = nfa.start
         final = nfa.final
@@ -291,21 +244,19 @@ function remove_dead_states(nfa::NFA)
     @assert nfa.final ∈ alive
 
     newnodes = Dict{NFANode,NFANode}(nfa.start => NFANode())
-    unvisited = Set([nfa.start])
     function copy_trans(s, t, l)
         if !haskey(newnodes, t)
             newnodes[t] = NFANode()
-            push!(unvisited, t)
         end
-        addtrans!(newnodes[s], (l, newnodes[t]), s.actions[(l, t)])
+        addtrans!(newnodes[s], l => newnodes[t], s.actions[(l, t)])
     end
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        for (l, T) in s.trans.trans
-            for t in T
-                if t ∈ alive
-                    copy_trans(s, t, l)
-                end
+    for s in traverse(nfa.start)
+        if s ∉ alive
+            continue
+        end
+        for (l, T) in s.trans.trans, t in T
+            if t ∈ alive
+                copy_trans(s, t, l)
             end
         end
         for t in s.trans.trans_eps
@@ -326,11 +277,8 @@ function make_back_references(nfa::NFA)
         push!(backrefs[t], s)
     end
     for s in traverse(nfa.start)
-        for l in keys(s.trans.trans)
-            T = s.trans[l]
-            for t in T
-                add_backref(t, s)
-            end
+        for l in keys(s.trans.trans), t in (T = s.trans[l])
+            add_backref(t, s)
         end
         for t in s.trans.trans_eps
             add_backref(t, s)

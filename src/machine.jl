@@ -1,7 +1,7 @@
 # Machine
 # =======
 
-type Machine
+immutable Machine
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
@@ -23,31 +23,27 @@ function compile(re::RegExp.RE; optimize::Bool=true)
 end
 
 function dfa2machine(dfa::DFA)
-    start = dfa.start
     serial = 0
-    serials = Dict(start => (serial += 1))
+    serials = Dict(dfa.start => (serial += 1))
     final_states = Set{Int}()
     transitions = Dict()
     eof_actions = Dict()
-    unvisited = Set([start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
+    for s in traverse(dfa.start)
         if s.final
             push!(final_states, serials[s])
-            eof_actions[serials[s]] = sorted_unique_action_names(s.eof_actions)
+            eof_actions[serials[s]] = sorted_unique_action_names(s.actions[:eof])
         end
         if !haskey(transitions, serials[s])
             transitions[serials[s]] = Dict()
         end
-        for (l, (t, as)) in s.next
+        for (l, t) in s.trans.trans
             if !haskey(serials, t)
                 serials[t] = (serial += 1)
-                push!(unvisited, t)
             end
-            transitions[serials[s]][l] = (serials[t], sorted_unique_action_names(as))
+            transitions[serials[s]][l] = (serials[t], sorted_unique_action_names(s.actions[l]))
         end
     end
-    return Machine(1:serial, serials[start], final_states, transitions, eof_actions, dfa)
+    return Machine(1:serial, serials[dfa.start], final_states, transitions, eof_actions, dfa)
 end
 
 function execute(machine::Machine, data::Vector{UInt8})
@@ -79,19 +75,4 @@ end
 
 function execute(machine::Machine, data::String)
     return execute(machine, convert(Vector{UInt8}, data))
-end
-
-function traverse(f::Function, dfa::DFA)
-    visited = Set{DFANode}()
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        push!(visited, s)
-        f(s)
-        for (_, (t, _)) in s.next
-            if t ∉ visited
-                push!(unvisited, t)
-            end
-        end
-    end
 end
