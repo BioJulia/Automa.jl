@@ -105,18 +105,18 @@ function Base.next(traverser::NFATraverser, state)
     return s, (visited, unvisited)
 end
 
-function addtrans!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
+function addtrans!(node::NFANode, trans::Pair{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     push!(node.trans[label], target)
-    union!(node.actions[trans], actions)
+    union!(node.actions[(label, target)], actions)
     return node
 end
 
-function addtrans!(node::NFANode, trans::Tuple{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
+function addtrans!(node::NFANode, trans::Pair{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
     label, target = trans
     @assert label == :eps
     push!(node.trans.trans_eps, target)
-    union!(node.actions[trans], actions)
+    union!(node.actions[(label, target)], actions)
     return node
 end
 
@@ -156,7 +156,6 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
 
     start = NFANode()
     final = NFANode()
-    =>(x, y) = (x, y)
     if re.head == :set
         check_arity(n -> n == 1)
         for b in re.args[1]
@@ -297,7 +296,7 @@ function remove_dead_states(nfa::NFA)
             newnodes[t] = NFANode()
             push!(unvisited, t)
         end
-        addtrans!(newnodes[s], (l, newnodes[t]), s.actions[(l, t)])
+        addtrans!(newnodes[s], l => newnodes[t], s.actions[(l, t)])
     end
     while !isempty(unvisited)
         s = pop!(unvisited)

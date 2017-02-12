@@ -213,7 +213,6 @@ function compact_labels(labels::Vector{UInt8})
 end
 
 function dfa2nfa(dfa::DFA)
-    =>(x, y) = (x, y)
     final = NFANode()
     nfanodes = Dict([dfa.start => NFANode()])
     unvisited = Set([dfa.start])
