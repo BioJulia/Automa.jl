@@ -29,7 +29,7 @@ end
 # DFANode
 # -------
 
-type DFANode
+immutable DFANode
     trans::DFATransition{DFANode}
     actions::DefaultDict{Any,Set{Action},typeof(gen_empty_actions)}
     final::Bool
@@ -52,7 +52,7 @@ end
 # DFA
 # ---
 
-type DFA
+immutable DFA
     start::DFANode
 end
 
@@ -263,13 +263,21 @@ function dfa2nfa(dfa::DFA)
     return NFA(start, final)
 end
 
-function revoke_finals!(p::Function, dfa::DFA)
+function revoke_finals(p::Function, dfa::DFA)
+    newnodes = Dict{DFANode,DFANode}()
+    new(s) = get!(s -> DFANode(s.final && !p(s), s.nfanodes), newnodes, s)
     for s in traverse(dfa.start)
-        if p(s)
-            s.final = false
+        s′ = new(s)
+        for (l, t) in s.trans.trans
+            addtrans!(s′, l => new(t), s.actions[l])
         end
+        s′.actions[:eof] = s.actions[:eof]
     end
-    return dfa
+    return DFA(new(dfa.start))
+end
+
+function get!(f, col, key)
+    return Base.get!(col, key, f(key))
 end
 
 function remove_dead_states(dfa::DFA)
@@ -286,25 +294,21 @@ function remove_dead_states(dfa::DFA)
         end
     end
 
-    newnodes = Dict{DFANode,DFANode}(dfa.start => DFANode())
+    newnodes = Dict{DFANode,DFANode}()
+    new(s) = get!(s -> DFANode(s.final, s.nfanodes), newnodes, s)
     for s in traverse(dfa.start)
         if s ∉ alive
             continue
         end
-        s′ = newnodes[s]
-        s′.actions[:eof] = s.actions[:eof]
-        s′.final = s.final
-        s′.nfanodes = s.nfanodes
+        s′ = new(s)
         for (l, t) in s.trans.trans
             if t ∈ alive
-                if !haskey(newnodes, t)
-                    newnodes[t] = DFANode()
-                end
-                addtrans!(s′, l => newnodes[t], s.actions[l])
+                addtrans!(s′, l => new(t), s.actions[l])
             end
         end
+        s′.actions[:eof] = s.actions[:eof]
     end
-    return DFA(newnodes[dfa.start])
+    return DFA(new(dfa.start))
 end
 
 function make_back_references(dfa::DFA)

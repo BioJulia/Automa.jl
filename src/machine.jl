@@ -1,7 +1,7 @@
 # Machine
 # =======
 
-type Machine
+immutable Machine
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}

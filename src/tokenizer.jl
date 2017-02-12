@@ -1,7 +1,7 @@
 # Tokenizer
 # =========
 
-type Tokenizer
+immutable Tokenizer
     machine::Machine
     actions_code::Vector{Tuple{Symbol,Expr}}
 end

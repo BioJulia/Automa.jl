@@ -8,7 +8,7 @@ function gen_empty_nfanode_set()
     return Set{NFANode}()
 end
 
-type NFATransition{T}
+immutable NFATransition{T}
     trans::DefaultDict{UInt8,Set{T},typeof(gen_empty_nfanode_set)}
     trans_eps::Set{T}
 end
@@ -44,7 +44,7 @@ function gen_empty_actions()
     return Set{Action}()
 end
 
-type NFANode
+immutable NFANode
     trans::NFATransition{NFANode}
     actions::DefaultDict{Tuple{Any,NFANode},Set{Action},typeof(gen_empty_actions)}
 end
@@ -80,7 +80,7 @@ end
 # ---
 
 # Canonical NFA type.
-type NFA
+immutable NFA
     start::NFANode
     final::NFANode
 end
@@ -159,7 +159,7 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         addtrans!(nfa1.final, :eps => final)
         addtrans!(nfa2.final, :eps => final)
         dfa = nfa2dfa(NFA(start, final))
-        revoke_finals!(s -> !(nfa1.final ∈ s.nfanodes && nfa2.final ∈ s.nfanodes), dfa)
+        dfa = revoke_finals(s -> !(nfa1.final ∈ s.nfanodes && nfa2.final ∈ s.nfanodes), dfa)
         nfa = dfa2nfa(dfa)
         start = nfa.start
         final = nfa.final
@@ -172,7 +172,7 @@ function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
         addtrans!(nfa1.final, :eps => final)
         addtrans!(nfa2.final, :eps => final)
         dfa = nfa2dfa(NFA(start, final))
-        revoke_finals!(s -> nfa2.final ∈ s.nfanodes, dfa)
+        dfa = revoke_finals(s -> nfa2.final ∈ s.nfanodes, dfa)
         nfa = dfa2nfa(dfa)
         start = nfa.start
         final = nfa.final
