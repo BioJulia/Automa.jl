@@ -76,48 +76,6 @@ function addactions!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Ac
 end
 
 
-# NFATraverser
-# ------------
-
-immutable NFATraverser
-    start::NFANode
-end
-
-function traverse(node::NFANode)
-    return NFATraverser(node)
-end
-
-function Base.start(traverser::NFATraverser)
-    visited = Set{NFANode}()
-    unvisited = [traverser.start]
-    return visited, unvisited
-end
-
-function Base.done(traverser::NFATraverser, state)
-    _, unvisited = state
-    return isempty(unvisited)
-end
-
-function Base.next(traverser::NFATraverser, state)
-    visited, unvisited = state
-    s = pop!(unvisited)
-    push!(visited, s)
-    for (_, T) in s.trans.trans
-        for t in T
-            if t ∉ visited
-                push!(unvisited, t)
-            end
-        end
-    end
-    for t in s.trans[:eps]
-        if t ∉ visited
-            push!(unvisited, t)
-        end
-    end
-    return s, (visited, unvisited)
-end
-
-
 # NFA
 # ---
 

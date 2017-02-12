@@ -115,7 +115,7 @@ function accumulate_actions(S::Set{NFANode})
 end
 
 function reduce_states(dfa::DFA)
-    Q = all_states(dfa)
+    Q = collect(traverse(dfa.start))
     distinct = distinct_states(Q)
     # reconstruct an optimized DFA
     equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
@@ -140,14 +140,6 @@ function reduce_states(dfa::DFA)
         end
     end
     return DFA(start)
-end
-
-function all_states(dfa::DFA)
-    states = DFANode[]
-    traverse(dfa) do s
-        push!(states, s)
-    end
-    return states
 end
 
 function distinct_states(Q)
@@ -215,14 +207,11 @@ end
 function dfa2nfa(dfa::DFA)
     final = NFANode()
     nfanodes = Dict([dfa.start => NFANode()])
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
+    for s in traverse(dfa.start)
         for (l, (t, as)) in s.next
             @assert isa(l, UInt8)
             if !haskey(nfanodes, t)
                 nfanodes[t] = NFANode()
-                push!(unvisited, t)
             end
             addtrans!(nfanodes[s], l => nfanodes[t], as)
         end
@@ -236,18 +225,9 @@ function dfa2nfa(dfa::DFA)
 end
 
 function revoke_finals!(p::Function, dfa::DFA)
-    visited = Set{DFANode}()
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        push!(visited, s)
+    for s in traverse(dfa.start)
         if p(s)
             s.final = false
-        end
-        for (_, (t, _)) in s.next
-            if t ∉ visited
-                push!(unvisited, t)
-            end
         end
     end
     return dfa
@@ -268,9 +248,10 @@ function remove_dead_states(dfa::DFA)
     end
 
     newnodes = Dict{DFANode,DFANode}(dfa.start => DFANode())
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
+    for s in traverse(dfa.start)
+        if s ∉ alive
+            continue
+        end
         s′ = newnodes[s]
         s′.eof_actions = s.eof_actions
         s′.final = s.final
@@ -279,7 +260,6 @@ function remove_dead_states(dfa::DFA)
             if t ∈ alive
                 if !haskey(newnodes, t)
                     newnodes[t] = DFANode()
-                    push!(unvisited, t)
                 end
                 s′.next[l] = (newnodes[t], as)
             end
@@ -290,13 +270,10 @@ end
 
 function make_back_references(dfa::DFA)
     backrefs = Dict(dfa.start => Set{DFANode}())
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
+    for s in traverse(dfa.start)
         for (t, _) in values(s.next)
             if !haskey(backrefs, t)
                 backrefs[t] = Set{DFANode}()
-                push!(unvisited, t)
             end
             push!(backrefs[t], s)
         end
