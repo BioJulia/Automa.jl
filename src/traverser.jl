@@ -19,7 +19,7 @@ end
 
 function Base.start(t::Traverser)
     visited = Set{eltype(t)}()
-    unvisited = [t.start]
+    unvisited = Set([t.start])
     return visited, unvisited
 end
 
