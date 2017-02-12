@@ -79,7 +79,7 @@ end
 
 function epsilon_closure(S::Set{NFANode})
     closure = Set{NFANode}()
-    unvisited = collect(S)
+    unvisited = copy(S)
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(closure, s)
