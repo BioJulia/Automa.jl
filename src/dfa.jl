@@ -1,6 +1,9 @@
 # Deterministic Finite Automaton
 # ==============================
 
+# DFATransition
+# -------------
+
 immutable DFATransition{T}
     trans::Dict{UInt8,T}
 end
@@ -22,6 +25,10 @@ function Base.setindex!(trans::DFATransition, val, label::UInt8)
     return trans
 end
 
+
+# DFANode
+# -------
+
 type DFANode
     trans::DFATransition{DFANode}
     actions::DefaultDict{Any,Set{Action},typeof(gen_empty_actions)}
@@ -40,6 +47,10 @@ function addtrans!(node::DFANode, trans::Pair{UInt8,DFANode}, actions::Set{Actio
     union!(node.actions[label], actions)
     return node
 end
+
+
+# DFA
+# ---
 
 type DFA
     start::DFANode
