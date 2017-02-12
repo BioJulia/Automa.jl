@@ -155,27 +155,26 @@ function accumulate_actions(S::Set{NFANode})
 end
 
 function reduce_states(dfa::DFA)
-    Q = collect(traverse(dfa.start))
+    Q = Set(traverse(dfa.start))
     distinct = distinct_states(Q)
     # reconstruct an optimized DFA
     equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
-    new_dfanode(s) = DFANode(s.final, Set{NFANode}())
-    start = new_dfanode(dfa.start)
-    S_start = equivalent(dfa.start)
-    dfanodes = Dict(S_start => start)
-    unvisited = [(S_start, start)]
+    newnodes = Dict{Set{DFANode},DFANode}()
+    new(S) = get!(S -> DFANode(first(S).final), newnodes, S)
+    S = equivalent(dfa.start)
+    start = new(S)
+    unvisited = [S]
     while !isempty(unvisited)
-        S, s′ = pop!(unvisited)
+        S = pop!(unvisited)
         @assert !isempty(S)
         s = first(S)
+        s′ = new(S)
         for (l, t) in s.trans.trans
             T = equivalent(t)
-            if !haskey(dfanodes, T)
-                t′ = new_dfanode(t)
-                dfanodes[T] = t′
-                push!(unvisited, (T, t′))
+            if !haskey(newnodes, T)
+                push!(unvisited, T)
             end
-            addtrans!(s′, l => dfanodes[T], s.actions[l])
+            addtrans!(s′, l => new(T), s.actions[l])
         end
         s′.actions[:eof] = s.actions[:eof]
     end
