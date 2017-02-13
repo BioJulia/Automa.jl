@@ -58,7 +58,7 @@ function dfa2dot(dfa::DFA)
             println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label)\" ];")
         end
         if s.final
-            label = label2str(s.actions[:eof])
+            label = label2str(:eof, s.actions[:eof])
             println(buf, "  $(serials[s]) -> final [ label = \"$(label)\", style = dashed ];")
         end
     end
