@@ -1,11 +1,11 @@
 # Byte Set
 # ========
 
-immutable ByteSet
-    a::UInt64
-    b::UInt64
-    c::UInt64
-    d::UInt64
+immutable ByteSet <: Base.AbstractSet{UInt8}
+    a::UInt64  # 0x00:0x3F
+    b::UInt64  # 0x40:0x7F
+    c::UInt64  # 0x80:0xBF
+    d::UInt64  # 0xC0:0xFF
 end
 
 function ByteSet(bytes::Union{AbstractVector{UInt8},Set{UInt8}})

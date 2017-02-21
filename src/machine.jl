@@ -5,7 +5,7 @@ immutable Machine
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
-    transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Symbol}}}}
+    #transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Precondition},Vector{Symbol}}}}
     eof_actions::Dict{Int,Vector{Symbol}}
     dfa::DFA
 end
@@ -15,35 +15,23 @@ function Base.show(io::IO, machine::Machine)
 end
 
 function compile(re::RegExp.RE; optimize::Bool=true)
-    dfa = nfa2dfa(remove_dead_states(re2nfa(re)))
+    dfa = nfa2dfa(remove_dead_nodes(re2nfa(re)))
     if optimize
-        dfa = remove_dead_states(reduce_states(dfa))
+        dfa = remove_dead_nodes(reduce_nodes(dfa))
     end
     return dfa2machine(dfa)
 end
 
 function dfa2machine(dfa::DFA)
-    serial = 0
-    serials = Dict(dfa.start => (serial += 1))
-    final_states = Set{Int}()
-    transitions = Dict()
-    eof_actions = Dict()
-    for s in traverse(dfa.start)
-        if s.final
-            push!(final_states, serials[s])
-            eof_actions[serials[s]] = sorted_unique_action_names(s.actions[:eof])
-        end
-        if !haskey(transitions, serials[s])
-            transitions[serials[s]] = Dict()
-        end
-        for (l, t) in s.trans.trans
-            if !haskey(serials, t)
-                serials[t] = (serial += 1)
-            end
-            transitions[serials[s]][l] = (serials[t], sorted_unique_action_names(s.actions[l]))
-        end
-    end
-    return Machine(1:serial, serials[dfa.start], final_states, transitions, eof_actions, dfa)
+    serials = Dict(s => i for s in enumerate(traverse(dfa.start)))
+    final_states = Set(serials[s] for s in traverse(dfa.start) if s.final)
+    transitions = Dict(
+        serials[s] => Dict(
+            l => (serials[t], collect(e.preconds), sorted_unique_action_names(e.actions))
+            for (e, t) in s.edges for l in e.labels)
+        for s in traverse(dfa.start))
+    eof_actions = Dict(serials[s] => sorted_unique_action_names(s.eof_actions) for s in traverse(dfa.start) if s.final)
+    return Machine(1:length(serials), serials[dfa.start], final_states, transitions, eof_actions, dfa)
 end
 
 function execute(machine::Machine, data::Vector{UInt8})
