@@ -56,6 +56,7 @@ function nfa2dfa(nfa::NFA)
         for label in disjoint_split(labels)
             # This enumeration will not finish in reasonable time when there
             # are too many preconditions.
+            edges = Dict{Tuple{DFANode,Set{Action}},Vector{UInt64}}()
             for pv in UInt64(0):UInt64((1 << length(pn)) - 1)
                 T = Set{NFANode}()
                 actions = Set{Action}()
@@ -71,7 +72,13 @@ function nfa2dfa(nfa::NFA)
                     if !isvisited(T)
                         push!(unvisited, T)
                     end
-                    push!(s′.edges, (Edge(label, Set(make_preconds(pn, pv)), actions), new(T)))
+                    push!(get!(edges, (new(T), actions), UInt64[]), pv)
+                end
+            end
+            for ((t′, actions), pvs) in edges
+                pn′, pvs′ = remove_redundant_preconds(pn, pvs)
+                for pv′ in pvs′
+                    push!(s′.edges, (Edge(label, Set(make_preconds(pn′, pv′)), actions), t′))
                 end
             end
         end
@@ -162,6 +169,43 @@ end
 
 function make_preconds(names::Vector{Symbol}, preconds::UInt64)
     return [Precondition(n, bitat(preconds, i)) for (i, n) in enumerate(names)]
+end
+
+function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
+    mask(n) = ((1 << n) - 1) % UInt64
+    newnames = Symbol[]
+    pvs = copy(pvs)
+    left = length(names)
+    for name in names
+        sort!(pvs)
+        k = findfirst(pv -> bitat(pv, left), pvs)
+        if (k - 1) * 2 == length(pvs)
+            redundant = true
+            for i in 1:k-1
+                m = mask(left - 1)
+                if pvs[i] & m != pvs[i+k-1] & m
+                    redundant = false
+                    break
+                end
+            end
+        else
+            redundant = false
+        end
+        if redundant
+            left -= 1
+            for i in 1:endof(pvs)
+                # remove the redundant bit
+                pvs[i] = pvs[i] & mask(left)
+            end
+        else
+            push!(newnames, name)
+            for i in 1:endof(pvs)
+                # circular left shift
+                pvs[i] = ((pvs[i] << 1) & mask(left)) | bitat(pvs[i], left)
+            end
+        end
+    end
+    return newnames, unique(pvs)
 end
 
 function bitat(x::UInt64, i::Integer)
