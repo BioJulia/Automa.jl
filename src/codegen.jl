@@ -75,7 +75,7 @@ function generate_transition_table(machine::Machine)
         trans_table[:,j] = -j
     end
     for (s, trans) in machine.transitions
-        for (l, (t, _)) in trans
+        for (l, (t, _, _)) in trans
             trans_table[l+1,s] = t
         end
     end
@@ -87,7 +87,7 @@ function generate_action_dispatch_code(machine::Machine, actions::Associative{Sy
     fill!(action_table, 0)
     action_ids = Dict{Vector{Symbol},Int}()
     for s in machine.states
-        for (l, (t, as)) in machine.transitions[s]
+        for (l, (t, _, as)) in machine.transitions[s]
             if isempty(as)
                 continue
             elseif !haskey(action_ids, as)
@@ -129,7 +129,7 @@ function generate_transition_code(machine::Machine, actions::Associative{Symbol,
     return foldr(default, collect(machine.transitions)) do s_trans, els
         s, trans = s_trans
         then = foldr(default, compact_transition(trans)) do branch, els′
-            l, (t, as) = branch
+            l, (t, _, as) = branch
             if isempty(as)
                 then′ = :(cs = $(t))
             else
@@ -144,13 +144,13 @@ end
 
 function compact_transition{T}(trans::Dict{UInt8,T})
     revtrans = Dict{T,Vector{UInt8}}()
-    for (l, t_as) in trans
-        if !haskey(revtrans, t_as)
-            revtrans[t_as] = UInt8[]
+    for (l, val) in trans
+        if !haskey(revtrans, val)
+            revtrans[val] = UInt8[]
         end
-        push!(revtrans[t_as], l)
+        push!(revtrans[val], l)
     end
-    return [(ByteSet(ls), t_as) for (t_as, ls) in revtrans]
+    return [(ByteSet(ls), val) for (val, ls) in revtrans]
 end
 
 function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
@@ -185,7 +185,7 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
         end)
         default = :(cs = $(-s); @goto exit)
         dispatch_code = foldr(default, compact_transition(machine.transitions[s])) do branch, els
-            ls, (t, as) = branch
+            ls, (t, _, as) = branch
             if isempty(as)
                 goto_code = :(@goto $(Symbol("state_", t)))
             else
@@ -283,7 +283,7 @@ end
 function make_actions_in(machine::Machine)
     actions_in = Dict(t => Dict{Vector{Symbol},Set{UInt8}}() for t in machine.states)
     for s in machine.states
-        for (l, (t, as)) in machine.transitions[s]
+        for (l, (t, _, as)) in machine.transitions[s]
             #push!(actions_in[t], as)
             if !haskey(actions_in[t], as)
                 actions_in[t][as] = Set{UInt8}()
@@ -356,7 +356,7 @@ end
 function debug_actions(machine::Machine)
     actions = Set{Symbol}()
     for trans in values(machine.transitions)
-        for (_, as) in values(trans)
+        for (_, _, as) in values(trans)
             union!(actions, as)
         end
     end

@@ -8,7 +8,12 @@ immutable ByteSet <: Base.AbstractSet{UInt8}
     d::UInt64  # 0xC0:0xFF
 end
 
-function ByteSet(bytes::Union{AbstractVector{UInt8},Set{UInt8}})
+function ByteSet()
+    z = UInt64(0)
+    return ByteSet(z, z, z, z)
+end
+
+function ByteSet(bytes::Union{UInt8,AbstractVector{UInt8},Set{UInt8}})
     a = b = c = d = UInt64(0)
     for byte in bytes
         if byte < 0x40
@@ -22,6 +27,18 @@ function ByteSet(bytes::Union{AbstractVector{UInt8},Set{UInt8}})
         end
     end
     return ByteSet(a, b, c, d)
+end
+
+function Base.:(==)(s1::ByteSet, s2::ByteSet)
+    return s1.a == s2.a && s1.b == s2.b && s1.c == s2.c && s1.d == s2.d
+end
+
+function Base.hash(s::ByteSet, h::UInt)
+    x = hash(s.a, h)
+    x = xor(x, hash(s.b, h))
+    x = xor(x, hash(s.c, h))
+    x = xor(x, hash(s.d, h))
+    return x
 end
 
 function Base.in(byte::UInt8, set::ByteSet)
@@ -75,4 +92,35 @@ function Base.next(::ByteSet, abcd)
         byte += 0xc0
     end
     return byte, (a, b, c, d)
+end
+
+function Base.union(s1::ByteSet, s2::ByteSet)
+    return ByteSet(s1.a | s2.a, s1.b | s2.b, s1.c | s2.c, s1.d | s2.d)
+end
+
+function Base.intersect(s1::ByteSet, s2::ByteSet)
+    return ByteSet(s1.a & s2.a, s1.b & s2.b, s1.c & s2.c, s1.d & s2.d)
+end
+
+function Base.setdiff(s1::ByteSet, s2::ByteSet)
+    return ByteSet(s1.a & ~s2.a, s1.b & ~s2.b, s1.c & ~s2.c, s1.d & ~s2.d)
+end
+
+function isdisjoint(s1::ByteSet, s2::ByteSet)
+    return isempty(intersect(s1, s2))
+end
+
+# Encode a byte set into a non-empty sequence of ranges.
+function range_encode(set::ByteSet)
+    labels = collect(set)
+    labels′ = UnitRange{UInt8}[]
+    while !isempty(labels)
+        lo = shift!(labels)
+        hi = lo
+        while !isempty(labels) && first(labels) == hi + 1
+            hi = shift!(labels)
+        end
+        push!(labels′, lo:hi)
+    end
+    return labels′
 end

@@ -1,11 +1,13 @@
 module Automa
 
-import Compat: @compat, xor
+import Compat: @compat, xor, take!
 import DataStructures: DefaultDict
 
 include("byteset.jl")
 include("re.jl")
+include("precond.jl")
 include("action.jl")
+include("edge.jl")
 include("nfa.jl")
 include("dfa.jl")
 include("traverser.jl")

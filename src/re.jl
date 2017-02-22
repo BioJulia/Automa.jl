@@ -5,8 +5,7 @@ module RegExp
 
 import Compat: @compat
 import DataStructures: DefaultDict
-import ..Main: ByteSet
-#import Automa: ByteSet
+import Automa: ByteSet
 
 function gen_empty_names()
     return Symbol[]
@@ -328,9 +327,9 @@ function expand(re::RE)
             return expand(primitive(string(char), re.actions, re.when))
         end
     elseif re.head == :str
-        return RE(:bytes, convert(Vector{UInt8}, re.args[1]), re.actions, re.when)
+        return RE(:cat, [expand(primitive(b)) for b in convert(Vector{UInt8}, re.args[1])], re.actions, re.when)
     elseif re.head == :bytes
-        return re
+        return RE(:cat, [expand(primitive(b)) for b::UInt8 in re.args], re.actions, re.when)
     else
         @assert re.head ∉ PRIMITIVE
         return RE(re.head, [expand(arg) for arg in re.args], re.actions, re.when)

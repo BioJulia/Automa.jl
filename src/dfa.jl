@@ -1,130 +1,96 @@
 # Deterministic Finite Automaton
 # ==============================
 
-# DFATransition
-# -------------
-
-immutable DFATransition{T}
-    trans::Dict{UInt8,T}
-end
-
-function DFATransition()
-    return DFATransition(Dict{UInt8,DFANode}())
-end
-
-function Base.haskey(trans::DFATransition, label::UInt8)
-    return haskey(trans.trans, label)
-end
-
-function Base.getindex(trans::DFATransition, label::UInt8)
-    return getindex(trans.trans, label)
-end
-
-function Base.setindex!(trans::DFATransition, val, label::UInt8)
-    setindex!(trans.trans, val, label)
-    return trans
-end
-
-
-# DFANode
-# -------
-
 immutable DFANode
-    trans::DFATransition{DFANode}
-    actions::DefaultDict{Any,Set{Action},typeof(gen_empty_actions)}
+    edges::Vector{Tuple{Edge,DFANode}}
     final::Bool
-    nfanodes::Set{NFANode}  # back reference to NFA nodes (optional)
+    eof_actions::Set{Action}
+    nfanodes::Set{NFANode}
 end
 
-function DFANode(final::Bool=false, S::Set{NFANode}=Set{NFANode}())
-    return DFANode(DFATransition(), DefaultDict{Any,Set{Action}}(gen_empty_actions), final, S)
+function DFANode(final::Bool, eof_actions::Set{Action}, nodes::Set{NFANode})
+    return DFANode(Tuple{Edge,DFANode}[], final, eof_actions, nodes)
 end
 
-function addtrans!(node::DFANode, trans::Pair{UInt8,DFANode}, actions::Set{Action}=Set{Action}())
-    label, target = trans
-    @assert !haskey(node.trans, label)
-    node.trans[label] = target
-    union!(node.actions[label], actions)
-    return node
+function DFANode(final::Bool, nodes::Set{NFANode})
+    return DFANode(final, Set{Action}(), nodes)
 end
 
-
-# DFA
-# ---
+function Base.show(io::IO, node::DFANode)
+    print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
+end
 
 immutable DFA
     start::DFANode
 end
 
 function nfa2dfa(nfa::NFA)
-    new_dfanode(S) = DFANode(nfa.final ∈ S, S)
-    S = epsilon_closure(Set([nfa.start]))
-    start = new_dfanode(S)
-    dfanodes = Dict([S => start])
+    newnodes = Dict{Set{NFANode},DFANode}()
+    new(S) = get!(newnodes, S, DFANode(nfa.final ∈ S, S))
+    isvisited(S) = haskey(newnodes, S)
+    S = epsilon_closure(nfa.start)
+    start = new(S)
     unvisited = [S]
     while !isempty(unvisited)
+        # TODO: support fail
         S = pop!(unvisited)
         S_actions = accumulate_actions(S)
-        for l in keyrange(S)
-            T = epsilon_closure(move(S, l))
-            if isempty(T)
-                continue
-            elseif !haskey(dfanodes, T)
-                dfanodes[T] = new_dfanode(T)
-                push!(unvisited, T)
-            end
-            actions = Set{Action}()
-            for s in S
-                if !haskey(s.trans, l)
-                    continue
-                end
-                T′ = s.trans[l]
-                for t in T′
-                    union!(actions, s.actions[(l, t)])
-                end
-                if !isempty(T′)
-                    union!(actions, S_actions[s])
-                end
-            end
-            addtrans!(dfanodes[S], l => dfanodes[T], actions)
+        s′ = new(S)
+
+        if s′.final
+            union!(s′.eof_actions, S_actions[nfa.final])
         end
-        if nfa.final ∈ S
-            dfanodes[S].actions[:eof] = S_actions[nfa.final]
+
+        # accumulate edges and preconditions
+        labels = Vector{ByteSet}()
+        preconds = Set{Symbol}()
+        for s in S, (e, t) in s.edges
+            if !iseps(e)
+                push!(labels, e.labels)
+                union!(preconds, p.name for p in e.preconds)
+            end
+        end
+
+        # append DFA edges and nodes
+        pn = collect(preconds)
+        for label in disjoint_split(labels)
+            # This enumeration will not finish in reasonable time when there
+            # are too many preconditions.
+            for pv in UInt64(0):UInt64((1 << length(pn)) - 1)
+                T = Set{NFANode}()
+                actions = Set{Action}()
+                for s in S, (e, t) in s.edges
+                    if !isdisjoint(e.labels, label) && satisfies(e, pn, pv)
+                        push!(T, t)
+                        union!(actions, e.actions)
+                        union!(actions, S_actions[s])
+                    end
+                end
+                if !isempty(T)
+                    T = epsilon_closure(T)
+                    if !isvisited(T)
+                        push!(unvisited, T)
+                    end
+                    push!(s′.edges, (Edge(label, Set(make_preconds(pn, pv)), actions), new(T)))
+                end
+            end
         end
     end
     return DFA(start)
 end
 
-function keyrange(S::Set{NFANode})
-    lo = 0xff
-    hi = 0x00
-    for s in S
-        for l in bytekeys(s.trans)
-            lo = min(l, lo)
-            hi = max(l, hi)
-        end
-    end
-    return lo:hi
+function epsilon_closure(node::NFANode)
+    return epsilon_closure(Set([node]))
 end
 
-function move(S::Set{NFANode}, label::UInt8)
-    T = Set{NFANode}()
-    for s in S
-        if haskey(s.trans, label)
-            union!(T, s.trans[label])
-        end
-    end
-    return T
-end
-
-function epsilon_closure(S::Set{NFANode})
+function epsilon_closure(nodes::Set{NFANode})
     closure = Set{NFANode}()
-    unvisited = copy(S)
+    unvisited = copy(nodes)
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(closure, s)
-        for t in s.trans[:eps]
-            if t ∉ closure
+        for (e, t) in s.edges
+            if iseps(e) && t ∉ closure
                 push!(unvisited, t)
             end
         end
@@ -132,10 +98,36 @@ function epsilon_closure(S::Set{NFANode})
     return closure
 end
 
+function disjoint_split(sets::Vector{ByteSet})
+    # TODO: maybe too slow when length(sets) is large
+    cut(s1, s2) = (intersect(s1, s2), setdiff(s1, s2))
+    m = typemax(UInt64)
+    disjsets = [ByteSet(m, m, m, m)]
+    disjsets′ = ByteSet[]
+    for x in sets
+        for y in disjsets
+            y1, y2 = cut(y, x)
+            if !all(isdisjoint(z, y1) for z in sets)
+                push!(disjsets′, y1)
+            end
+            if !all(isdisjoint(z, y2) for z in sets)
+                push!(disjsets′, y2)
+            end
+        end
+        disjsets, disjsets′ = disjsets′, disjsets
+        empty!(disjsets′)
+    end
+    return disjsets
+end
+
 function accumulate_actions(S::Set{NFANode})
     top = copy(S)
     for s in S
-        setdiff!(top, s.trans[:eps])
+        for (e, t) in s.edges
+            if iseps(e)
+                delete!(top, t)
+            end
+        end
     end
     @assert !isempty(top)
     actions = Dict(s => Set{Action}() for s in S)
@@ -144,145 +136,159 @@ function accumulate_actions(S::Set{NFANode})
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(visited, s)
-        for t in s.trans[:eps]
-            union!(actions[t], union(actions[s], s.actions[(:eps, t)]))
-            if t ∉ visited
-                push!(unvisited, t)
+        for (e, t) in s.edges
+            if iseps(e)
+                union!(actions[t], e.actions)
+                union!(actions[t], actions[s])
+                if t ∉ visited
+                    push!(unvisited, t)
+                end
             end
         end
     end
     return actions
 end
 
-function reduce_states(dfa::DFA)
+function satisfies(edge::Edge, names::Vector{Symbol}, preconds::UInt64)
+    for p in edge.preconds
+        i = findfirst(names, p.name)
+        @assert 0 < i ≤ 64
+        if bitat(preconds, i) != p.value
+            return false
+        end
+    end
+    return true
+end
+
+function make_preconds(names::Vector{Symbol}, preconds::UInt64)
+    return [Precondition(n, bitat(preconds, i)) for (i, n) in enumerate(names)]
+end
+
+function bitat(x::UInt64, i::Integer)
+    return ((x >> (i - 1)) & 1) == 1
+end
+
+function reduce_nodes(dfa::DFA)
     Q = Set(traverse(dfa.start))
-    distinct = distinct_states(Q)
-    # reconstruct an optimized DFA
-    equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
+    distinct = distinct_nodes(Q)
     newnodes = Dict{Set{DFANode},DFANode}()
-    new(S) = get!(S -> DFANode(first(S).final), newnodes, S)
+    new(S) = get!(newnodes, S) do
+        s = first(S)
+        return DFANode(s.final, s.eof_actions, foldl((x, s) -> union(x, s.nfanodes), Set{NFANode}(), S))
+    end
+    equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
+    isvisited(T) = haskey(newnodes, T)
     S = equivalent(dfa.start)
     start = new(S)
     unvisited = [S]
     while !isempty(unvisited)
         S = pop!(unvisited)
-        @assert !isempty(S)
-        s = first(S)
         s′ = new(S)
-        for (l, t) in s.trans.trans
+        for (e, t) in first(S).edges
             T = equivalent(t)
-            if !haskey(newnodes, T)
+            if !isvisited(T)
                 push!(unvisited, T)
             end
-            addtrans!(s′, l => new(T), s.actions[l])
+            push!(s′.edges, (e, new(T)))
         end
-        s′.actions[:eof] = s.actions[:eof]
     end
     return DFA(start)
 end
 
-function distinct_states(Q)
-    actions = Dict{Tuple{DFANode,UInt8},Vector{Symbol}}()
-    for q in Q, l in keys(q.trans.trans)
-        actions[(q, l)] = sorted_unique_action_names(q.actions[l])
+function distinct_nodes(S::Set{DFANode})
+    labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), ByteSet(), s.edges) for s in S)
+    distinct = Set{Tuple{DFANode,DFANode}}()
+
+    function isdistinct(s1, s2)
+        if labels[s1] != labels[s2]
+            return true
+        end
+        for l in labels[s1]
+            e1, t1 = findedge(s1, l)
+            e2, t2 = findedge(s2, l)
+            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || e1.actions != e2.actions
+                return true
+            end
+        end
+        return false
     end
 
-    distinct = Set{Tuple{DFANode,DFANode}}()
-    function isdistinct(l, p, q)
-        phasl = haskey(p.trans, l)
-        qhasl = haskey(q.trans, l)
-        if phasl && qhasl
-            pl = p.trans[l]
-            ql = q.trans[l]
-            return (pl, ql) ∈ distinct || actions[(p, l)] != actions[(q, l)]
-        else
-            return phasl != qhasl
+    for s1 in S, s2 in S
+        if s1.final != s2.final
+            push!(distinct, (s1, s2))
         end
     end
-    for p in Q, q in Q
-        if p.final != q.final
-            push!(distinct, (p, q))
-        end
-    end
-    while true
+
+    converged = false
+    while !converged
         converged = true
-        for p in Q, q in Q
-            if (p, q) ∈ distinct
+        for s1 in S, s2 in S
+            if (s1, s2) ∈ distinct
                 continue
             end
-            for l in 0x00:0xff
-                if isdistinct(l, p, q)
-                    push!(distinct, (p, q), (q, p))
-                    converged = false
-                    break
-                end
+            if isdistinct(s1, s2)
+                push!(distinct, (s1, s2), (s2, s1))
+                converged = false
             end
-            if sorted_unique_action_names(p.actions[:eof]) != sorted_unique_action_names(q.actions[:eof])
-                push!(distinct, (p, q), (q, p))
+            if s1.eof_actions != s2.eof_actions
+                push!(distinct, (s1, s2), (s2, s1))
                 converged = false
             end
         end
-        if converged
-            break
-        end
     end
+
     return distinct
 end
 
-function compact_labels(labels::Vector{UInt8})
-    labels = sort(labels)
-    labels′ = UnitRange{UInt8}[]
-    while !isempty(labels)
-        lo = shift!(labels)
-        hi = lo
-        while !isempty(labels) && first(labels) == hi + 1
-            hi = shift!(labels)
-        end
-        push!(labels′, lo:hi)
-    end
-    return labels′
-end
-
-function dfa2nfa(dfa::DFA)
-    final = NFANode()
-    nfanodes = Dict([dfa.start => NFANode()])
-    for s in traverse(dfa.start)
-        for (l, t) in s.trans.trans
-            if !haskey(nfanodes, t)
-                nfanodes[t] = NFANode()
-            end
-            addtrans!(nfanodes[s], l => nfanodes[t], s.actions[l])
-        end
-        if s.final
-            addtrans!(nfanodes[s], :eps => final, s.actions[:eof])
+function findedge(s::DFANode, label::UInt8)
+    for (e, t) in s.edges
+        if label ∈ e.labels
+            return e, t
         end
     end
-    start = NFANode()
-    addtrans!(start, :eps => nfanodes[dfa.start])
-    return NFA(start, final)
+    error("label $(label) not found")
 end
 
 function revoke_finals(p::Function, dfa::DFA)
     newnodes = Dict{DFANode,DFANode}()
-    new(s) = get!(s -> DFANode(s.final && !p(s), s.nfanodes), newnodes, s)
+    new(s) = get!(newnodes, s) do
+        return DFANode(s.final && !p(s), s.eof_actions, s.nfanodes)
+    end
     for s in traverse(dfa.start)
         s′ = new(s)
-        for (l, t) in s.trans.trans
-            addtrans!(s′, l => new(t), s.actions[l])
+        for (e, t) in s.edges
+            push!(s′.edges, (e, new(t)))
         end
-        s′.actions[:eof] = s.actions[:eof]
     end
     return DFA(new(dfa.start))
 end
 
-function get!(f, col, key)
-    return Base.get!(col, key, f(key))
+function dfa2nfa(dfa::DFA)
+    newnodes = Dict{DFANode,NFANode}()
+    new(s) = get!(newnodes, s, NFANode())
+    final = NFANode()
+    for s in traverse(dfa.start)
+        s′ = new(s)
+        for (e, t) in s.edges
+            push!(s′.edges, (e, new(t)))
+        end
+        if s.final
+            push!(s′.edges, (Edge(eps, s.eof_actions), final))
+        end
+    end
+    start = NFANode()
+    push!(start.edges, (Edge(eps), new(dfa.start)))
+    return NFA(start, final)
 end
 
-function remove_dead_states(dfa::DFA)
-    backrefs = make_back_references(dfa)
+function remove_dead_nodes(dfa::DFA)
+    backrefs = Dict(dfa.start => Set{DFANode}())
+    for s in traverse(dfa.start), (_, t) in s.edges
+        push!(get!(backrefs, t, Set{DFANode}()), s)
+    end
+
     alive = Set{DFANode}()
-    unvisited = Set([s for s in keys(backrefs) if s.final])
+    unvisited = [s for s in keys(backrefs) if s.final]
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(alive, s)
@@ -292,33 +298,24 @@ function remove_dead_states(dfa::DFA)
             end
         end
     end
+    @assert dfa.start ∈ alive
 
     newnodes = Dict{DFANode,DFANode}()
-    new(s) = get!(s -> DFANode(s.final, s.nfanodes), newnodes, s)
-    for s in traverse(dfa.start)
-        if s ∉ alive
-            continue
-        end
+    new(s) = get!(newnodes, s, DFANode(s.final, s.eof_actions, s.nfanodes))
+    isvisited(s) = haskey(newnodes, s)
+    unvisited = [dfa.start]
+    while !isempty(unvisited)
+        s = pop!(unvisited)
         s′ = new(s)
-        for (l, t) in s.trans.trans
+        for (e, t) in s.edges
             if t ∈ alive
-                addtrans!(s′, l => new(t), s.actions[l])
+                if !isvisited(t)
+                    push!(unvisited, t)
+                end
+                push!(s′.edges, (e, new(t)))
             end
         end
-        s′.actions[:eof] = s.actions[:eof]
     end
-    return DFA(new(dfa.start))
-end
 
-function make_back_references(dfa::DFA)
-    backrefs = Dict(dfa.start => Set{DFANode}())
-    for s in traverse(dfa.start)
-        for (l, t) in s.trans.trans
-            if !haskey(backrefs, t)
-                backrefs[t] = Set{DFANode}()
-            end
-            push!(backrefs[t], s)
-        end
-    end
-    return backrefs
+    return DFA(new(dfa.start))
 end
