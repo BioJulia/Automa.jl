@@ -150,18 +150,24 @@ function compact_transition{T}(trans::Dict{UInt8,T})
 end
 
 function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
-    actions_in = make_actions_in(machine)
-    action_label = Dict(s => Dict{Vector{Symbol},Symbol}() for s in machine.states)
-    for s in machine.states
-        for (i, as) in enumerate(keys(actions_in[s]))
-            action_label[s][as] = Symbol("state_", s, "_action_", i)
+    actions_in = Dict{Node,Set{Vector{Symbol}}}()
+    for s in traverse(machine.start), (e, t) in s.edges
+        push!(get!(actions_in, t, Set{Vector{Symbol}}()), sorted_unique_action_names(e.actions))
+    end
+    action_label = Dict{Node,Dict{Vector{Symbol},Symbol}}()
+    for s in traverse(machine.start)
+        action_label[s] = Dict()
+        if haskey(actions_in, s)
+            for (i, names) in enumerate(actions_in[s])
+                action_label[s][names] = Symbol("state_", s.state, "_action_", i)
+            end
         end
     end
 
     blocks = Expr[]
     for s in traverse(machine.start)
         block = Expr(:block)
-        for (names, label) in action_label[s.state]
+        for (names, label) in action_label[s]
             if isempty(names)
                 continue
             end
@@ -186,7 +192,7 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
             if isempty(e.actions)
                 goto_code = :(@goto $(Symbol("state_", t.state)))
             else
-                goto_code = :(@goto $(action_label[t.state][sorted_unique_action_names(e.actions)]))
+                goto_code = :(@goto $(action_label[t][sorted_unique_action_names(e.actions)]))
             end
             return Expr(:if, cond_code, goto_code, els)
         end
@@ -284,21 +290,6 @@ function compact_labels(set::ByteSet)
         push!(labels′, lo:hi)
     end
     return labels′
-end
-
-function make_actions_in(machine::Machine)
-    # TODO: is this really needed?
-    actions_in = Dict(t => Dict{Vector{Symbol},ByteSet}() for t in machine.states)
-    for s in traverse(machine.start)
-        for (e, t) in s.edges
-            names = sorted_unique_action_names(e.actions)
-            if !haskey(actions_in[t.state], names)
-                actions_in[t.state][names] = ByteSet()
-            end
-            actions_in[t.state][names] = union(actions_in[t.state][names], e.labels)
-        end
-    end
-    return actions_in
 end
 
 # Used by the :table and :inline code generators.
