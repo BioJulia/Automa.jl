@@ -158,31 +158,29 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
         end
     end
 
-    nodes = Dict(node.state => node for node in traverse(machine.start))
     blocks = Expr[]
-    for s in machine.states
-        # TODO: make `s` a node
+    for s in traverse(machine.start)
         block = Expr(:block)
-        for (names, label) in action_label[s]
+        for (names, label) in action_label[s.state]
             if isempty(names)
                 continue
             end
             append_code!(block, quote
                 @label $(label)
-                $(rewrite_special_macros(generate_action_code(names, actions), false, s))
-                @goto $(Symbol("state_", s))
+                $(rewrite_special_macros(generate_action_code(names, actions), false, s.state))
+                @goto $(Symbol("state_", s.state))
             end)
         end
         append_code!(block, quote
-            @label $(Symbol("state_", s))
+            @label $(Symbol("state_", s.state))
             p += 1
             if p > p_end
-                cs = $(s)
+                cs = $(s.state)
                 @goto exit
             end
         end)
-        default = :(cs = $(-s); @goto exit)
-        dispatch_code = foldr(default, nodes[s].edges) do edge, els
+        default = :(cs = $(-s.state); @goto exit)
+        dispatch_code = foldr(default, s.edges) do edge, els
             e, t = edge
             cond_code = :($(label_condition(e.labels)) && $(generate_precondition_code(e.preconds, actions)))
             if isempty(e.actions)
@@ -193,7 +191,7 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
             return Expr(:if, cond_code, goto_code, els)
         end
         append_code!(block, quote
-            @label $(Symbol("state_case_", s))
+            @label $(Symbol("state_case_", s.state))
             $(generate_geybyte_code(check))
             $(dispatch_code)
         end)
