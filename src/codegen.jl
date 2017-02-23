@@ -129,9 +129,10 @@ function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(default, traverse(machine.start)) do s, els
         then = foldr(default, s.edges) do edge, els′
             e, t = edge
+            cond_code = :($(label_condition(e.labels)) && $(generate_precondition_code(e.preconds, actions)))
             action_code = rewrite_special_macros(generate_action_code(e.actions, actions), false)
             then′ = :(cs = $(t.state); $(action_code))
-            return Expr(:if, label_condition(e.labels), then′, els′)
+            return Expr(:if, cond_code, then′, els′)
         end
         return Expr(:if, state_condition(s.state), then, els)
     end
@@ -266,6 +267,10 @@ end
 function label_condition(set::ByteSet)
     label = compact_labels(set)
     return foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), label)
+end
+
+function generate_precondition_code(preconds::Set{Precondition}, actions::Dict{Symbol,Expr})
+    return foldr((p, cond) -> Expr(:&&, p.value ? actions[p.name] : :(!$(actions[p.name])), cond), :(true), preconds)
 end
 
 function compact_labels(set::ByteSet)

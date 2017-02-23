@@ -606,6 +606,43 @@ module Test10
     @test Automa.execute(machine, "foo")[1] < 0
 end
 
+module Test11
+    import Automa
+    import Automa.RegExp: @re_str
+    const re = Automa.RegExp
+    using Base.Test
+
+    a = re"[a-z]"
+    a.when = :le
+    a = re.rep1(a)
+    a.actions[:exit] = [:one]
+    b = re"[a-z][a-z0-9]*"
+    b.actions[:exit] = [:two]
+
+    machine = Automa.compile(re.cat(a | b, '\n'))
+    actions = Dict(
+        :one => :(push!(logger, :one)),
+        :two => :(push!(logger, :two)),
+        :le  => :(p ≤ n))
+
+    @eval function validate1(data, n)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=actions, code=:inline))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+
+    @test validate1(b"a\n", 0) == ([:two], :ok)
+    @test validate1(b"a\n", 1) == ([:one, :two], :ok)
+    @test validate1(b"a1\n", 1) == ([:two], :ok)
+    @test validate1(b"aa\n", 1) == ([:two], :ok)
+    @test validate1(b"aa1\n", 1) == ([:two], :ok)
+    @test validate1(b"aa\n", 2) == ([:one, :two], :ok)
+    @test validate1(b"aa1\n", 2) == ([:two], :ok)
+    @test validate1(b"1\n", 1) == ([], :error)
+end
+
 module TestFASTA
     include("../example/fasta.jl")
     using Base.Test
