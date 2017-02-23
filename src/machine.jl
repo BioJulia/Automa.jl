@@ -1,13 +1,34 @@
 # Machine
 # =======
 
+immutable Node
+    state::Int
+    edges::Vector{Tuple{Edge,Node}}
+end
+
+function Node(state::Int)
+    return Node(state, Tuple{Edge,Node}[])
+end
+
+function Base.show(io::IO, node::Node)
+    print(io, summary(node), "(<state=$(node.state),#edges=$(length(node.edges))>)")
+end
+
+function findedge(s::Node, b::UInt8)
+    for (e, t) in s.edges
+        if b ∈ e.labels
+            return (e, t)
+        end
+    end
+    error("$(b) ∈ label not found")
+end
+
 immutable Machine
+    start::Node
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
-    transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Precondition},Vector{Symbol}}}}
-    eof_actions::Dict{Int,Vector{Symbol}}
-    dfa::DFA
+    eof_actions::Dict{Int,Set{Action}}
 end
 
 function Base.show(io::IO, machine::Machine)
@@ -23,44 +44,43 @@ function compile(re::RegExp.RE; optimize::Bool=true)
 end
 
 function dfa2machine(dfa::DFA)
-    serials = Dict(s => i for (i, s) in enumerate(traverse(dfa.start)))
-    final_states = Set(serials[s] for s in traverse(dfa.start) if s.final)
-    #transitions = Dict(
-    #    serials[s] => Dict(
-    #        l => (serials[t], collect(e.preconds), sorted_unique_action_names(e.actions))
-    #        for (e, t) in s.edges for l in e.labels)
-    #    for s in traverse(dfa.start))
-    transitions = Dict()
+    newnodes = Dict{DFANode,Node}()
+    new(s) = get!(() -> Node(length(newnodes) + 1), newnodes, s)
+    final_states = Set{Int}()
+    eof_actions = Dict{Int,Set{Action}}()
     for s in traverse(dfa.start)
-        if !haskey(transitions, serials[s])
-            transitions[serials[s]] = Dict()
+        s′ = new(s)
+        if s.final
+            push!(final_states, s′.state)
+            eof_actions[s′.state] = s.eof_actions
         end
         for (e, t) in s.edges
-            for l in e.labels
-                transitions[serials[s]][l] = (serials[t], collect(e.preconds), sorted_unique_action_names(e.actions))
-            end
+            push!(s′.edges, (e, new(t)))
         end
     end
-    eof_actions = Dict(serials[s] => sorted_unique_action_names(s.eof_actions) for s in traverse(dfa.start) if s.final)
-    return Machine(1:length(serials), serials[dfa.start], final_states, transitions, eof_actions, dfa)
+    start = new(dfa.start)
+    @assert start.state == 1
+    return Machine(start, 1:length(newnodes), 1, final_states, eof_actions)
 end
 
 function execute(machine::Machine, data::Vector{UInt8})
-    cs = machine.start_state
+    s = machine.start
+    cs = s.state
     actions = Symbol[]
     for d in data
-        if haskey(machine.transitions[cs], d)
-            cs, _, as = machine.transitions[cs][d]
-            append!(actions, as)
-        else
+        try
+            e, s = findedge(s, d)
+            cs = s.state
+            append!(actions, sorted_unique_action_names(e.actions))
+        catch ex
+            if !isa(ex, ErrorException)
+                rethrow()
+            end
             cs = -cs
         end
-        if cs < 0
-            break
-        end
     end
-    if haskey(machine.eof_actions, cs)
-        append!(actions, machine.eof_actions[cs])
+    if cs ∈ machine.final_states && haskey(machine.eof_actions, s.state)
+        append!(actions, sorted_unique_action_names(machine.eof_actions[s.state]))
     end
     if cs > 0
         if cs ∈ machine.final_states

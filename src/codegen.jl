@@ -22,7 +22,7 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
     elseif actions == :debug
         actions = debug_actions(machine)
     elseif isa(actions, Associative{Symbol,Expr})
-        # ok
+        actions = convert(Dict, actions)
     else
         throw(ArgumentError("invalid actions argument"))
     end
@@ -44,7 +44,7 @@ function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:tab
     end
 end
 
-function generate_table_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
+function generate_table_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
     action_dispatch_code, action_table = generate_action_dispatch_code(machine, actions)
     trans_table = generate_transition_table(machine)
     getbyte_code = generate_geybyte_code(check)
@@ -74,38 +74,38 @@ function generate_transition_table(machine::Machine)
     for j in 1:size(trans_table, 2)
         trans_table[:,j] = -j
     end
-    for (s, trans) in machine.transitions
-        for (l, (t, _, _)) in trans
-            trans_table[l+1,s] = t
-        end
+    for s in traverse(machine.start), (e, t) in s.edges, l in e.labels
+        trans_table[l+1,s.state] = t.state
     end
     return trans_table
 end
 
-function generate_action_dispatch_code(machine::Machine, actions::Associative{Symbol,Expr})
+function generate_action_dispatch_code(machine::Machine, actions::Dict{Symbol,Expr})
     action_table = Matrix{Int}(256, length(machine.states))
     fill!(action_table, 0)
     action_ids = Dict{Vector{Symbol},Int}()
-    for s in machine.states
-        for (l, (t, _, as)) in machine.transitions[s]
-            if isempty(as)
+    for s in traverse(machine.start)
+        for (e, t) in s.edges
+            if isempty(e.actions)
                 continue
-            elseif !haskey(action_ids, as)
-                action_ids[as] = length(action_ids) + 1
             end
-            action_table[l+1,s] = action_ids[as]
+            names = sorted_unique_action_names(e.actions)
+            id = get!(action_ids, names, length(action_ids) + 1)
+            for l in e.labels
+                action_table[l+1,s.state] = id
+            end
         end
     end
     default = :()
-    action_dispatch_code = foldr(default, collect(action_ids)) do as_id, els
-        as, id = as_id
-        action_code = rewrite_special_macros(generate_action_code(as, actions), false)
+    action_dispatch_code = foldr(default, collect(action_ids)) do names_id, els
+        names, id = names_id
+        action_code = rewrite_special_macros(generate_action_code(names, actions), false)
         return Expr(:if, :(act == $(id)), action_code, els)
     end
     return action_dispatch_code, action_table
 end
 
-function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
+function generate_inline_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
     trans_code = generate_transition_code(machine, actions)
     eof_action_code = generate_eof_action_code(machine, actions)
     getbyte_code = generate_geybyte_code(check)
@@ -124,21 +124,16 @@ function generate_inline_code(machine::Machine, actions::Associative{Symbol,Expr
     end
 end
 
-function generate_transition_code(machine::Machine, actions::Associative{Symbol,Expr})
+function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
     default = :(cs = -cs)
-    return foldr(default, collect(machine.transitions)) do s_trans, els
-        s, trans = s_trans
-        then = foldr(default, compact_transition(trans)) do branch, els′
-            l, (t, _, as) = branch
-            if isempty(as)
-                then′ = :(cs = $(t))
-            else
-                action_code = rewrite_special_macros(generate_action_code(as, actions), false)
-                then′ = :(cs = $(t); $(action_code))
-            end
-            return Expr(:if, label_condition(l), then′, els′)
+    return foldr(default, collect(traverse(machine.start))) do s, els
+        then = foldr(default, s.edges) do edge, els′
+            e, t = edge
+            action_code = rewrite_special_macros(generate_action_code(e.actions, actions), false)
+            then′ = :(cs = $(t.state); $(action_code))
+            return Expr(:if, label_condition(e.labels), then′, els′)
         end
-        return Expr(:if, state_condition(s), then, els)
+        return Expr(:if, state_condition(s.state), then, els)
     end
 end
 
@@ -153,7 +148,7 @@ function compact_transition{T}(trans::Dict{UInt8,T})
     return [(ByteSet(ls), val) for (val, ls) in revtrans]
 end
 
-function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr}, check::Bool)
+function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
     actions_in = make_actions_in(machine)
     action_label = Dict(s => Dict{Vector{Symbol},Symbol}() for s in machine.states)
     for s in machine.states
@@ -162,8 +157,10 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
         end
     end
 
+    nodes = Dict(node.state => node for node in traverse(machine.start))
     blocks = Expr[]
     for s in machine.states
+        # TODO: make `s` a node
         block = Expr(:block)
         for (names, label) in action_label[s]
             if isempty(names)
@@ -184,14 +181,14 @@ function generate_goto_code(machine::Machine, actions::Associative{Symbol,Expr},
             end
         end)
         default = :(cs = $(-s); @goto exit)
-        dispatch_code = foldr(default, compact_transition(machine.transitions[s])) do branch, els
-            ls, (t, _, as) = branch
-            if isempty(as)
-                goto_code = :(@goto $(Symbol("state_", t)))
+        dispatch_code = foldr(default, nodes[s].edges) do edge, els
+            e, t = edge
+            if isempty(e.actions)
+                goto_code = :(@goto $(Symbol("state_", t.state)))
             else
-                goto_code = :(@goto $(action_label[t][as]))
+                goto_code = :(@goto $(action_label[t.state][sorted_unique_action_names(e.actions)]))
             end
-            return Expr(:if, label_condition(ls), goto_code, els)
+            return Expr(:if, label_condition(e.labels), goto_code, els)
         end
         append_code!(block, quote
             @label $(Symbol("state_case_", s))
@@ -230,15 +227,20 @@ function append_code!(block::Expr, code::Expr)
     return block
 end
 
-function generate_eof_action_code(machine::Machine, actions::Associative{Symbol,Expr})
+function generate_eof_action_code(machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(:(), collect(machine.eof_actions)) do s_as, els
         s, as = s_as
-        action_code = rewrite_special_macros(generate_action_code(as, actions), true)
+        names = sorted_unique_action_names(as)
+        action_code = rewrite_special_macros(generate_action_code(names, actions), true)
         Expr(:if, state_condition(s), action_code, els)
     end
 end
 
-function generate_action_code(names::Vector{Symbol}, actions::Associative{Symbol,Expr})
+function generate_action_code(set::Set{Action}, actions::Dict{Symbol,Expr})
+    return generate_action_code(sorted_unique_action_names(set), actions)
+end
+
+function generate_action_code(names::Vector{Symbol}, actions::Dict{Symbol,Expr})
     return Expr(:block, (actions[n] for n in names)...)
 end
 
@@ -281,14 +283,15 @@ function compact_labels(set::ByteSet)
 end
 
 function make_actions_in(machine::Machine)
-    actions_in = Dict(t => Dict{Vector{Symbol},Set{UInt8}}() for t in machine.states)
-    for s in machine.states
-        for (l, (t, _, as)) in machine.transitions[s]
-            #push!(actions_in[t], as)
-            if !haskey(actions_in[t], as)
-                actions_in[t][as] = Set{UInt8}()
+    # TODO: is this really needed?
+    actions_in = Dict(t => Dict{Vector{Symbol},ByteSet}() for t in machine.states)
+    for s in traverse(machine.start)
+        for (e, t) in s.edges
+            names = sorted_unique_action_names(e.actions)
+            if !haskey(actions_in[t.state], names)
+                actions_in[t.state][names] = ByteSet()
             end
-            push!(actions_in[t][as], l)
+            actions_in[t.state][names] = union(actions_in[t.state][names], e.labels)
         end
     end
     return actions_in
@@ -355,13 +358,13 @@ end
 
 function debug_actions(machine::Machine)
     actions = Set{Symbol}()
-    for trans in values(machine.transitions)
-        for (_, _, as) in values(trans)
-            union!(actions, as)
+    for s in traverse(machine.start)
+        for (e, t) in s.edges
+            union!(actions, a.name for a in e.actions)
         end
     end
     for as in values(machine.eof_actions)
-        union!(actions, as)
+        union!(actions, a.name for a in as)
     end
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))

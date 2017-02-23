@@ -39,6 +39,26 @@ function dfa2dot(dfa::DFA)
     return String(take!(out))
 end
 
+function machine2dot(machine::Machine)
+    out = IOBuffer()
+    println(out, "digraph {")
+    println(out, "  graph [ rankdir = LR ];")
+    println(out, "  start -> 1;")
+    println(out, "  start [ shape = point ];")
+    for s in traverse(machine.start)
+        println(out, "  $(s.state) [ shape = $(s.state ∈ machine.final_states ? "doublecircle" : "circle") ];")
+        for (e, t) in s.edges
+            println(out, "  $(s.state) -> $(t.state) [ label = \"$(edge2str(e))\" ];")
+        end
+        if haskey(machine.eof_actions, s.state) && !isempty(machine.eof_actions[s.state])
+            println(out, "  eof$(s.state) [ shape = point ];")
+            println(out, "  $(s.state) -> eof$(s.state) [ label = \"$(eof_label(machine.eof_actions[s.state]))\" ];")
+        end
+    end
+    println(out, "}")
+    return String(take!(out))
+end
+
 function edge2str(edge::Edge)
     out = IOBuffer()
 

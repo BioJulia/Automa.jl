@@ -13,7 +13,7 @@ function Base.iteratorsize{T}(::Type{Traverser{T}})
     return Base.SizeUnknown()
 end
 
-function traverse(start::Union{NFANode,DFANode})
+function traverse(start::Union{NFANode,DFANode,Node})
     return Traverser(start)
 end
 
