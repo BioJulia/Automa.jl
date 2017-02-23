@@ -184,12 +184,13 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
         default = :(cs = $(-s); @goto exit)
         dispatch_code = foldr(default, nodes[s].edges) do edge, els
             e, t = edge
+            cond_code = :($(label_condition(e.labels)) && $(generate_precondition_code(e.preconds, actions)))
             if isempty(e.actions)
                 goto_code = :(@goto $(Symbol("state_", t.state)))
             else
                 goto_code = :(@goto $(action_label[t.state][sorted_unique_action_names(e.actions)]))
             end
-            return Expr(:if, label_condition(e.labels), goto_code, els)
+            return Expr(:if, cond_code, goto_code, els)
         end
         append_code!(block, quote
             @label $(Symbol("state_case_", s))

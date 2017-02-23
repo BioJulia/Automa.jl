@@ -641,6 +641,23 @@ module Test11
     @test validate1(b"aa\n", 2) == ([:one, :two], :ok)
     @test validate1(b"aa1\n", 2) == ([:two], :ok)
     @test validate1(b"1\n", 1) == ([], :error)
+
+    @eval function validate2(data, n)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=actions, code=:goto))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+
+    @test validate2(b"a\n", 0) == ([:two], :ok)
+    @test validate2(b"a\n", 1) == ([:one, :two], :ok)
+    @test validate2(b"a1\n", 1) == ([:two], :ok)
+    @test validate2(b"aa\n", 1) == ([:two], :ok)
+    @test validate2(b"aa1\n", 1) == ([:two], :ok)
+    @test validate2(b"aa\n", 2) == ([:one, :two], :ok)
+    @test validate2(b"aa1\n", 2) == ([:two], :ok)
+    @test validate2(b"1\n", 1) == ([], :error)
 end
 
 module TestFASTA
