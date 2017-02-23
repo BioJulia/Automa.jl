@@ -97,7 +97,7 @@ function generate_action_dispatch_code(machine::Machine, actions::Dict{Symbol,Ex
         end
     end
     default = :()
-    action_dispatch_code = foldr(default, collect(action_ids)) do names_id, els
+    action_dispatch_code = foldr(default, action_ids) do names_id, els
         names, id = names_id
         action_code = rewrite_special_macros(generate_action_code(names, actions), false)
         return Expr(:if, :(act == $(id)), action_code, els)
@@ -126,7 +126,7 @@ end
 
 function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
     default = :(cs = -cs)
-    return foldr(default, collect(traverse(machine.start))) do s, els
+    return foldr(default, traverse(machine.start)) do s, els
         then = foldr(default, s.edges) do edge, els′
             e, t = edge
             action_code = rewrite_special_macros(generate_action_code(e.actions, actions), false)
@@ -228,7 +228,7 @@ function append_code!(block::Expr, code::Expr)
 end
 
 function generate_eof_action_code(machine::Machine, actions::Dict{Symbol,Expr})
-    return foldr(:(), collect(machine.eof_actions)) do s_as, els
+    return foldr(:(), machine.eof_actions) do s_as, els
         s, as = s_as
         names = sorted_unique_action_names(as)
         action_code = rewrite_special_macros(generate_action_code(names, actions), true)
@@ -370,6 +370,19 @@ function debug_actions(machine::Machine)
         return :(push!(logger, $(QuoteNode(name))))
     end
     return Dict(name => log_expr(name) for name in actions)
+end
+
+# Generic foldr.
+function foldr(op::Function, x0, xs)
+    function rec(xs, s)
+        if done(xs, s)
+            return x0
+        else
+            x, s = next(xs, s)
+            return op(x, rec(xs, s))
+        end
+    end
+    return rec(xs, start(xs))
 end
 
 
