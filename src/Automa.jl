@@ -1,3 +1,5 @@
+__precompile__()
+
 module Automa
 
 import Compat: @compat, xor, take!
