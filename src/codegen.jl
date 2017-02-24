@@ -129,10 +129,9 @@ function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(default, traverse(machine.start)) do s, els
         then = foldr(default, s.edges) do edge, els′
             e, t = edge
-            cond_code = :($(label_condition(e.labels)) && $(generate_precondition_code(e.preconds, actions)))
             action_code = rewrite_special_macros(generate_action_code(e.actions, actions), false)
             then′ = :(cs = $(t.state); $(action_code))
-            return Expr(:if, cond_code, then′, els′)
+            return Expr(:if, generate_condition_code(e, actions), then′, els′)
         end
         return Expr(:if, state_condition(s.state), then, els)
     end
@@ -188,13 +187,12 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
         default = :(cs = $(-s.state); @goto exit)
         dispatch_code = foldr(default, s.edges) do edge, els
             e, t = edge
-            cond_code = :($(label_condition(e.labels)) && $(generate_precondition_code(e.preconds, actions)))
             if isempty(e.actions)
-                goto_code = :(@goto $(Symbol("state_", t.state)))
+                then = :(@goto $(Symbol("state_", t.state)))
             else
-                goto_code = :(@goto $(action_label[t][sorted_unique_action_names(e.actions)]))
+                then = :(@goto $(action_label[t][sorted_unique_action_names(e.actions)]))
             end
-            return Expr(:if, cond_code, goto_code, els)
+            return Expr(:if, generate_condition_code(e, actions), then, els)
         end
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
@@ -269,27 +267,10 @@ function state_condition(s::Int)
     return :(cs == $(s))
 end
 
-function label_condition(set::ByteSet)
-    label = compact_labels(set)
-    return foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), label)
-end
-
-function generate_precondition_code(preconds::Set{Precondition}, actions::Dict{Symbol,Expr})
-    return foldr((p, cond) -> Expr(:&&, p.value ? actions[p.name] : :(!$(actions[p.name])), cond), :(true), preconds)
-end
-
-function compact_labels(set::ByteSet)
-    labels = collect(set)
-    labels′ = UnitRange{UInt8}[]
-    while !isempty(labels)
-        lo = shift!(labels)
-        hi = lo
-        while !isempty(labels) && first(labels) == hi + 1
-            hi = shift!(labels)
-        end
-        push!(labels′, lo:hi)
-    end
-    return labels′
+function generate_condition_code(edge::Edge, actions::Dict{Symbol,Expr})
+    labelcode = foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), range_encode(edge.labels))
+    precondcode = foldr((p, cond) -> Expr(:&&, p.value ? actions[p.name] : :(!$(actions[p.name])), cond), :(true), edge.preconds)
+    return :($(labelcode) && $(precondcode))
 end
 
 # Used by the :table and :inline code generators.
