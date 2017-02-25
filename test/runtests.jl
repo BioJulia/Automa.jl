@@ -687,6 +687,22 @@ module Test12
     @test validate(b"aaab") == ([:a, :a, :a], :error)
 end
 
+module TestDOT
+    import Automa
+    import Automa.RegExp: @re_str
+    using Base.Test
+
+    re = re"[A-Za-z_][A-Za-z0-9_]*"
+    re.actions[:enter] = [:enter]
+    re.actions[:exit]  = [:exit]
+    nfa = Automa.re2nfa(re)
+    @test startswith(Automa.nfa2dot(nfa), "digraph")
+    dfa = Automa.nfa2dfa(nfa)
+    @test startswith(Automa.dfa2dot(dfa), "digraph")
+    machine = Automa.compile(re)
+    @test startswith(Automa.machine2dot(machine), "digraph")
+end
+
 module TestFASTA
     include("../example/fasta.jl")
     using Base.Test
