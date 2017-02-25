@@ -625,6 +625,8 @@ module Test11
         :two => :(push!(logger, :two)),
         :le  => :(p ≤ n))
 
+    @test_throws ErrorException Automa.generate_exec_code(machine, actions=actions, code=:table)
+
     @eval function validate1(data, n)
         logger = Symbol[]
         $(Automa.generate_init_code(machine))

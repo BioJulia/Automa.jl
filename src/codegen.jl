@@ -74,8 +74,13 @@ function generate_transition_table(machine::Machine)
     for j in 1:size(trans_table, 2)
         trans_table[:,j] = -j
     end
-    for s in traverse(machine.start), (e, t) in s.edges, l in e.labels
-        trans_table[l+1,s.state] = t.state
+    for s in traverse(machine.start), (e, t) in s.edges
+        if !isempty(e.preconds)
+            error("precondition is not supported in the table-based code generator; try code=:inline or :goto")
+        end
+        for l in e.labels
+            trans_table[l+1,s.state] = t.state
+        end
     end
     return trans_table
 end
