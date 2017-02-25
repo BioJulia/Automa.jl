@@ -40,6 +40,7 @@ function compile(re::RegExp.RE; optimize::Bool=true)
     if optimize
         dfa = remove_dead_nodes(reduce_nodes(dfa))
     end
+    validate(dfa)
     return dfa2machine(dfa)
 end
 

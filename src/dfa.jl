@@ -24,6 +24,31 @@ immutable DFA
     start::DFANode
 end
 
+# Check if the DFA is really deterministic or not.
+function validate(dfa::DFA)
+    function overlap(e1, e2)
+        if isdisjoint(e1.labels, e2.labels)
+            return false
+        else
+            for p1 in e1.preconds
+                if conflicts(p1, e2.preconds)
+                    return false
+                end
+            end
+            return true
+        end
+    end
+    for s in traverse(dfa.start)
+        for i in 1:endof(s.edges), j in 1:i-1
+            e_i = s.edges[i][1]
+            e_j = s.edges[j][1]
+            if overlap(e_i, e_j)
+                error("found non-deterministic edges")
+            end
+        end
+    end
+end
+
 function nfa2dfa(nfa::NFA)
     newnodes = Dict{Set{NFANode},DFANode}()
     new(S) = get!(newnodes, S, DFANode(nfa.final ∈ S, S))
