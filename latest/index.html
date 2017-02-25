@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · Automa.jl</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.5.0/styles/default.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Ubuntu+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="assets/documenter.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="assets/documenter.js"></script><script src="../versions.js"></script></head><body><nav class="toc"><h1>Automa.jl</h1><form class="search" action="search.html"><select id="version-selector" onChange="window.location.href=this.value"><option value="#" selected="selected" disabled="disabled">Version</option></select><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li class="current"><a class="toctext" href="index.html">Home</a><ul class="internal"><li><a class="toctext" href="#Overview-1">Overview</a></li><li><a class="toctext" href="#Regular-expressions-1">Regular expressions</a></li><li><a class="toctext" href="#Compilers-1">Compilers</a></li><li><a class="toctext" href="#Code-generators-1">Code generators</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href="index.html">Home</a></li></ul><a class="edit-page" href="https://github.com/BioJulia/Automa.jl/tree/4c369b31875ffef5f31820054359519a47ad80eb/docs/src/index.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/></header><h1><a class="nav-anchor" id="Home-1" href="#Home-1">Home</a></h1><p>Automa.jl is a package for generating <a href="<https://en.wikipedia.org/wiki/Finite-state_machine>">finite-state machines (FSMs)</a> and <a href="<https://en.wikipedia.org/wiki/Lexical_analysis>">tokenizers</a> in Julia.</p><p>The following code is an example of tokenizing various kinds of numeric literals in Julia.</p><pre><code class="language-julia">import Automa
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · Automa.jl</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.5.0/styles/default.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Ubuntu+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="assets/documenter.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="assets/documenter.js"></script><script src="../versions.js"></script></head><body><nav class="toc"><h1>Automa.jl</h1><form class="search" action="search.html"><select id="version-selector" onChange="window.location.href=this.value"><option value="#" selected="selected" disabled="disabled">Version</option></select><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li class="current"><a class="toctext" href="index.html">Home</a><ul class="internal"><li><a class="toctext" href="#Overview-1">Overview</a></li><li><a class="toctext" href="#Regular-expressions-1">Regular expressions</a></li><li><a class="toctext" href="#Compilers-1">Compilers</a></li><li><a class="toctext" href="#Code-generators-1">Code generators</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li><a href="index.html">Home</a></li></ul><a class="edit-page" href="https://github.com/BioJulia/Automa.jl/tree/789b615a62f8bfe8a379e97807e9d78a34d00383/docs/src/index.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/></header><h1><a class="nav-anchor" id="Home-1" href="#Home-1">Home</a></h1><p>Automa.jl is a package for generating <a href="<https://en.wikipedia.org/wiki/Finite-state_machine>">finite-state machines (FSMs)</a> and <a href="<https://en.wikipedia.org/wiki/Lexical_analysis>">tokenizers</a> in Julia.</p><p>The following code is an example of tokenizing various kinds of numeric literals in Julia.</p><pre><code class="language-julia">import Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
 
@@ -23,7 +23,7 @@ float.actions[:exit]   = [:float]
 machine = Automa.compile(numbers)
 
 #= This generates a SVG file to visualize the state machine.
-write(&quot;numbers.dot&quot;, Automa.dfa2dot(machine.dfa))
+write(&quot;numbers.dot&quot;, Automa.machine2dot(machine))
 run(`dot -Tsvg -o numbers.svg numbers.dot`)
 =#
 
@@ -60,25 +60,39 @@ julia&gt; status
 :ok
 </code></pre><p><img src="figure/numbers.png" alt/></p><h2><a class="nav-anchor" id="Overview-1" href="#Overview-1">Overview</a></h2><p>Automa.jl is composed of three elements: regular expressions, compilers, and code generators. Regular expressions are used to specify patterns that you want to match and bind actions to. A regular expression can be built using APIs provided from the <code>Automa.RegExp</code> module. The regular expression with actions is then fed to a compiler function that creates a finite state machine and optimizes it to minimize the number of states. Finally, the machine object is used to generate Julia code that can be spliced into functions.</p><p>Machines are byte-oriented in a sense that input data fed into a machine is a sequence of bytes. The generated code of a machine reads input data byte by byte and updates a current state variable based on transition rules defined by regular expressions. If one or more actions are associated to a state transition they will be executed before reading a next byte. If no transition rule is found for a byte of a specific state the machine sets the current state to an error value, stops executing, and breaks from a loop.</p><h2><a class="nav-anchor" id="Regular-expressions-1" href="#Regular-expressions-1">Regular expressions</a></h2><p>Regular expressions in Automa.jl is somewhat more restricted than usual regular expressions in Julia. Some features like lookahead or backreference are not provided. In Automa.jl, <code>re&quot;...&quot;</code> is used instead of <code>r&quot;...&quot;</code> because these are different regular expressions. However, the syntax of Automa.jl&#39;s regular expressions is a subset of Julia&#39;s ones and hence it would be already familiar. Some examples are shown below:</p><pre><code class="language-julia">decimal    = re&quot;[-+]?[0-9]+&quot;
 keyword    = re&quot;if|else|while|end&quot;
-identifier = re&quot;[A-Za-z_][0-9A-Za-z_]*&quot;</code></pre><p>An important feature of regular expressions is composition of (sub-) regular expressions. One or more regular expressions can be composed using following functions:</p><table><tr><th>Function</th><th>Alias</th><th>Meaning</th></tr><tr><td><code>cat(re...)</code></td><td><code>*</code></td><td>concatenation</td></tr><tr><td><code>alt(re1, re2...)</code></td><td><code>|</code></td><td>alternation</td></tr><tr><td><code>rep(re)</code></td><td></td><td>zero or more repetition</td></tr><tr><td><code>rep1(re)</code></td><td></td><td>one or more repetition</td></tr><tr><td><code>opt(re)</code></td><td></td><td>zero or one repetition</td></tr><tr><td><code>isec(re1, re2)</code></td><td><code>&amp;</code></td><td>intersection</td></tr><tr><td><code>diff(re1, re2)</code></td><td><code>\</code></td><td>difference (subtraction)</td></tr><tr><td><code>neg(re)</code></td><td><code>!</code></td><td>negation</td></tr></table><p>Actions can be bind to regular expressions. Currently, there are three kinds of actions: enter, exit, and final. Enter actions will be executed when it enters the regular expression. In contrast, exit actions will be executed when it exits from the regular expression. Final actions will be executed every time when it reaches a final (or accept) state. The following code and figure demonstrate transitions and actions between states.</p><pre><code class="language-julia">import Automa
-import Automa.RegExp: @re_str
+identifier = re&quot;[A-Za-z_][0-9A-Za-z_]*&quot;</code></pre><p>An important feature of regular expressions is composition of (sub-) regular expressions. One or more regular expressions can be composed using following functions:</p><table><tr><th>Function</th><th>Alias</th><th>Meaning</th></tr><tr><td><code>cat(re...)</code></td><td><code>*</code></td><td>concatenation</td></tr><tr><td><code>alt(re1, re2...)</code></td><td><code>|</code></td><td>alternation</td></tr><tr><td><code>rep(re)</code></td><td></td><td>zero or more repetition</td></tr><tr><td><code>rep1(re)</code></td><td></td><td>one or more repetition</td></tr><tr><td><code>opt(re)</code></td><td></td><td>zero or one repetition</td></tr><tr><td><code>isec(re1, re2)</code></td><td><code>&amp;</code></td><td>intersection</td></tr><tr><td><code>diff(re1, re2)</code></td><td><code>\</code></td><td>difference (subtraction)</td></tr><tr><td><code>neg(re)</code></td><td><code>!</code></td><td>negation</td></tr></table><p>Actions can be bind to regular expressions. Currently, there are four kinds of actions: enter, exit, :all and final. Enter actions will be executed when it enters the regular expression. In contrast, exit actions will be executed when it exits from the regular expression. All actions will be executed in all transitions and final actions will be executed every time when it reaches a final (or accept) state. The following code and figure demonstrate transitions and actions between states.</p><pre><code class="language-julia">using Automa
+using Automa.RegExp: @re_str
+const re = Automa.RegExp
 
-a = re&quot;a*&quot;
-b = re&quot;b&quot;
-ab = a * b
+ab = re&quot;ab*&quot;
+c = re&quot;c&quot;
+pattern = re.cat(ab, c)
 
-a.actions[:enter] = [:enter_a]
-a.actions[:exit]  = [:exit_a]
-a.actions[:final] = [:final_a]
-b.actions[:enter] = [:enter_b]
-b.actions[:exit]  = [:exit_b]
-b.actions[:final] = [:final_b]</code></pre><p><img src="figure/actions.png" alt/></p><h2><a class="nav-anchor" id="Compilers-1" href="#Compilers-1">Compilers</a></h2><p>After finished defining a regular expression with optional actions you can compile it into a finite-state machine using the <code>compile</code> function. The <code>Machine</code> type is defined as follows:</p><pre><code class="language-julia">type Machine
+ab.actions[:enter] = [:enter_ab]
+ab.actions[:exit]  = [:exit_ab]
+ab.actions[:all]   = [:all_ab]
+ab.actions[:final] = [:final_ab]
+c.actions[:enter]  = [:enter_c]
+c.actions[:exit]   = [:exit_c]
+c.actions[:final]  = [:final_c]
+
+write(&quot;actions.dot&quot;, Automa.machine2dot(Automa.compile(pattern)))
+run(`dot -Tpng -o src/figure/actions.png actions.dot`)</code></pre><p><img src="figure/actions.png" alt/></p><p>Transitions can be conditioned by actions that return a boolean value. Assigning a name to the <code>when</code> field of a regular expression can bind an action to all transitions within the regular expression as the following example shows.</p><pre><code class="language-julia">using Automa
+using Automa.RegExp: @re_str
+const re = Automa.RegExp
+
+ab = re&quot;ab*&quot;
+ab.when = :cond
+c = re&quot;c&quot;
+pattern = re.cat(ab, c)
+
+write(&quot;preconditions.dot&quot;, Automa.machine2dot(Automa.compile(pattern)))
+run(`dot -Tpng -o src/figure/preconditions.png preconditions.dot`)</code></pre><p><img src="figure/preconditions.png" alt/></p><h2><a class="nav-anchor" id="Compilers-1" href="#Compilers-1">Compilers</a></h2><p>After finished defining a regular expression with optional actions you can compile it into a finite-state machine using the <code>compile</code> function. The <code>Machine</code> type is defined as follows:</p><pre><code class="language-julia">type Machine
+    start::Node
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
-    transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Symbol}}}}
-    eof_actions::Dict{Int,Vector{Symbol}}
-    dfa::DFA
+    eof_actions::Dict{Int,Set{Action}}
 end</code></pre><p>For the purpose of debugging, Automa.jl offers the <code>execute</code> function, which emulates the machine execution and returns the last state with the action log. Let&#39;s execute a machine of <code>re&quot;a*b&quot;</code> with actions used in the previous example.</p><pre><code class="language-jlcon">julia&gt; machine = Automa.compile(ab)
 Automa.Machine(&lt;states=1:3,start_state=1,final_states=Set([0,2])&gt;)
 
