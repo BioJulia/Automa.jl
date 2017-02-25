@@ -740,3 +740,30 @@ module TestNumbers
     @test status == :ok
     @test startswith(Automa.machine2dot(machine), "digraph")
 end
+
+module TestTokenizer
+    include("../example/tokenizer.jl")
+    using Base.Test
+    @test tokens[1:14] == [
+        (:identifier,"quicksort"),
+        (:lparen,"("),
+        (:identifier,"xs"),
+        (:rparen,")"),
+        (:spaces," "),
+        (:equal,"="),
+        (:spaces," "),
+        (:identifier,"quicksort!"),
+        (:lparen,"("),
+        (:identifier,"copy"),
+        (:lparen,"("),
+        (:identifier,"xs"),
+        (:rparen,")"),
+        (:rparen,")")]
+    @test tokens[end-5:end] == [
+        (:keyword,"return"),
+        (:spaces," "),
+        (:identifier,"j"),
+        (:newline,"\n"),
+        (:keyword,"end"),
+        (:newline,"\n")]
+end
