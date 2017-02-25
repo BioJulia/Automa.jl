@@ -687,6 +687,34 @@ module Test12
     @test validate(b"aaab") == ([:a, :a, :a], :error)
 end
 
+module Test13
+    import Automa
+    import Automa.RegExp: @re_str
+    const re = Automa.RegExp
+    using Base.Test
+
+    abra = re"abra"
+    ca = re"(ca)+"
+    ca.actions[:enter] = [:ca_enter]
+    ca.actions[:exit] = [:ca_exit]
+    dabra = re"dabra"
+    machine = Automa.compile(re.cat(abra, ca, dabra))
+    @eval function validate(data)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=:debug, code=:inline, clean=true))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+    @test validate(b"a") == ([], :incomplete)
+    @test validate(b"abrac") == ([:ca_enter], :incomplete)
+    @test validate(b"abraca") == ([:ca_enter], :incomplete)
+    @test validate(b"abracad") == ([:ca_enter, :ca_exit], :incomplete)
+    @test validate(b"abracadabra") == ([:ca_enter, :ca_exit], :ok)
+    @test validate(b"abracacadabra") == ([:ca_enter, :ca_exit], :ok)
+    @test validate(b"abrad") == ([], :error)
+end
+
 module TestDOT
     import Automa
     import Automa.RegExp: @re_str

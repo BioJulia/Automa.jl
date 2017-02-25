@@ -142,17 +142,6 @@ function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
     end
 end
 
-function compact_transition{T}(trans::Dict{UInt8,T})
-    revtrans = Dict{T,Vector{UInt8}}()
-    for (l, val) in trans
-        if !haskey(revtrans, val)
-            revtrans[val] = UInt8[]
-        end
-        push!(revtrans[val], l)
-    end
-    return [(ByteSet(ls), val) for (val, ls) in revtrans]
-end
-
 function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
     actions_in = Dict{Node,Set{Vector{Symbol}}}()
     for s in traverse(machine.start), (e, t) in s.edges

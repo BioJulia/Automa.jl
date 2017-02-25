@@ -33,14 +33,6 @@ function Base.:(==)(s1::ByteSet, s2::ByteSet)
     return s1.a == s2.a && s1.b == s2.b && s1.c == s2.c && s1.d == s2.d
 end
 
-function Base.hash(s::ByteSet, h::UInt)
-    x = hash(s.a, h)
-    x = xor(x, hash(s.b, h))
-    x = xor(x, hash(s.c, h))
-    x = xor(x, hash(s.d, h))
-    return x
-end
-
 function Base.in(byte::UInt8, set::ByteSet)
     if byte < 0x40
         return set.a & (UInt64(1) << (byte - 0x00)) != 0
