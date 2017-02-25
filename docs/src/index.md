@@ -127,6 +127,7 @@ b.actions[:final] = [:final_b]
 
 ![](figure/actions.png)
 
+
 Compilers
 ---------
 
@@ -183,6 +184,7 @@ tokenizer = Automa.compile(
 ```
 
 A tokenizer tries to find the longest token that is available from the current reading position. When multiple patterns match a substring of the same length, higher priority token placed at a former position in the arguments list will be selected. For example, `"else"` matches both `:keyword` and `:identifier` but the `:keyword` action will be run because it is placed before `:identifier` in the arguments list.
+
 
 Code generators
 ---------------
