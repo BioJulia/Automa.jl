@@ -18,7 +18,7 @@ fastq_machine = (function ()
 
     header = let
         at = cat('@')
-        at.when = :qlen_eq
+        at.when = :qlen_eq_slen
         identifier = re"[!-~]*"
         identifier.actions[:enter] = [:mark]
         identifier.actions[:exit] = [:identifier]
@@ -41,7 +41,7 @@ fastq_machine = (function ()
 
     quality = let
         qletter1 = re"[!-~]"
-        qletter1.when = :qlen_lt
+        qletter1.when = :qlen_lt_slen
         qletters = opt(cat(qletter1, re"[!-~]*"))
         qletters.actions[:enter] = [:mark]
         qletters.actions[:exit] = [:qletters]
@@ -62,12 +62,12 @@ fastq_machine = (function ()
     return Automa.compile(fastq)
 end)()
 
-write("fastq.dfa.dot", Automa.machine2dot(fastq_machine))
-run(`dot -Tsvg -o fastq.dfa.svg fastq.dfa.dot`)
+# write("fastq.dfa.dot", Automa.machine2dot(fastq_machine))
+# run(`dot -Tsvg -o fastq.dfa.svg fastq.dfa.dot`)
 
 fastq_actions = Dict(
-    :qlen_lt => :(qlen <  record.seqlen),
-    :qlen_eq => :(qlen == record.seqlen),
+    :qlen_lt_slen => :(qlen <  record.seqlen),
+    :qlen_eq_slen => :(qlen == record.seqlen),
     :count_line => :(linenum += 1),
     :mark => :(mark = p),
     :mark_record => quote

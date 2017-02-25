@@ -29,7 +29,7 @@ float.actions[:exit]   = [:float]
 machine = Automa.compile(numbers)
 
 #= This generates a SVG file to visualize the state machine.
-write("numbers.dot", Automa.dfa2dot(machine.dfa))
+write("numbers.dot", Automa.machine2dot(machine))
 run(`dot -Tsvg -o numbers.svg numbers.dot`)
 =#
 

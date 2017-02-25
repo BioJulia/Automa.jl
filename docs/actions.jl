@@ -12,5 +12,5 @@ b.actions[:enter] = [:enter_b]
 b.actions[:exit]  = [:exit_b]
 b.actions[:final] = [:final_b]
 
-write("actions.dot", Automa.dfa2dot(compile(a * b).dfa))
+write("actions.dot", Automa.machine2dot(compile(a * b)))
 run(`dot -Tpng -o figure/actions.png actions.dot`)

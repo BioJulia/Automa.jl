@@ -43,7 +43,7 @@ const minijulia = Automa.compile(
 )
 
 #=
-write("minijulia.dot", Automa.dfa2dot(minijulia.machine.dfa))
+write("minijulia.dot", Automa.machine2dot(minijulia.machine))
 run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
 =#
 
