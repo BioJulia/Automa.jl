@@ -606,6 +606,106 @@ module Test10
     @test Automa.execute(machine, "foo")[1] < 0
 end
 
+module Test11
+    import Automa
+    import Automa.RegExp: @re_str
+    const re = Automa.RegExp
+    using Base.Test
+
+    a = re"[a-z]"
+    a.when = :le
+    a = re.rep1(a)
+    a.actions[:exit] = [:one]
+    b = re"[a-z][a-z0-9]*"
+    b.actions[:exit] = [:two]
+
+    machine = Automa.compile(re.cat(a | b, '\n'))
+    actions = Dict(
+        :one => :(push!(logger, :one)),
+        :two => :(push!(logger, :two)),
+        :le  => :(p ≤ n))
+
+    @test_throws ErrorException Automa.generate_exec_code(machine, actions=actions, code=:table)
+
+    @eval function validate1(data, n)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=actions, code=:inline))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+
+    @test validate1(b"a\n", 0) == ([:two], :ok)
+    @test validate1(b"a\n", 1) == ([:one, :two], :ok)
+    @test validate1(b"a1\n", 1) == ([:two], :ok)
+    @test validate1(b"aa\n", 1) == ([:two], :ok)
+    @test validate1(b"aa1\n", 1) == ([:two], :ok)
+    @test validate1(b"aa\n", 2) == ([:one, :two], :ok)
+    @test validate1(b"aa1\n", 2) == ([:two], :ok)
+    @test validate1(b"1\n", 1) == ([], :error)
+
+    @eval function validate2(data, n)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=actions, code=:goto))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+
+    @test validate2(b"a\n", 0) == ([:two], :ok)
+    @test validate2(b"a\n", 1) == ([:one, :two], :ok)
+    @test validate2(b"a1\n", 1) == ([:two], :ok)
+    @test validate2(b"aa\n", 1) == ([:two], :ok)
+    @test validate2(b"aa1\n", 1) == ([:two], :ok)
+    @test validate2(b"aa\n", 2) == ([:one, :two], :ok)
+    @test validate2(b"aa1\n", 2) == ([:two], :ok)
+    @test validate2(b"1\n", 1) == ([], :error)
+end
+
+module Test12
+    import Automa
+    import Automa.RegExp: @re_str
+    const re = Automa.RegExp
+    using Base.Test
+
+    a = re"a*"
+    a.actions[:all] = [:a]
+    machine = Automa.compile(a)
+
+    @eval function validate(data)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=:debug))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+
+    @test validate(b"") == ([], :ok)
+    @test validate(b"a") == ([:a], :ok)
+    @test validate(b"aa") == ([:a, :a], :ok)
+    @test validate(b"aaa") == ([:a, :a, :a], :ok)
+    @test validate(b"aaab") == ([:a, :a, :a], :error)
+end
+
+module TestDOT
+    import Automa
+    import Automa.RegExp: @re_str
+    using Base.Test
+
+    re = re"[A-Za-z_][A-Za-z0-9_]*"
+    re.actions[:enter] = [:enter]
+    re.actions[:exit]  = [:exit]
+    nfa = Automa.re2nfa(re)
+    @test startswith(Automa.nfa2dot(nfa), "digraph")
+    dfa = Automa.nfa2dfa(nfa)
+    @test startswith(Automa.dfa2dot(dfa), "digraph")
+    machine = Automa.compile(re)
+    @test startswith(Automa.machine2dot(machine), "digraph")
+    @test ismatch(r"^Automa\.NFANode\(.*\)$", repr(nfa.start))
+    @test ismatch(r"^Automa\.DFANode\(.*\)$", repr(dfa.start))
+    @test ismatch(r"^Automa\.Node\(.*\)$", repr(machine.start))
+end
+
 module TestFASTA
     include("../example/fasta.jl")
     using Base.Test
@@ -615,10 +715,55 @@ module TestFASTA
     @test records[1].sequence[end-4:end] == b"SPPSM"
 end
 
+module TestFASTQ
+    include("../example/fastq.jl")
+    using Base.Test
+    @test length(records) == 2
+    r1 = records[1]
+    @test r1.seqlen == 102
+    @test String(r1.data[r1.identifier]) == "SRR1238088.23.1"
+    @test String(r1.data[r1.description]) == "HWI-ST499:111:D0G94ACXX:1:1101:6631:2166 length=102"
+    @test String(r1.data[r1.sequence]) == "AAAGCGTTCTCTTCCGTCAGCCTTCTTCCGCTTCTGTCGTCCTCCGCAACCGTGCCACCTCCCTCACCGTCCGTGCCGCTTCCTCCTACGCCGATGAGCTTC"
+    @test String(r1.data[r1.quality]) == "CCCFFFFFHHHHHJIJIJJJJJJJJJJJJJJJJJJJIJJJJIJJJJJJJJJJHHHFFFFFEDDEDDDDDDDDDBDBBDDDDDDDDDDDDDDDDDDDDDDDDC"
+    r2 = records[2]
+    @test r2.seqlen == 102
+    @test String(r2.data[r2.identifier]) == "SRR1238088.24.1"
+    @test String(r2.data[r2.description]) == "HWI-ST499:111:D0G94ACXX:1:1101:6860:2182 length=102"
+    @test String(r2.data[r2.sequence]) == "GGAGGATACAGCGGCGGCGGCGGCGGTTACTCCTCAAGAGGTGGTGGTGGCGGAAGCTACGGTGGTGGAAGACGTGAGGGAGGAGGAGGATACGGTGGTGGC"
+    @test String(r2.data[r2.quality]) == "CCCFFFFFHHHGHJJJJJJFDDDDBDBDBCACDCDCDC8AB>AD5?@7@DDDDBDDDDCDDD3<@0<@ACDBCB<<ABDD9@D<<@8?D?9::?B3?B5?BC"
+end
+
 module TestNumbers
     include("../example/numbers.jl")
     using Base.Test
     @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
     @test status == :ok
-    @test startswith(Automa.dfa2dot(machine.dfa), "digraph")
+    @test startswith(Automa.machine2dot(machine), "digraph")
+end
+
+module TestTokenizer
+    include("../example/tokenizer.jl")
+    using Base.Test
+    @test tokens[1:14] == [
+        (:identifier,"quicksort"),
+        (:lparen,"("),
+        (:identifier,"xs"),
+        (:rparen,")"),
+        (:spaces," "),
+        (:equal,"="),
+        (:spaces," "),
+        (:identifier,"quicksort!"),
+        (:lparen,"("),
+        (:identifier,"copy"),
+        (:lparen,"("),
+        (:identifier,"xs"),
+        (:rparen,")"),
+        (:rparen,")")]
+    @test tokens[end-5:end] == [
+        (:keyword,"return"),
+        (:spaces," "),
+        (:identifier,"j"),
+        (:newline,"\n"),
+        (:keyword,"end"),
+        (:newline,"\n")]
 end

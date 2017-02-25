@@ -15,13 +15,14 @@ type RE
     head::Symbol
     args::Vector
     actions::DefaultDict{Symbol,Vector{Symbol},typeof(gen_empty_names)}
+    when::Nullable{Symbol}
 end
 
 function RE(head::Symbol, args::Vector)
-    return RE(head, args, DefaultDict{Symbol,Vector{Symbol}}(gen_empty_names))
+    return RE(head, args, DefaultDict{Symbol,Vector{Symbol}}(gen_empty_names), Nullable{Symbol}())
 end
 
-typealias Primitive Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
+const Primitive = Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
 
 function primitive(re::RE)
     return re
@@ -53,9 +54,10 @@ function primitive(bs::Vector{UInt8})
     return RE(:bytes, copy(bs))
 end
 
-function primitive(x::Primitive, actions)
+function primitive(x::Primitive, actions, when)
     re = primitive(x)
     re.actions = actions
+    re.when = when
     return re
 end
 
@@ -284,17 +286,17 @@ end
 function desugar(re::RE)
     if re.head == :rep1
         arg = desugar(re.args[1])
-        return RE(:cat, [arg, rep(arg)], re.actions)
+        return RE(:cat, [arg, rep(arg)], re.actions, re.when)
     elseif re.head == :opt
         arg = desugar(re.args[1])
-        return RE(:alt, [arg, RE(:cat, [])], re.actions)
+        return RE(:alt, [arg, RE(:cat, [])], re.actions, re.when)
     elseif re.head == :neg
         arg = desugar(re.args[1])
-        return RE(:diff, [rep(any()), arg], re.actions)
+        return RE(:diff, [rep(any()), arg], re.actions, re.when)
     elseif re.head ∈ PRIMITIVE
         return re
     else
-        return RE(re.head, [desugar(arg) for arg in re.args], re.actions)
+        return RE(re.head, [desugar(arg) for arg in re.args], re.actions, re.when)
     end
 end
 
@@ -302,35 +304,35 @@ function expand(re::RE)
     if re.head == :set
         return re
     elseif re.head == :byte
-        return primitive(ByteSet([re.args[1]]), re.actions)
+        return primitive(ByteSet([re.args[1]]), re.actions, re.when)
     elseif re.head == :range
-        return primitive(ByteSet(re.args[1]), re.actions)
+        return primitive(ByteSet(re.args[1]), re.actions, re.when)
     elseif re.head == :class
         set = UInt8[]
         for arg in re.args
             append!(set, arg)
         end
-        return primitive(ByteSet(set), re.actions)
+        return primitive(ByteSet(set), re.actions, re.when)
     elseif re.head == :cclass
         set = UInt8[]
         for arg in re.args
             append!(set, arg)
         end
-        return primitive(ByteSet(setdiff(0x00:0xff, set)), re.actions)
+        return primitive(ByteSet(setdiff(0x00:0xff, set)), re.actions, re.when)
     elseif re.head == :char
         char = re.args[1]
         if isascii(char)
-            return primitive(ByteSet([UInt8(char)]), re.actions)
+            return primitive(ByteSet([UInt8(char)]), re.actions, re.when)
         else
-            return expand(primitive(string(char), re.actions))
+            return expand(primitive(string(char), re.actions, re.when))
         end
     elseif re.head == :str
-        return RE(:bytes, convert(Vector{UInt8}, re.args[1]), re.actions)
+        return RE(:cat, [expand(primitive(b)) for b in convert(Vector{UInt8}, re.args[1])], re.actions, re.when)
     elseif re.head == :bytes
-        return re
+        return RE(:cat, [expand(primitive(b)) for b::UInt8 in re.args], re.actions, re.when)
     else
         @assert re.head ∉ PRIMITIVE
-        return RE(re.head, [expand(arg) for arg in re.args], re.actions)
+        return RE(re.head, [expand(arg) for arg in re.args], re.actions, re.when)
     end
 end
 

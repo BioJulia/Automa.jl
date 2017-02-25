@@ -1,236 +1,160 @@
 # Non-deterministic Finite Automaton
 # ==================================
 
-# NFATransition
-# -------------
-
-function gen_empty_nfanode_set()
-    return Set{NFANode}()
-end
-
-immutable NFATransition{T}
-    trans::DefaultDict{UInt8,Set{T},typeof(gen_empty_nfanode_set)}
-    trans_eps::Set{T}
-end
-
-function NFATransition()
-    trans = DefaultDict{UInt8,Set{NFANode}}(gen_empty_nfanode_set)
-    trans_eps = Set{NFANode}()
-    return NFATransition(trans, trans_eps)
-end
-
-function bytekeys(trans::NFATransition)
-    return keys(trans.trans)
-end
-
-function Base.haskey(trans::NFATransition, label::UInt8)
-    return haskey(trans.trans, label)
-end
-
-function Base.getindex(trans::NFATransition, label::UInt8)
-    return trans.trans[label]
-end
-
-function Base.getindex(trans::NFATransition, label::Symbol)
-    @assert label == :eps
-    return trans.trans_eps
-end
-
-
-# NFANode
-# -------
-
-function gen_empty_actions()
-    return Set{Action}()
-end
-
 immutable NFANode
-    trans::NFATransition{NFANode}
-    actions::DefaultDict{Tuple{Any,NFANode},Set{Action},typeof(gen_empty_actions)}
+    edges::Vector{Tuple{Edge,NFANode}}
 end
 
 function NFANode()
-    trans = NFATransition()
-    actions = DefaultDict{Tuple{Any,NFANode},Set{Action}}(gen_empty_actions)
-    return NFANode(trans, actions)
+    return NFANode(Tuple{Edge,NFANode}[])
 end
 
-function addtrans!(node::NFANode, trans::Pair{UInt8,NFANode}, actions::Set{Action}=Set{Action}())
-    label, target = trans
-    push!(node.trans[label], target)
-    union!(node.actions[(label, target)], actions)
-    return node
+function Base.show(io::IO, node::NFANode)
+    print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
 end
 
-function addtrans!(node::NFANode, trans::Pair{Symbol,NFANode}, actions::Set{Action}=Set{Action}())
-    label, target = trans
-    @assert label == :eps
-    push!(node.trans.trans_eps, target)
-    union!(node.actions[(label, target)], actions)
-    return node
-end
-
-function addactions!(node::NFANode, trans::Tuple{UInt8,NFANode}, actions::Set{Action})
-    union!(node.actions[trans], actions)
-    return node
-end
-
-
-# NFA
-# ---
-
-# Canonical NFA type.
 immutable NFA
     start::NFANode
     final::NFANode
+
+    function NFA(start::NFANode, final::NFANode)
+        @assert start !== final
+        return new(start, final)
+    end
 end
 
-# Convert a RE to an NFA using Thompson's construction.
-function re2nfa(re::RegExp.RE)
-    re′ = RegExp.expand(RegExp.desugar(re))
-    return re2nfa_rec(re′, Dict{Symbol,Action}())
+# epsilon transition
+const eps = ByteSet()
+
+function iseps(e::Edge)
+    return isempty(e.labels)
 end
 
-function re2nfa_rec(re::RegExp.RE, actions::Dict{Symbol,Action})
-    enter_actions = Set{Action}()
-    if haskey(re.actions, :enter)
-        for name in re.actions[:enter]
+function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
+    function register_actions(names)
+        return map(names) do name
             if !haskey(actions, name)
                 actions[name] = Action(name, length(actions))
             end
-            push!(enter_actions, actions[name])
+            return actions[name]
         end
     end
 
-    function check_arity(p)
-        if !p(length(re.args))
-            error("invalid arity: $(re.head)")
-        end
-    end
-
-    start = NFANode()
-    final = NFANode()
-    if re.head == :set
-        check_arity(n -> n == 1)
-        for b in re.args[1]
-            addtrans!(start, b => final)
-        end
-    elseif re.head == :bytes
-        if isempty(re.args)
-            addtrans!(start, :eps => final)
+    # Thompson's construction.
+    function rec!(start, re)
+        if haskey(re.actions, :enter)
+            start_in = NFANode()
+            push!(start.edges, (Edge(eps, register_actions(re.actions[:enter])), start_in))
         else
-            node = start
-            for b::UInt8 in re.args
-                next = NFANode()
-                addtrans!(node, b => next)
-                node = next
-            end
-            final = node
+            start_in = start
         end
-    elseif re.head == :cat
-        lastnfa = NFA(start, final)
-        addtrans!(start, :eps => final)
-        for arg in re.args
-            nfa = re2nfa_rec(arg, actions)
-            addtrans!(lastnfa.final, :eps => nfa.start)
-            lastnfa = nfa
-        end
-        final = lastnfa.final
-    elseif re.head == :alt
-        check_arity(n -> n > 0)
-        for arg in re.args
-            nfa = re2nfa_rec(arg, actions)
-            addtrans!(start, :eps => nfa.start)
-            addtrans!(nfa.final, :eps => final)
-        end
-    elseif re.head == :rep
-        check_arity(n -> n == 1)
-        nfa = re2nfa_rec(re.args[1], actions)
-        addtrans!(start, :eps => final)
-        addtrans!(start, :eps => nfa.start)
-        addtrans!(nfa.final, :eps => final)
-        addtrans!(nfa.final, :eps => nfa.start)
-    elseif re.head == :isec
-        check_arity(n -> n == 2)
-        nfa1 = re2nfa_rec(re.args[1], actions)
-        nfa2 = re2nfa_rec(re.args[2], actions)
-        addtrans!(start, :eps => nfa1.start)
-        addtrans!(start, :eps => nfa2.start)
-        addtrans!(nfa1.final, :eps => final)
-        addtrans!(nfa2.final, :eps => final)
-        dfa = nfa2dfa(NFA(start, final))
-        dfa = revoke_finals(s -> !(nfa1.final ∈ s.nfanodes && nfa2.final ∈ s.nfanodes), dfa)
-        nfa = dfa2nfa(dfa)
-        start = nfa.start
-        final = nfa.final
-    elseif re.head == :diff
-        check_arity(n -> n == 2)
-        nfa1 = re2nfa_rec(re.args[1], actions)
-        nfa2 = re2nfa_rec(re.args[2], actions)
-        addtrans!(start, :eps => nfa1.start)
-        addtrans!(start, :eps => nfa2.start)
-        addtrans!(nfa1.final, :eps => final)
-        addtrans!(nfa2.final, :eps => final)
-        dfa = nfa2dfa(NFA(start, final))
-        dfa = revoke_finals(s -> nfa2.final ∈ s.nfanodes, dfa)
-        nfa = dfa2nfa(dfa)
-        start = nfa.start
-        final = nfa.final
-    else
-        error("unsupported operation: $(re.head)")
-    end
 
-    if haskey(re.actions, :enter)
-        newstart = NFANode()
-        addtrans!(newstart, :eps => start, enter_actions)
-        start = newstart
-    end
+        if re.head == :set
+            @assert length(re.args) == 1
+            final_in = NFANode()
+            push!(start_in.edges, (Edge(re.args[1]), final_in))
+        elseif re.head == :cat
+            f = start_in
+            for arg in re.args
+                f = rec!(f, arg)
+            end
+            if f == start_in
+                final_in = NFANode()
+                push!(start_in.edges, (Edge(eps), final_in))
+            else
+                final_in = f
+            end
+        elseif re.head == :alt
+            @assert length(re.args) > 0
+            final_in = NFANode()
+            for arg in re.args
+                s = NFANode()
+                f = rec!(s, arg)
+                push!(start_in.edges, (Edge(eps), s))
+                push!(       f.edges, (Edge(eps), final_in))
+            end
+        elseif re.head == :rep
+            @assert length(re.args) == 1
+            s = NFANode()
+            f = rec!(s, re.args[1])
+            final_in = NFANode()
+            push!(start_in.edges, (Edge(eps), s))
+            push!(start_in.edges, (Edge(eps), final_in))
+            push!(       f.edges, (Edge(eps), s))
+            push!(       f.edges, (Edge(eps), final_in))
+        elseif re.head == :isec || re.head == :diff
+            @assert length(re.args) == 2
+            final_in = NFANode()
+            s1 = NFANode()
+            f1 = rec!(s1, re.args[1])
+            push!(start_in.edges, (Edge(eps), s1))
+            push!(      f1.edges, (Edge(eps), final_in))
+            s2 = NFANode()
+            f2 = rec!(s2, re.args[2])
+            push!(start_in.edges, (Edge(eps), s2))
+            push!(      f2.edges, (Edge(eps), final_in))
+            if re.head == :isec
+                revoke = s -> f1 ∉ s.nfanodes || f2 ∉ s.nfanodes
+            else  # re.head == :diff
+                revoke = s -> f2 ∈ s.nfanodes
+            end
+            nfa = dfa2nfa(revoke_finals(revoke, nfa2dfa(NFA(start_in, final_in))))
+            push!(start_in.edges, (Edge(eps), nfa.start))
+            final_in = nfa.final
+        else
+            error("unsupported operation: $(re.head)")
+        end
 
-    if haskey(re.actions, :exit)
-        exit_actions = Set{Action}()
-        for name in re.actions[:exit]
-            if !haskey(actions, name)
-                actions[name] = Action(name, length(actions))
-            end
-            push!(exit_actions, actions[name])
-        end
-        newfinal = NFANode()
-        addtrans!(final, :eps => newfinal, exit_actions)
-        final = newfinal
-    end
-
-    if haskey(re.actions, :final)
-        finals = NFANode[]
-        for s in traverse(start)
-            if final ∈ epsilon_closure(Set([s]))
-                push!(finals, s)
-            end
-        end
-        final_actions = Set{Action}()
-        for name in re.actions[:final]
-            if !haskey(actions, name)
-                actions[name] = Action(name, length(actions))
-            end
-            push!(final_actions, actions[name])
-        end
-        for s in traverse(start)
-            for (l, T) in s.trans.trans
-                for t in T
-                    if t ∈ finals
-                        addactions!(s, (l, t), final_actions)
-                    end
+        if haskey(re.actions, :all)
+            as = register_actions(re.actions[:all])
+            for s in traverse(start), (e, _) in s.edges
+                if !iseps(e)
+                    union!(e.actions, as)
                 end
             end
         end
+
+        if haskey(re.actions, :exit)
+            final = NFANode()
+            push!(final_in.edges, (Edge(eps, register_actions(re.actions[:exit])), final))
+        else
+            final = final_in
+        end
+
+        if haskey(re.actions, :final)
+            as = register_actions(re.actions[:final])
+            for s in traverse(start), (e, t) in s.edges
+                if !iseps(e) && final ∈ epsilon_closure(t)
+                    union!(e.actions, as)
+                end
+            end
+        end
+
+        if !isnull(re.when)
+            precond = Precondition(get(re.when), true)
+            for s in traverse(start), (e, _) in s.edges
+                if !iseps(e)
+                    push!(e.preconds, precond)
+                end
+            end
+        end
+
+        return final
     end
 
-    return NFA(start, final)
+    start′ = NFANode()
+    final′ = rec!(start′, RegExp.expand(RegExp.desugar(re)))
+    return NFA(start′, final′)
 end
 
-function remove_dead_states(nfa::NFA)
-    backrefs = make_back_references(nfa)
+function remove_dead_nodes(nfa::NFA)
+    backrefs = Dict(nfa.start => Set{NFANode}())
+    for s in traverse(nfa.start), (_, t) in s.edges
+        push!(get!(() -> Set{NFANode}(), backrefs, t), s)
+    end
+
     alive = Set{NFANode}()
-    unvisited = Set([nfa.final])
+    unvisited = [nfa.final]
     while !isempty(unvisited)
         s = pop!(unvisited)
         push!(alive, s)
@@ -243,46 +167,22 @@ function remove_dead_states(nfa::NFA)
     @assert nfa.start ∈ alive
     @assert nfa.final ∈ alive
 
-    newnodes = Dict{NFANode,NFANode}(nfa.start => NFANode())
-    function copy_trans(s, t, l)
-        if !haskey(newnodes, t)
-            newnodes[t] = NFANode()
-        end
-        addtrans!(newnodes[s], l => newnodes[t], s.actions[(l, t)])
-    end
-    for s in traverse(nfa.start)
-        if s ∉ alive
-            continue
-        end
-        for (l, T) in s.trans.trans, t in T
+    newnodes = Dict{NFANode,NFANode}()
+    new(s) = get!(() -> NFANode(), newnodes, s)
+    isvisited(s) = haskey(newnodes, s)
+    unvisited = [nfa.start]
+    while !isempty(unvisited)
+        s = pop!(unvisited)
+        s′ = new(s)
+        for (e, t) in s.edges
             if t ∈ alive
-                copy_trans(s, t, l)
-            end
-        end
-        for t in s.trans.trans_eps
-            if t ∈ alive
-                copy_trans(s, t, :eps)
+                if !isvisited(t)
+                    push!(unvisited, t)
+                end
+                push!(s′.edges, (e, new(t)))
             end
         end
     end
-    return NFA(newnodes[nfa.start], newnodes[nfa.final])
-end
 
-function make_back_references(nfa::NFA)
-    backrefs = Dict(nfa.start => Set{NFANode}())
-    function add_backref(t, s)
-        if !haskey(backrefs, t)
-            backrefs[t] = Set{NFANode}()
-        end
-        push!(backrefs[t], s)
-    end
-    for s in traverse(nfa.start)
-        for l in keys(s.trans.trans), t in (T = s.trans[l])
-            add_backref(t, s)
-        end
-        for t in s.trans.trans_eps
-            add_backref(t, s)
-        end
-    end
-    return backrefs
+    return NFA(new(nfa.start), new(nfa.final))
 end

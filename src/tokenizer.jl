@@ -21,18 +21,17 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
         push!(re′.actions[:enter], :__token_start)
         name = Symbol(:__token, i)
         push!(re′.actions[:final], name)
-        nfa = re2nfa_rec(re′, actions)
-        addtrans!(start, :eps => nfa.start)
-        addtrans!(nfa.final, :eps => final)
+        nfa = re2nfa(re′, actions)
+        push!(start.edges, (Edge(eps), nfa.start))
+        push!(nfa.final.edges, (Edge(eps), final))
         push!(actions_code, (name, code))
     end
     nfa = NFA(start, final)
-    dfa = nfa2dfa(remove_dead_states(nfa))
+    dfa = nfa2dfa(remove_dead_nodes(nfa))
     if optimize
-        dfa = remove_dead_states(reduce_states(dfa))
+        dfa = remove_dead_nodes(reduce_nodes(dfa))
     end
-    machine = dfa2machine(dfa)
-    return Tokenizer(machine, actions_code)
+    return Tokenizer(dfa2machine(dfa), actions_code)
 end
 
 function generate_init_code(tokenizer::Tokenizer)

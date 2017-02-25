@@ -29,7 +29,7 @@ float.actions[:exit]   = [:float]
 machine = Automa.compile(numbers)
 
 #= This generates a SVG file to visualize the state machine.
-write("numbers.dot", Automa.dfa2dot(machine.dfa))
+write("numbers.dot", Automa.machine2dot(machine))
 run(`dot -Tsvg -o numbers.svg numbers.dot`)
 =#
 
@@ -107,25 +107,49 @@ An important feature of regular expressions is composition of (sub-) regular exp
 | `diff(re1, re2)`   | `\`    | difference (subtraction) |
 | `neg(re)`          | `!`    | negation                 |
 
-Actions can be bind to regular expressions. Currently, there are three kinds of actions: enter, exit, and final. Enter actions will be executed when it enters the regular expression. In contrast, exit actions will be executed when it exits from the regular expression. Final actions will be executed every time when it reaches a final (or accept) state. The following code and figure demonstrate transitions and actions between states.
+Actions can be bind to regular expressions. Currently, there are four kinds of actions: enter, exit, :all and final. Enter actions will be executed when it enters the regular expression. In contrast, exit actions will be executed when it exits from the regular expression. All actions will be executed in all transitions and final actions will be executed every time when it reaches a final (or accept) state. The following code and figure demonstrate transitions and actions between states.
 
 ```julia
-import Automa
-import Automa.RegExp: @re_str
+using Automa
+using Automa.RegExp: @re_str
+const re = Automa.RegExp
 
-a = re"a*"
-b = re"b"
-ab = a * b
+ab = re"ab*"
+c = re"c"
+pattern = re.cat(ab, c)
 
-a.actions[:enter] = [:enter_a]
-a.actions[:exit]  = [:exit_a]
-a.actions[:final] = [:final_a]
-b.actions[:enter] = [:enter_b]
-b.actions[:exit]  = [:exit_b]
-b.actions[:final] = [:final_b]
+ab.actions[:enter] = [:enter_ab]
+ab.actions[:exit]  = [:exit_ab]
+ab.actions[:all]   = [:all_ab]
+ab.actions[:final] = [:final_ab]
+c.actions[:enter]  = [:enter_c]
+c.actions[:exit]   = [:exit_c]
+c.actions[:final]  = [:final_c]
+
+write("actions.dot", Automa.machine2dot(Automa.compile(pattern)))
+run(`dot -Tpng -o src/figure/actions.png actions.dot`)
 ```
 
 ![](figure/actions.png)
+
+Transitions can be conditioned by actions that return a boolean value. Assigning a name to the `when` field of a regular expression can bind an action to all transitions within the regular expression as the following example shows.
+
+```julia
+using Automa
+using Automa.RegExp: @re_str
+const re = Automa.RegExp
+
+ab = re"ab*"
+ab.when = :cond
+c = re"c"
+pattern = re.cat(ab, c)
+
+write("preconditions.dot", Automa.machine2dot(Automa.compile(pattern)))
+run(`dot -Tpng -o src/figure/preconditions.png preconditions.dot`)
+```
+
+![](figure/preconditions.png)
+
 
 Compilers
 ---------
@@ -134,12 +158,11 @@ After finished defining a regular expression with optional actions you can compi
 
 ```julia
 type Machine
+    start::Node
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
-    transitions::Dict{Int,Dict{UInt8,Tuple{Int,Vector{Symbol}}}}
-    eof_actions::Dict{Int,Vector{Symbol}}
-    dfa::DFA
+    eof_actions::Dict{Int,Set{Action}}
 end
 ```
 
@@ -183,6 +206,7 @@ tokenizer = Automa.compile(
 ```
 
 A tokenizer tries to find the longest token that is available from the current reading position. When multiple patterns match a substring of the same length, higher priority token placed at a former position in the arguments list will be selected. For example, `"else"` matches both `:keyword` and `:identifier` but the `:keyword` action will be run because it is placed before `:identifier` in the arguments list.
+
 
 Code generators
 ---------------

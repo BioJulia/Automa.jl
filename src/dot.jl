@@ -2,130 +2,121 @@
 # ============
 
 function nfa2dot(nfa::NFA)
-    buf = IOBuffer()
-    println(buf, "digraph {")
-    println(buf, "  graph [ rankdir = LR ];")
-    println(buf, "  0 -> 1;")
-    println(buf, "  0 [ shape = point ];")
-    serial = 0
-    serials = Dict(nfa.start => (serial += 1))
-
-    function trace(s, label)
-        for t in s.trans[label]
-            if !haskey(serials, t)
-                serials[t] = (serial += 1)
-                push!(unvisited, t)
-            end
-            actions = s.actions[(label, t)]
-            println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label2str(label, actions))\" ];")
+    out = IOBuffer()
+    println(out, "digraph {")
+    println(out, "  graph [ rankdir = LR ];")
+    println(out, "  0 -> 1;")
+    println(out, "  0 [ shape = point ];")
+    serials = Dict(s => i for (i, s) in enumerate(traverse(nfa.start)))
+    for s in keys(serials)
+        println(out, "  $(serials[s]) [ shape = $(s == nfa.final ? "doublecircle" : "circle") ];")
+        for (e, t) in s.edges
+            println(out, " $(serials[s]) -> $(serials[t]) [ label = \"$(edge2str(e))\" ];")
         end
     end
-
-    unvisited = Set([nfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        for l in 0x00:0xff
-            trace(s, l)
-        end
-        trace(s, :eps)
-    end
-    for (node, serial) in serials
-        shape = node == nfa.final ? "doublecircle" : "circle"
-        println(buf, "  $(serial) [ shape = $(shape) ];")
-    end
-    println(buf, "}")
-    return @compat String(take!(buf))
+    println(out, "}")
+    return String(take!(out))
 end
 
 function dfa2dot(dfa::DFA)
-    buf = IOBuffer()
-    println(buf, "digraph {")
-    println(buf, "  graph [ rankdir = LR ];")
-    println(buf, "  start -> 1;")
-    println(buf, "  start [ shape = point ];")
-    println(buf, "  final [ shape = point ];")
-    serial = 0
-    serials = Dict(dfa.start => (serial += 1))
-    unvisited = Set([dfa.start])
-    while !isempty(unvisited)
-        s = pop!(unvisited)
-        for (l, t) in compact_transition(s.trans.trans)
-            if !haskey(serials, t)
-                serials[t] = (serial += 1)
-                push!(unvisited, t)
-            end
-            label = label2str(l, s.actions[l])
-            println(buf, "  $(serials[s]) -> $(serials[t]) [ label = \"$(label)\" ];")
+    out = IOBuffer()
+    println(out, "digraph {")
+    println(out, "  graph [ rankdir = LR ];")
+    println(out, "  start -> 1;")
+    println(out, "  start [ shape = point ];")
+    serials = Dict(s => i for (i, s) in enumerate(traverse(dfa.start)))
+    for s in keys(serials)
+        println(out, "  $(serials[s]) [ shape = $(s.final ? "doublecircle" : "circle") ];")
+        for (e, t) in s.edges
+            println(out, "  $(serials[s]) -> $(serials[t]) [ label = \"$(edge2str(e))\" ];")
         end
-        if s.final
-            label = label2str(:eof, s.actions[:eof])
-            println(buf, "  $(serials[s]) -> final [ label = \"$(label)\", style = dashed ];")
+        if !isempty(s.eof_actions)
+            println(out, "  eof$(serials[s]) [ shape = point ];")
+            println(out, "  $(serials[s]) -> eof$(serials[s]) [ label = \"$(eof_label(s.eof_actions))\", style = dashed ];")
         end
     end
-    for (node, serial) in serials
-        shape = node.final ? "doublecircle" : "circle"
-        println(buf, "  $(serial) [ shape = $(shape) ];")
-    end
-    println(buf, "}")
-    return @compat String(take!(buf))
+    println(out, "}")
+    return String(take!(out))
 end
 
-function label2str(label, actions)
-    if isempty(actions)
-        return label2str(label)
-    else
-        return string(label2str(label), '/', actions2str(actions))
+function machine2dot(machine::Machine)
+    out = IOBuffer()
+    println(out, "digraph {")
+    println(out, "  graph [ rankdir = LR ];")
+    println(out, "  start -> 1;")
+    println(out, "  start [ shape = point ];")
+    for s in traverse(machine.start)
+        println(out, "  $(s.state) [ shape = $(s.state ∈ machine.final_states ? "doublecircle" : "circle") ];")
+        for (e, t) in s.edges
+            println(out, "  $(s.state) -> $(t.state) [ label = \"$(edge2str(e))\" ];")
+        end
+        if haskey(machine.eof_actions, s.state) && !isempty(machine.eof_actions[s.state])
+            println(out, "  eof$(s.state) [ shape = point ];")
+            println(out, "  $(s.state) -> eof$(s.state) [ label = \"$(eof_label(machine.eof_actions[s.state]))\", style = dashed ];")
+        end
     end
+    println(out, "}")
+    return String(take!(out))
 end
 
-function label2str(label)
-    if label == :eps
-        return "ε"
-    elseif label == :eof
-        return "EOF"
-    elseif isa(label, ByteSet)
-        if length(label) == 1
-            return escape_string(byte2str(first(label), false))
+function edge2str(edge::Edge)
+    out = IOBuffer()
+
+    function printbyte(b, inrange)
+        # TODO: does this work?
+        if inrange && b == UInt8('-')
+            print(out, "\\\\-")
+        elseif inrange && b == UInt8(']')
+            print(out, "\\\\]")
         else
-            @assert length(label) != 0
-            ss = []
-            hyphen = false
-            for r in compact_labels(label)
-                if length(r) == 1
-                    if first(r) == UInt8('-')
-                        hyphen = true
-                    else
-                        push!(ss, byte2str(first(r), true))
-                    end
-                else
-                    push!(ss, byte2str(first(r), true), '-', byte2str(last(r), true))
-                end
-            end
-            if hyphen
-                # put hyphen first
-                unshift!(ss, byte2str(UInt8('-'), true))
-            end
-            return escape_string(string('[', join(ss), ']'))
+            print(out, escape_string(b ≤ 0x7f ? escape_string(string(Char(b))) : @sprintf("\\x%x", b)))
         end
-    else
-        return escape_string(repr(label))
     end
+
+    # output labels
+    if isempty(edge.labels)
+        print(out, 'ϵ')
+    elseif length(edge.labels) == 1
+        print(out, '\'')
+        printbyte(first(edge.labels), false)
+        print(out, '\'')
+    else
+        print(out, '[')
+        for r in range_encode(edge.labels)
+            if length(r) == 1
+                printbyte(first(r), true)
+            else
+                @assert length(r) > 1
+                printbyte(first(r), true)
+                print(out, '-')
+                printbyte(last(r), true)
+            end
+        end
+        print(out, ']')
+    end
+
+    # output conditions
+    if !isempty(edge.preconds)
+        print(out, '(')
+        join(out, (string(precond.value ? "" : "!", precond.name) for precond in edge.preconds), ',')
+        print(out, ')')
+    end
+
+    # output actions
+    if !isempty(edge.actions)
+        print(out, '/')
+        join(out, sorted_unique_action_names(edge.actions), ',')
+    end
+
+    return String(take!(out))
 end
 
-function byte2str(b::UInt8, unquote::Bool)
-    if b == UInt8(']')
-        s = "'\\]'"
-    elseif b ≤ 0x7f
-        s = repr(Char(b))
-    else
-        s = @sprintf("'\\x%x'", b)
+function eof_label(actions::Set{Action})
+    out = IOBuffer()
+    print(out, "EOF")
+    if !isempty(actions)
+        print(out, '/')
+        join(out, sorted_unique_action_names(actions), ',')
     end
-    if unquote
-        s = s[2:end-1]
-    end
-    return s
-end
-
-function actions2str(actions)
-    return join(sorted_unique_action_names(actions), ',')
+    return String(take!(out))
 end

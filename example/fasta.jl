@@ -33,7 +33,7 @@ fasta_machine = (function ()
 end)()
 
 # It is useful to visualize the state machine for debugging.
-# write("fasta.dot", Automa.dfa2dot(fasta_machine.dfa))
+# write("fasta.dot", Automa.machine2dot(fasta_machine))
 # run(`dot -Tsvg -o fasta.svg fasta.dot`)
 
 # Bind Julia code to each action name (see the `parse_fasta` function defined below).

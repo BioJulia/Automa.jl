@@ -1,6 +1,9 @@
 using Documenter
 using Automa
 
+# run(`julia actions.jl`)
+# run(`julia preconditions.jl`)
+
 makedocs(
     format=:html,
     sitename="Automa.jl",
