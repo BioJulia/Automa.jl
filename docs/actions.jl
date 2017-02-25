@@ -1,16 +1,18 @@
 using Automa
-using Automa.RegExp
+using Automa.RegExp: @re_str
 const re = Automa.RegExp
 
-a = re"a*"
-b = re"b"
+ab = re"ab*"
+c = re"c"
+pattern = re.cat(ab, c)
 
-a.actions[:enter] = [:enter_a]
-a.actions[:exit]  = [:exit_a]
-a.actions[:final] = [:final_a]
-b.actions[:enter] = [:enter_b]
-b.actions[:exit]  = [:exit_b]
-b.actions[:final] = [:final_b]
+ab.actions[:enter] = [:enter_ab]
+ab.actions[:exit]  = [:exit_ab]
+ab.actions[:all]   = [:all_ab]
+ab.actions[:final] = [:final_ab]
+c.actions[:enter]  = [:enter_c]
+c.actions[:exit]   = [:exit_c]
+c.actions[:final]  = [:final_c]
 
-write("actions.dot", Automa.machine2dot(compile(a * b)))
-run(`dot -Tpng -o figure/actions.png actions.dot`)
+write("actions.dot", Automa.machine2dot(Automa.compile(pattern)))
+run(`dot -Tpng -o src/figure/actions.png actions.dot`)

@@ -52,7 +52,7 @@ function machine2dot(machine::Machine)
         end
         if haskey(machine.eof_actions, s.state) && !isempty(machine.eof_actions[s.state])
             println(out, "  eof$(s.state) [ shape = point ];")
-            println(out, "  $(s.state) -> eof$(s.state) [ label = \"$(eof_label(machine.eof_actions[s.state]))\" ];")
+            println(out, "  $(s.state) -> eof$(s.state) [ label = \"$(eof_label(machine.eof_actions[s.state]))\", style = dashed ];")
         end
     end
     println(out, "}")
