@@ -22,7 +22,7 @@ function RE(head::Symbol, args::Vector)
     return RE(head, args, DefaultDict{Symbol,Vector{Symbol}}(gen_empty_names), Nullable{Symbol}())
 end
 
-typealias Primitive Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
+const Primitive = Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
 
 function primitive(re::RE)
     return re
