@@ -701,6 +701,9 @@ module TestDOT
     @test startswith(Automa.dfa2dot(dfa), "digraph")
     machine = Automa.compile(re)
     @test startswith(Automa.machine2dot(machine), "digraph")
+    @test ismatch(r"^Automa\.NFANode\(.*\)$", repr(nfa.start))
+    @test ismatch(r"^Automa\.DFANode\(.*\)$", repr(dfa.start))
+    @test ismatch(r"^Automa\.Node\(.*\)$", repr(machine.start))
 end
 
 module TestFASTA
