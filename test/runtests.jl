@@ -669,6 +669,24 @@ module TestFASTA
     @test records[1].sequence[end-4:end] == b"SPPSM"
 end
 
+module TestFASTQ
+    include("../example/fastq.jl")
+    using Base.Test
+    @test length(records) == 2
+    r1 = records[1]
+    @test r1.seqlen == 102
+    @test String(r1.data[r1.identifier]) == "SRR1238088.23.1"
+    @test String(r1.data[r1.description]) == "HWI-ST499:111:D0G94ACXX:1:1101:6631:2166 length=102"
+    @test String(r1.data[r1.sequence]) == "AAAGCGTTCTCTTCCGTCAGCCTTCTTCCGCTTCTGTCGTCCTCCGCAACCGTGCCACCTCCCTCACCGTCCGTGCCGCTTCCTCCTACGCCGATGAGCTTC"
+    @test String(r1.data[r1.quality]) == "CCCFFFFFHHHHHJIJIJJJJJJJJJJJJJJJJJJJIJJJJIJJJJJJJJJJHHHFFFFFEDDEDDDDDDDDDBDBBDDDDDDDDDDDDDDDDDDDDDDDDC"
+    r2 = records[2]
+    @test r2.seqlen == 102
+    @test String(r2.data[r2.identifier]) == "SRR1238088.24.1"
+    @test String(r2.data[r2.description]) == "HWI-ST499:111:D0G94ACXX:1:1101:6860:2182 length=102"
+    @test String(r2.data[r2.sequence]) == "GGAGGATACAGCGGCGGCGGCGGCGGTTACTCCTCAAGAGGTGGTGGTGGCGGAAGCTACGGTGGTGGAAGACGTGAGGGAGGAGGAGGATACGGTGGTGGC"
+    @test String(r2.data[r2.quality]) == "CCCFFFFFHHHGHJJJJJJFDDDDBDBDBCACDCDCDC8AB>AD5?@7@DDDDBDDDDCDDD3<@0<@ACDBCB<<ABDD9@D<<@8?D?9::?B3?B5?BC"
+end
+
 module TestNumbers
     include("../example/numbers.jl")
     using Base.Test

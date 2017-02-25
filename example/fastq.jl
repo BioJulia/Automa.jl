@@ -13,7 +13,7 @@ fastq_machine = (function ()
         lf = re"\n"
         lf.actions[:enter] = [:count_line]
 
-        re"\r?" * lf
+        cat(re"\r?", lf)
     end
 
     header = let
@@ -55,7 +55,7 @@ fastq_machine = (function ()
         qheader, newline,
         quality, newline)
     record.actions[:enter] = [:mark_record]
-    record.actions[:exit]  = [:record]
+    record.actions[:exit] = [:record]
 
     fastq = rep(record)
 
@@ -116,6 +116,12 @@ function readbyte!(s::IOStream, p::Ptr, nb::Integer)
     while nr < nb && !eof(s)
         nr += ccall(:ios_readall, Csize_t, (Ptr{Void}, Ptr{Void}, Csize_t), s.ios, p + nr, nb - nr)
     end
+    return nr
+end
+
+function readbyte!(s::IOBuffer, p::Ptr, nb::Integer)
+    nr = min(nb, nb_available(s))
+    unsafe_read(s, p, nr)
     return nr
 end
 
@@ -212,6 +218,26 @@ end
     return record
 end
 
-reader = FASTQReader(open("test.fastq"))
-record = FASTQRecord()
-readfastq!(reader, record)
+reader = FASTQReader(IOBuffer("""
+@SRR1238088.23.1 HWI-ST499:111:D0G94ACXX:1:1101:6631:2166 length=102
+AAAGCGTTCTCTTCCGTCAGCCTTCTTCCGCTTCTGTCGTCCTCCGCAACCGTGCCACCTCCCTCACCGTCCGTGCCGCTTCCTCCTACGCCGATGAGCTTC
++SRR1238088.23.1 HWI-ST499:111:D0G94ACXX:1:1101:6631:2166 length=102
+CCCFFFFFHHHHHJIJIJJJJJJJJJJJJJJJJJJJIJJJJIJJJJJJJJJJHHHFFFFFEDDEDDDDDDDDDBDBBDDDDDDDDDDDDDDDDDDDDDDDDC
+@SRR1238088.24.1 HWI-ST499:111:D0G94ACXX:1:1101:6860:2182 length=102
+GGAGGATACAGCGGCGGCGGCGGCGGTTACTCCTCAAGAGGTGGTGGTGGCGGAAGCTACGGTGGTGGAAGACGTGAGGGAGGAGGAGGATACGGTGGTGGC
++SRR1238088.24.1 HWI-ST499:111:D0G94ACXX:1:1101:6860:2182 length=102
+CCCFFFFFHHHGHJJJJJJFDDDDBDBDBCACDCDCDC8AB>AD5?@7@DDDDBDDDDCDDD3<@0<@ACDBCB<<ABDD9@D<<@8?D?9::?B3?B5?BC
+"""))
+
+records = FASTQRecord[]
+try
+    while reader.cs > 0
+        record = FASTQRecord()
+        readfastq!(reader, record)
+        push!(records, record)
+    end
+catch ex
+    if !isa(ex, EOFError)
+        rethrow()
+    end
+end
