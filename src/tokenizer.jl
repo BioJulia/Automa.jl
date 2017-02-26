@@ -17,7 +17,7 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
     end
     actions_code = Tuple{Symbol,Expr}[]
     for (i, (re, code)) in enumerate(tokens)
-        re′ = RegExp.expand(RegExp.desugar(re))
+        re′ = RegExp.shallow_desugar(re)
         push!(re′.actions[:enter], :__token_start)
         name = Symbol(:__token, i)
         push!(re′.actions[:final], name)

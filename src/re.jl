@@ -54,13 +54,6 @@ function primitive(bs::Vector{UInt8})
     return RE(:bytes, copy(bs))
 end
 
-function primitive(x::Primitive, actions, when)
-    re = primitive(x)
-    re.actions = actions
-    re.when = when
-    return re
-end
-
 function cat(xs::Primitive...)
     return RE(:cat, [map(primitive, xs)...])
 end
@@ -283,56 +276,36 @@ function parse_class(str, s)
     return RE(head, args), s
 end
 
-function desugar(re::RE)
-    if re.head == :rep1
-        arg = desugar(re.args[1])
-        return RE(:cat, [arg, rep(arg)], re.actions, re.when)
-    elseif re.head == :opt
-        arg = desugar(re.args[1])
-        return RE(:alt, [arg, RE(:cat, [])], re.actions, re.when)
-    elseif re.head == :neg
-        arg = desugar(re.args[1])
-        return RE(:diff, [rep(any()), arg], re.actions, re.when)
-    elseif re.head ∈ PRIMITIVE
-        return re
+function shallow_desugar(re::RE)
+    head = re.head
+    args = re.args
+    if head == :rep1
+        return RE(:cat, [args[1], rep(args[1])])
+    elseif head == :opt
+        return RE(:alt, [args[1], RE(:cat, [])])
+    elseif head == :neg
+        return RE(:diff, [rep(any()), args[1]])
+    elseif head == :byte
+        return RE(:set, [ByteSet(args[1])])
+    elseif head == :range
+        return RE(:set, [ByteSet(args[1])])
+    elseif head == :class
+        return RE(:set, [foldl(union, ByteSet(), map(ByteSet, args))])
+    elseif head == :cclass
+        return RE(:set, [foldl(setdiff, ByteSet(0x00:0xff), map(ByteSet, args))])
+    elseif head == :char
+        bytes = convert(Vector{UInt8}, string(args[1]))
+        return RE(:cat, [RE(:set, [ByteSet(b)]) for b in bytes])
+    elseif head == :str
+        bytes = convert(Vector{UInt8}, args[1])
+        return RE(:cat, [RE(:set, [ByteSet(b)]) for b in bytes])
+    elseif head == :bytes
+        return RE(:cat, [RE(:set, [ByteSet(b)]) for b in args])
     else
-        return RE(re.head, [desugar(arg) for arg in re.args], re.actions, re.when)
-    end
-end
-
-function expand(re::RE)
-    if re.head == :set
-        return re
-    elseif re.head == :byte
-        return primitive(ByteSet([re.args[1]]), re.actions, re.when)
-    elseif re.head == :range
-        return primitive(ByteSet(re.args[1]), re.actions, re.when)
-    elseif re.head == :class
-        set = UInt8[]
-        for arg in re.args
-            append!(set, arg)
+        if head ∉ (:set, :cat, :alt, :rep, :isec, :diff)
+            error("cannot desugar ':$(head)'")
         end
-        return primitive(ByteSet(set), re.actions, re.when)
-    elseif re.head == :cclass
-        set = UInt8[]
-        for arg in re.args
-            append!(set, arg)
-        end
-        return primitive(ByteSet(setdiff(0x00:0xff, set)), re.actions, re.when)
-    elseif re.head == :char
-        char = re.args[1]
-        if isascii(char)
-            return primitive(ByteSet([UInt8(char)]), re.actions, re.when)
-        else
-            return expand(primitive(string(char), re.actions, re.when))
-        end
-    elseif re.head == :str
-        return RE(:cat, [expand(primitive(b)) for b in convert(Vector{UInt8}, re.args[1])], re.actions, re.when)
-    elseif re.head == :bytes
-        return RE(:cat, [expand(primitive(b)) for b::UInt8 in re.args], re.actions, re.when)
-    else
-        @assert re.head ∉ PRIMITIVE
-        return RE(re.head, [expand(arg) for arg in re.args], re.actions, re.when)
+        return RE(head, args)
     end
 end
 

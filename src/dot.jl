@@ -105,18 +105,18 @@ function edge2str(edge::Edge)
     # output actions
     if !isempty(edge.actions)
         print(out, '/')
-        join(out, sorted_unique_action_names(edge.actions), ',')
+        join(out, action_names(edge.actions), ',')
     end
 
     return String(take!(out))
 end
 
-function eof_label(actions::Set{Action})
+function eof_label(actions::ActionList)
     out = IOBuffer()
     print(out, "EOF")
     if !isempty(actions)
         print(out, '/')
-        join(out, sorted_unique_action_names(actions), ',')
+        join(out, action_names(actions), ',')
     end
     return String(take!(out))
 end

@@ -94,8 +94,7 @@ function generate_action_dispatch_code(machine::Machine, actions::Dict{Symbol,Ex
             if isempty(e.actions)
                 continue
             end
-            names = sorted_unique_action_names(e.actions)
-            id = get!(action_ids, names, length(action_ids) + 1)
+            id = get!(action_ids, action_names(e.actions), length(action_ids) + 1)
             for l in e.labels
                 action_table[l+1,s.state] = id
             end
@@ -145,7 +144,7 @@ end
 function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
     actions_in = Dict{Node,Set{Vector{Symbol}}}()
     for s in traverse(machine.start), (e, t) in s.edges
-        push!(get!(actions_in, t, Set{Vector{Symbol}}()), sorted_unique_action_names(e.actions))
+        push!(get!(actions_in, t, Set{Vector{Symbol}}()), action_names(e.actions))
     end
     action_label = Dict{Node,Dict{Vector{Symbol},Symbol}}()
     for s in traverse(machine.start)
@@ -184,7 +183,7 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
             if isempty(e.actions)
                 then = :(@goto $(Symbol("state_", t.state)))
             else
-                then = :(@goto $(action_label[t][sorted_unique_action_names(e.actions)]))
+                then = :(@goto $(action_label[t][action_names(e.actions)]))
             end
             return Expr(:if, generate_condition_code(e, actions), then, els)
         end
@@ -226,14 +225,13 @@ end
 function generate_eof_action_code(machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(:(), machine.eof_actions) do s_as, els
         s, as = s_as
-        names = sorted_unique_action_names(as)
-        action_code = rewrite_special_macros(generate_action_code(names, actions), true)
+        action_code = rewrite_special_macros(generate_action_code(action_names(as), actions), true)
         Expr(:if, state_condition(s), action_code, els)
     end
 end
 
-function generate_action_code(set::Set{Action}, actions::Dict{Symbol,Expr})
-    return generate_action_code(sorted_unique_action_names(set), actions)
+function generate_action_code(list::ActionList, actions::Dict{Symbol,Expr})
+    return generate_action_code(action_names(list), actions)
 end
 
 function generate_action_code(names::Vector{Symbol}, actions::Dict{Symbol,Expr})
