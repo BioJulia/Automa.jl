@@ -54,13 +54,6 @@ function primitive(bs::Vector{UInt8})
     return RE(:bytes, copy(bs))
 end
 
-function primitive(x::Primitive, actions, when)
-    re = primitive(x)
-    re.actions = actions
-    re.when = when
-    return re
-end
-
 function cat(xs::Primitive...)
     return RE(:cat, [map(primitive, xs)...])
 end
