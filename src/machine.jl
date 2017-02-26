@@ -28,7 +28,7 @@ immutable Machine
     states::UnitRange{Int}
     start_state::Int
     final_states::Set{Int}
-    eof_actions::Dict{Int,Set{Action}}
+    eof_actions::Dict{Int,ActionList}
 end
 
 function Base.show(io::IO, machine::Machine)
@@ -48,7 +48,7 @@ function dfa2machine(dfa::DFA)
     newnodes = Dict{DFANode,Node}()
     new(s) = get!(() -> Node(length(newnodes) + 1), newnodes, s)
     final_states = Set{Int}()
-    eof_actions = Dict{Int,Set{Action}}()
+    eof_actions = Dict{Int,ActionList}()
     for s in traverse(dfa.start)
         s′ = new(s)
         if s.final
@@ -72,7 +72,7 @@ function execute(machine::Machine, data::Vector{UInt8})
         try
             e, s = findedge(s, d)
             cs = s.state
-            append!(actions, sorted_unique_action_names(e.actions))
+            append!(actions, action_names(e.actions))
         catch ex
             if !isa(ex, ErrorException)
                 rethrow()
@@ -81,7 +81,7 @@ function execute(machine::Machine, data::Vector{UInt8})
         end
     end
     if cs ∈ machine.final_states && haskey(machine.eof_actions, s.state)
-        append!(actions, sorted_unique_action_names(machine.eof_actions[s.state]))
+        append!(actions, action_names(machine.eof_actions[s.state]))
     end
     if cs > 0
         if cs ∈ machine.final_states
