@@ -212,8 +212,6 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
         if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
             $(eof_action_code)
             cs = 0
-        elseif cs < 0
-            p -= 1
         end
     end
 end
