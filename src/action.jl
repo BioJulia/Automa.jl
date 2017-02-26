@@ -19,7 +19,7 @@ immutable ActionList
     end
 end
 
-function isequiv(l1::ActionList, l2::ActionList)
+function Base.:(==)(l1::ActionList, l2::ActionList)
     if length(l1) != length(l2)
         return false
     end
@@ -29,6 +29,13 @@ function isequiv(l1::ActionList, l2::ActionList)
         end
     end
     return true
+end
+
+function Base.hash(list::ActionList, h::UInt)
+    for a in list
+        h = xor(h, hash(a.name))
+    end
+    return h
 end
 
 function Base.push!(list::ActionList, action::Action)

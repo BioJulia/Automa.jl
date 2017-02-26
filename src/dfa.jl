@@ -275,7 +275,7 @@ function distinct_nodes(S::Set{DFANode})
         for l in labels[s1]
             e1, t1 = findedge(s1, l)
             e2, t2 = findedge(s2, l)
-            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || !isequiv(e1.actions, e2.actions)
+            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || e1.actions != e2.actions
                 return true
             end
         end
@@ -299,7 +299,7 @@ function distinct_nodes(S::Set{DFANode})
                 push!(distinct, (s1, s2), (s2, s1))
                 converged = false
             end
-            if !isequiv(s1.eof_actions, s2.eof_actions)
+            if s1.eof_actions != s2.eof_actions
                 push!(distinct, (s1, s2), (s2, s1))
                 converged = false
             end
