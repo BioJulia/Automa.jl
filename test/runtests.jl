@@ -748,6 +748,56 @@ module Test14
     @test validate_table(b"ab") == validate_inline(b"ab") == validate_goto(b"ab")
 end
 
+module Test15
+    import Automa
+    import Automa.RegExp: @re_str
+    using Base.Test
+
+    a = re"a+"
+    a.actions[:enter] = [:enter]
+    a.actions[:all]   = [:all]
+    a.actions[:final] = [:final]
+    a.actions[:exit]  = [:exit]
+    b = re"b+"
+    b.actions[:enter] = [:enter]
+    b.actions[:all]   = [:all]
+    b.actions[:final] = [:final]
+    b.actions[:exit]  = [:exit]
+    ab = Automa.RegExp.cat(a, b)
+
+    machine = Automa.compile(ab)
+    last, actions = Automa.execute(machine, "ab")
+    @test last == 0
+    @test actions == [:enter, :all, :final, :exit, :enter, :all, :final, :exit]
+
+    @eval function validate1(data)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=:debug, code=:table))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+    @test validate1(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
+
+    @eval function validate2(data)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=:debug, code=:table))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+    @test validate2(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
+
+    @eval function validate3(data)
+        logger = Symbol[]
+        $(Automa.generate_init_code(machine))
+        p_end = p_eof = sizeof(data)
+        $(Automa.generate_exec_code(machine, actions=:debug, code=:goto))
+        return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
+    end
+    @test validate3(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
+end
+
 module TestDOT
     import Automa
     import Automa.RegExp: @re_str

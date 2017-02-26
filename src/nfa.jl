@@ -30,32 +30,47 @@ function iseps(e::Edge)
     return isempty(e.labels)
 end
 
-function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
-    function register_actions(names)
-        return map(names) do name
-            if !haskey(actions, name)
-                actions[name] = Action(name, length(actions))
+function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
+    actions = Dict{Tuple{RegExp.RE,Symbol},Action}()
+    action_order = 1
+
+    function make_action_list(re, names)
+        list = ActionList()
+        for name in names
+            if haskey(predefined_actions, name)  # pick up a predefined action
+                action = predefined_actions[name]
+            elseif haskey(actions, (re, name))
+                action = actions[(re, name)]
+            else
+                action = Action(name, action_order)
+                actions[(re, name)] = action
+                action_order += 1
             end
-            return actions[name]
+            push!(list, action)
         end
+        return list
     end
 
     # Thompson's construction.
     function rec!(start, re)
         if haskey(re.actions, :enter)
             start_in = NFANode()
-            push!(start.edges, (Edge(eps, register_actions(re.actions[:enter])), start_in))
+            push!(start.edges, (Edge(eps, make_action_list(re, re.actions[:enter])), start_in))
         else
             start_in = start
         end
 
-        if re.head == :set
-            @assert length(re.args) == 1
+        re′ = RegExp.shallow_desugar(re)
+        head = re′.head
+        args = re′.args
+
+        if head == :set
+            @assert length(args) == 1
             final_in = NFANode()
-            push!(start_in.edges, (Edge(re.args[1]), final_in))
-        elseif re.head == :cat
+            push!(start_in.edges, (Edge(args[1]), final_in))
+        elseif head == :cat
             f = start_in
-            for arg in re.args
+            for arg in args
                 f = rec!(f, arg)
             end
             if f == start_in
@@ -64,36 +79,36 @@ function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}(
             else
                 final_in = f
             end
-        elseif re.head == :alt
-            @assert length(re.args) > 0
+        elseif head == :alt
+            @assert length(args) > 0
             final_in = NFANode()
-            for arg in re.args
+            for arg in args
                 s = NFANode()
                 f = rec!(s, arg)
                 push!(start_in.edges, (Edge(eps), s))
                 push!(       f.edges, (Edge(eps), final_in))
             end
-        elseif re.head == :rep
-            @assert length(re.args) == 1
+        elseif head == :rep
+            @assert length(args) == 1
             s = NFANode()
-            f = rec!(s, re.args[1])
+            f = rec!(s, args[1])
             final_in = NFANode()
             push!(start_in.edges, (Edge(eps), s))
             push!(start_in.edges, (Edge(eps), final_in))
             push!(       f.edges, (Edge(eps), s))
             push!(       f.edges, (Edge(eps), final_in))
-        elseif re.head == :isec || re.head == :diff
-            @assert length(re.args) == 2
+        elseif head == :isec || head == :diff
+            @assert length(args) == 2
             final_in = NFANode()
             s1 = NFANode()
-            f1 = rec!(s1, re.args[1])
+            f1 = rec!(s1, args[1])
             push!(start_in.edges, (Edge(eps), s1))
             push!(      f1.edges, (Edge(eps), final_in))
             s2 = NFANode()
-            f2 = rec!(s2, re.args[2])
+            f2 = rec!(s2, args[2])
             push!(start_in.edges, (Edge(eps), s2))
             push!(      f2.edges, (Edge(eps), final_in))
-            if re.head == :isec
+            if head == :isec
                 revoke = s -> f1 ∉ s.nfanodes || f2 ∉ s.nfanodes
             else  # re.head == :diff
                 revoke = s -> f2 ∈ s.nfanodes
@@ -102,11 +117,11 @@ function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}(
             push!(start_in.edges, (Edge(eps), nfa.start))
             final_in = nfa.final
         else
-            error("unsupported operation: $(re.head)")
+            error("unsupported operation: $(head)")
         end
 
         if haskey(re.actions, :all)
-            as = register_actions(re.actions[:all])
+            as = make_action_list(re, re.actions[:all])
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
                     union!(e.actions, as)
@@ -114,20 +129,20 @@ function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}(
             end
         end
 
-        if haskey(re.actions, :exit)
-            final = NFANode()
-            push!(final_in.edges, (Edge(eps, register_actions(re.actions[:exit])), final))
-        else
-            final = final_in
-        end
-
         if haskey(re.actions, :final)
-            as = register_actions(re.actions[:final])
+            as = make_action_list(re, re.actions[:final])
             for s in traverse(start), (e, t) in s.edges
-                if !iseps(e) && final ∈ epsilon_closure(t)
+                if !iseps(e) && final_in ∈ epsilon_closure(t)
                     union!(e.actions, as)
                 end
             end
+        end
+
+        if haskey(re.actions, :exit)
+            final = NFANode()
+            push!(final_in.edges, (Edge(eps, make_action_list(re, re.actions[:exit])), final))
+        else
+            final = final_in
         end
 
         if !isnull(re.when)
@@ -142,9 +157,9 @@ function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}(
         return final
     end
 
-    start′ = NFANode()
-    final′ = rec!(start′, RegExp.expand(RegExp.desugar(re)))
-    return NFA(start′, final′)
+    nfa_start = NFANode()
+    nfa_final = rec!(nfa_start, re)
+    return NFA(nfa_start, nfa_final)
 end
 
 function remove_dead_nodes(nfa::NFA)
