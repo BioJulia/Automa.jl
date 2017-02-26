@@ -31,20 +31,25 @@ function iseps(e::Edge)
 end
 
 function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
-    function register_actions(names)
-        return map(names) do name
-            if !haskey(actions, name)
-                actions[name] = Action(name, length(actions))
+    action_order = 1
+    function make_action_list(names)
+        list = ActionList()
+        for name in names
+            if haskey(actions, name)  # pick up a predefined action
+                push!(list, actions[name])
+            else
+                push!(list, Action(name, action_order))
+                action_order += 1
             end
-            return actions[name]
         end
+        return list
     end
 
     # Thompson's construction.
     function rec!(start, re)
         if haskey(re.actions, :enter)
             start_in = NFANode()
-            push!(start.edges, (Edge(eps, register_actions(re.actions[:enter])), start_in))
+            push!(start.edges, (Edge(eps, make_action_list(re.actions[:enter])), start_in))
         else
             start_in = start
         end
@@ -106,7 +111,7 @@ function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}(
         end
 
         if haskey(re.actions, :all)
-            as = register_actions(re.actions[:all])
+            as = make_action_list(re.actions[:all])
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
                     union!(e.actions, as)
@@ -114,20 +119,20 @@ function re2nfa(re::RegExp.RE, actions::Dict{Symbol,Action}=Dict{Symbol,Action}(
             end
         end
 
-        if haskey(re.actions, :exit)
-            final = NFANode()
-            push!(final_in.edges, (Edge(eps, register_actions(re.actions[:exit])), final))
-        else
-            final = final_in
-        end
-
         if haskey(re.actions, :final)
-            as = register_actions(re.actions[:final])
+            as = make_action_list(re.actions[:final])
             for s in traverse(start), (e, t) in s.edges
-                if !iseps(e) && final ∈ epsilon_closure(t)
+                if !iseps(e) && final_in ∈ epsilon_closure(t)
                     union!(e.actions, as)
                 end
             end
+        end
+
+        if haskey(re.actions, :exit)
+            final = NFANode()
+            push!(final_in.edges, (Edge(eps, make_action_list(re.actions[:exit])), final))
+        else
+            final = final_in
         end
 
         if !isnull(re.when)

@@ -4,16 +4,16 @@
 immutable DFANode
     edges::Vector{Tuple{Edge,DFANode}}
     final::Bool
-    eof_actions::Set{Action}
+    eof_actions::ActionList
     nfanodes::Set{NFANode}
 end
 
-function DFANode(final::Bool, eof_actions::Set{Action}, nodes::Set{NFANode})
+function DFANode(final::Bool, eof_actions::ActionList, nodes::Set{NFANode})
     return DFANode(Tuple{Edge,DFANode}[], final, eof_actions, nodes)
 end
 
 function DFANode(final::Bool, nodes::Set{NFANode})
-    return DFANode(final, Set{Action}(), nodes)
+    return DFANode(final, ActionList(), nodes)
 end
 
 function Base.show(io::IO, node::DFANode)
@@ -81,10 +81,10 @@ function nfa2dfa(nfa::NFA)
         for label in disjoint_split(labels)
             # This enumeration will not finish in reasonable time when there
             # are too many preconditions.
-            edges = Dict{Tuple{DFANode,Set{Action}},Vector{UInt64}}()
+            edges = Dict{Tuple{DFANode,ActionList},Vector{UInt64}}()
             for pv in UInt64(0):UInt64((1 << length(pn)) - 1)
                 T = Set{NFANode}()
-                actions = Set{Action}()
+                actions = ActionList()
                 for s in S, (e, t) in s.edges
                     if !isdisjoint(e.labels, label) && satisfies(e, pn, pv)
                         push!(T, t)
@@ -162,7 +162,7 @@ function accumulate_actions(S::Set{NFANode})
         end
     end
     @assert !isempty(top)
-    actions = Dict(s => Set{Action}() for s in S)
+    actions = Dict(s => ActionList() for s in S)
     visited = Set{NFANode}()
     unvisited = top
     while !isempty(unvisited)
@@ -275,7 +275,7 @@ function distinct_nodes(S::Set{DFANode})
         for l in labels[s1]
             e1, t1 = findedge(s1, l)
             e2, t2 = findedge(s2, l)
-            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || e1.actions != e2.actions
+            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || !isequiv(e1.actions, e2.actions)
                 return true
             end
         end
@@ -299,7 +299,7 @@ function distinct_nodes(S::Set{DFANode})
                 push!(distinct, (s1, s2), (s2, s1))
                 converged = false
             end
-            if s1.eof_actions != s2.eof_actions
+            if !isequiv(s1.eof_actions, s2.eof_actions)
                 push!(distinct, (s1, s2), (s2, s1))
                 converged = false
             end
