@@ -795,7 +795,7 @@ module Test15
         $(Automa.generate_exec_code(machine, actions=:debug, code=:goto))
         return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
-    @test validate2(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
+    @test validate3(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
 end
 
 module TestDOT
