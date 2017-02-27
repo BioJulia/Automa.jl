@@ -268,22 +268,8 @@ function distinct_nodes(S::Set{DFANode})
     labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), ByteSet(), s.edges) for s in S)
     distinct = Set{Tuple{DFANode,DFANode}}()
 
-    function isdistinct(s1, s2)
-        if labels[s1] != labels[s2]
-            return true
-        end
-        for l in labels[s1]
-            e1, t1 = findedge(s1, l)
-            e2, t2 = findedge(s2, l)
-            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || e1.actions != e2.actions
-                return true
-            end
-        end
-        return false
-    end
-
     for s1 in S, s2 in S
-        if s1.final != s2.final
+        if s1.final != s2.final || labels[s1] != labels[s2] || s1.eof_actions != s2.eof_actions
             push!(distinct, (s1, s2))
         end
     end
@@ -292,30 +278,23 @@ function distinct_nodes(S::Set{DFANode})
     while !converged
         converged = true
         for s1 in S, s2 in S
-            if (s1, s2) ∈ distinct
+            if s1 === s2 || (s1, s2) ∈ distinct
                 continue
             end
-            if isdistinct(s1, s2)
-                push!(distinct, (s1, s2), (s2, s1))
-                converged = false
-            end
-            if s1.eof_actions != s2.eof_actions
-                push!(distinct, (s1, s2), (s2, s1))
-                converged = false
-            end
+            @assert labels[s1] == labels[s2] && s1.eof_actions == s2.eof_actions
+            push!(distinct, (s1, s2), (s2, s1))
+            #for l in labels[s1]
+            #    es1 = findedges(s1, l)
+            #    es2 = findedges(s2, l)
+            #end
         end
     end
 
     return distinct
 end
 
-function findedge(s::DFANode, label::UInt8)
-    for (e, t) in s.edges
-        if label ∈ e.labels
-            return e, t
-        end
-    end
-    error("label $(label) not found")
+function findedges(s::DFANode, label::UInt8)
+    return filter((e, _) -> label ∈ e.labels, s.edges)
 end
 
 function revoke_finals(p::Function, dfa::DFA)
