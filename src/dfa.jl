@@ -26,7 +26,7 @@ end
 
 # Check if the DFA is really deterministic or not.
 function validate(dfa::DFA)
-    is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.preconds, e2.preconds))
+    is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
     for s in traverse(dfa.start)
         for i in 1:endof(s.edges), j in 1:i-1
             e_i = s.edges[i][1]
@@ -61,7 +61,7 @@ function nfa2dfa(nfa::NFA)
         for s in S, (e, t) in s.edges
             if !iseps(e)
                 push!(labels, e.labels)
-                union!(preconds, precondition_names(e.preconds))
+                union!(preconds, precondition_names(e.precond))
             end
         end
 
@@ -171,10 +171,11 @@ function accumulate_actions(S::Set{NFANode})
 end
 
 function satisfies(edge::Edge, names::Vector{Symbol}, pv::UInt64)
-    for p in edge.preconds
-        i = findfirst(names, p.name)
+    for (n, v) in edge.precond
+        i = findfirst(names, n)
         @assert 0 < i ≤ 64
-        if bitat(pv, i) != p.value
+        vi = bitat(pv, i)
+        if !(v == BOTH || (v == TRUE && vi) || (v == FALSE && !vi))
             return false
         end
     end
@@ -219,11 +220,11 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
 end
 
 function make_precond(names::Vector{Symbol}, pv::UInt64)
-    pset = PreconditionSet()
+    precond = Precondition()
     for (i, n) in enumerate(names)
-        push!(pset, Precondition(n, bitat(pv, i)))
+        push!(precond, n => bitat(pv, i) ? TRUE : FALSE)
     end
-    return pset
+    return precond
 end
 
 function bitat(x::UInt64, i::Integer)
@@ -275,11 +276,8 @@ function distinct_nodes(S::Set{DFANode})
                 continue
             end
             @assert labels[s1] == labels[s2] && s1.eof_actions == s2.eof_actions
-            push!(distinct, (s1, s2), (s2, s1))
-            #for l in labels[s1]
-            #    es1 = findedges(s1, l)
-            #    es2 = findedges(s2, l)
-            #end
+            push!(distinct, (s1, s2))
+            converged = false
         end
     end
 

@@ -3,14 +3,14 @@
 
 immutable Edge
     labels::ByteSet
-    preconds::PreconditionSet
+    precond::Precondition
     actions::ActionList
 end
 
 function Edge(labels::ByteSet)
-    return Edge(labels, PreconditionSet(), ActionList())
+    return Edge(labels, Precondition(), ActionList())
 end
 
 function Edge(labels::ByteSet, actions::ActionList)
-    return Edge(labels, PreconditionSet(), actions)
+    return Edge(labels, Precondition(), actions)
 end

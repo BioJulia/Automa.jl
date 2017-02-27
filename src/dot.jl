@@ -96,9 +96,9 @@ function edge2str(edge::Edge)
     end
 
     # output conditions
-    if !isempty(edge.preconds)
+    if !isempty(edge.precond)
         print(out, '(')
-        join(out, (string(precond.value ? "" : "!", precond.name) for precond in edge.preconds), ',')
+        join(out, ((value == NONE ? "false" : value == TRUE ? name : value == FALSE ? string("!", name) : "true") for (name, value) in edge.precond), ',')
         print(out, ')')
     end
 
