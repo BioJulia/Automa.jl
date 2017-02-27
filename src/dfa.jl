@@ -29,9 +29,9 @@ function validate(dfa::DFA)
     is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
     for s in traverse(dfa.start)
         for i in 1:endof(s.edges), j in 1:i-1
-            e_i = s.edges[i][1]
-            e_j = s.edges[j][1]
-            if is_non_deterministic(e_i, e_j)
+            ei = s.edges[i][1]
+            ej = s.edges[j][1]
+            if overlaps(ei, ej)
                 error("found non-deterministic edges")
             end
         end
@@ -272,20 +272,25 @@ function distinct_nodes(S::Set{DFANode})
     while !converged
         converged = true
         for s1 in S, s2 in S
-            if s1 === s2 || (s1, s2) ∈ distinct
+            if s1 == s2 || (s1, s2) ∈ distinct
                 continue
             end
             @assert labels[s1] == labels[s2] && s1.eof_actions == s2.eof_actions
-            push!(distinct, (s1, s2))
-            converged = false
+            for (e1, t1) in s1.edges, (e2, t2) in s2.edges
+                if overlaps(e1, e2) && ((t1, t2) ∈ distinct || e1.actions != e2.actions)
+                    push!(distinct, (s1, s2), (s2, s1))
+                    converged = false
+                    break
+                end
+            end
         end
     end
 
     return distinct
 end
 
-function findedges(s::DFANode, label::UInt8)
-    return filter((e, _) -> label ∈ e.labels, s.edges)
+function overlaps(e1::Edge, e2::Edge)
+    return !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
 end
 
 function revoke_finals(p::Function, dfa::DFA)
