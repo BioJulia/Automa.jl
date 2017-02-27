@@ -146,10 +146,10 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
         end
 
         if !isnull(re.when)
-            precond = Precondition(get(re.when), true)
+            p = Precondition(get(re.when), true)
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
-                    push!(e.preconds, precond)
+                    push!(e.preconds, p)
                 end
             end
         end

@@ -26,23 +26,12 @@ end
 
 # Check if the DFA is really deterministic or not.
 function validate(dfa::DFA)
-    function overlap(e1, e2)
-        if isdisjoint(e1.labels, e2.labels)
-            return false
-        else
-            for p1 in e1.preconds
-                if conflicts(p1, e2.preconds)
-                    return false
-                end
-            end
-            return true
-        end
-    end
+    is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.preconds, e2.preconds))
     for s in traverse(dfa.start)
         for i in 1:endof(s.edges), j in 1:i-1
             e_i = s.edges[i][1]
             e_j = s.edges[j][1]
-            if overlap(e_i, e_j)
+            if is_non_deterministic(e_i, e_j)
                 error("found non-deterministic edges")
             end
         end
@@ -72,7 +61,7 @@ function nfa2dfa(nfa::NFA)
         for s in S, (e, t) in s.edges
             if !iseps(e)
                 push!(labels, e.labels)
-                union!(preconds, p.name for p in e.preconds)
+                union!(preconds, precondition_names(e.preconds))
             end
         end
 
@@ -103,7 +92,7 @@ function nfa2dfa(nfa::NFA)
             for ((t′, actions), pvs) in edges
                 pn′, pvs′ = remove_redundant_preconds(pn, pvs)
                 for pv′ in pvs′
-                    push!(s′.edges, (Edge(label, Set(make_preconds(pn′, pv′)), actions), t′))
+                    push!(s′.edges, (Edge(label, make_precond(pn′, pv′), actions), t′))
                 end
             end
         end
@@ -181,19 +170,15 @@ function accumulate_actions(S::Set{NFANode})
     return actions
 end
 
-function satisfies(edge::Edge, names::Vector{Symbol}, preconds::UInt64)
+function satisfies(edge::Edge, names::Vector{Symbol}, pv::UInt64)
     for p in edge.preconds
         i = findfirst(names, p.name)
         @assert 0 < i ≤ 64
-        if bitat(preconds, i) != p.value
+        if bitat(pv, i) != p.value
             return false
         end
     end
     return true
-end
-
-function make_preconds(names::Vector{Symbol}, preconds::UInt64)
-    return [Precondition(n, bitat(preconds, i)) for (i, n) in enumerate(names)]
 end
 
 function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
@@ -231,6 +216,14 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
         end
     end
     return newnames, unique(pvs)
+end
+
+function make_precond(names::Vector{Symbol}, pv::UInt64)
+    pset = PreconditionSet()
+    for (i, n) in enumerate(names)
+        push!(pset, Precondition(n, bitat(pv, i)))
+    end
+    return pset
 end
 
 function bitat(x::UInt64, i::Integer)
