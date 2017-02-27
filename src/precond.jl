@@ -80,3 +80,12 @@ end
 function Base.next(precond::Precondition, i)
     return (precond.names[i], precond.values[i]), i + 1
 end
+
+function isconditioned(precond::Precondition)
+    for v in precond.values
+        if v != BOTH
+            return true
+        end
+    end
+    return false
+end

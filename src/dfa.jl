@@ -159,6 +159,7 @@ function accumulate_actions(S::Set{NFANode})
         push!(visited, s)
         for (e, t) in s.edges
             if iseps(e)
+                @assert !isconditioned(e.precond)
                 union!(actions[t], e.actions)
                 union!(actions[t], actions[s])
                 if t ∉ visited
