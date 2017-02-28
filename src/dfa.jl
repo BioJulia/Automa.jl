@@ -26,23 +26,12 @@ end
 
 # Check if the DFA is really deterministic or not.
 function validate(dfa::DFA)
-    function overlap(e1, e2)
-        if isdisjoint(e1.labels, e2.labels)
-            return false
-        else
-            for p1 in e1.preconds
-                if conflicts(p1, e2.preconds)
-                    return false
-                end
-            end
-            return true
-        end
-    end
+    is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
     for s in traverse(dfa.start)
         for i in 1:endof(s.edges), j in 1:i-1
-            e_i = s.edges[i][1]
-            e_j = s.edges[j][1]
-            if overlap(e_i, e_j)
+            ei = s.edges[i][1]
+            ej = s.edges[j][1]
+            if overlaps(ei, ej)
                 error("found non-deterministic edges")
             end
         end
@@ -72,7 +61,7 @@ function nfa2dfa(nfa::NFA)
         for s in S, (e, t) in s.edges
             if !iseps(e)
                 push!(labels, e.labels)
-                union!(preconds, p.name for p in e.preconds)
+                union!(preconds, precondition_names(e.precond))
             end
         end
 
@@ -103,7 +92,7 @@ function nfa2dfa(nfa::NFA)
             for ((t′, actions), pvs) in edges
                 pn′, pvs′ = remove_redundant_preconds(pn, pvs)
                 for pv′ in pvs′
-                    push!(s′.edges, (Edge(label, Set(make_preconds(pn′, pv′)), actions), t′))
+                    push!(s′.edges, (Edge(label, make_precond(pn′, pv′), actions), t′))
                 end
             end
         end
@@ -170,6 +159,7 @@ function accumulate_actions(S::Set{NFANode})
         push!(visited, s)
         for (e, t) in s.edges
             if iseps(e)
+                @assert !isconditioned(e.precond)
                 union!(actions[t], e.actions)
                 union!(actions[t], actions[s])
                 if t ∉ visited
@@ -181,19 +171,16 @@ function accumulate_actions(S::Set{NFANode})
     return actions
 end
 
-function satisfies(edge::Edge, names::Vector{Symbol}, preconds::UInt64)
-    for p in edge.preconds
-        i = findfirst(names, p.name)
+function satisfies(edge::Edge, names::Vector{Symbol}, pv::UInt64)
+    for (n, v) in edge.precond
+        i = findfirst(names, n)
         @assert 0 < i ≤ 64
-        if bitat(preconds, i) != p.value
+        vi = bitat(pv, i)
+        if !(v == BOTH || (v == TRUE && vi) || (v == FALSE && !vi))
             return false
         end
     end
     return true
-end
-
-function make_preconds(names::Vector{Symbol}, preconds::UInt64)
-    return [Precondition(n, bitat(preconds, i)) for (i, n) in enumerate(names)]
 end
 
 function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
@@ -233,6 +220,14 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
     return newnames, unique(pvs)
 end
 
+function make_precond(names::Vector{Symbol}, pv::UInt64)
+    precond = Precondition()
+    for (i, n) in enumerate(names)
+        push!(precond, n => bitat(pv, i) ? TRUE : FALSE)
+    end
+    return precond
+end
+
 function bitat(x::UInt64, i::Integer)
     return ((x >> (i - 1)) & 1) == 1
 end
@@ -268,22 +263,8 @@ function distinct_nodes(S::Set{DFANode})
     labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), ByteSet(), s.edges) for s in S)
     distinct = Set{Tuple{DFANode,DFANode}}()
 
-    function isdistinct(s1, s2)
-        if labels[s1] != labels[s2]
-            return true
-        end
-        for l in labels[s1]
-            e1, t1 = findedge(s1, l)
-            e2, t2 = findedge(s2, l)
-            if (t1, t2) ∈ distinct || e1.preconds != e2.preconds || e1.actions != e2.actions
-                return true
-            end
-        end
-        return false
-    end
-
     for s1 in S, s2 in S
-        if s1.final != s2.final
+        if s1.final != s2.final || labels[s1] != labels[s2] || s1.eof_actions != s2.eof_actions
             push!(distinct, (s1, s2))
         end
     end
@@ -292,16 +273,16 @@ function distinct_nodes(S::Set{DFANode})
     while !converged
         converged = true
         for s1 in S, s2 in S
-            if (s1, s2) ∈ distinct
+            if s1 == s2 || (s1, s2) ∈ distinct
                 continue
             end
-            if isdistinct(s1, s2)
-                push!(distinct, (s1, s2), (s2, s1))
-                converged = false
-            end
-            if s1.eof_actions != s2.eof_actions
-                push!(distinct, (s1, s2), (s2, s1))
-                converged = false
+            @assert labels[s1] == labels[s2] && s1.eof_actions == s2.eof_actions
+            for (e1, t1) in s1.edges, (e2, t2) in s2.edges
+                if overlaps(e1, e2) && ((t1, t2) ∈ distinct || e1.actions != e2.actions)
+                    push!(distinct, (s1, s2), (s2, s1))
+                    converged = false
+                    break
+                end
             end
         end
     end
@@ -309,13 +290,8 @@ function distinct_nodes(S::Set{DFANode})
     return distinct
 end
 
-function findedge(s::DFANode, label::UInt8)
-    for (e, t) in s.edges
-        if label ∈ e.labels
-            return e, t
-        end
-    end
-    error("label $(label) not found")
+function overlaps(e1::Edge, e2::Edge)
+    return !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
 end
 
 function revoke_finals(p::Function, dfa::DFA)
