@@ -75,7 +75,7 @@ function generate_transition_table(machine::Machine)
         trans_table[:,j] = -j
     end
     for s in traverse(machine.start), (e, t) in s.edges
-        if !isempty(e.preconds)
+        if !isempty(e.precond)
             error("precondition is not supported in the table-based code generator; try code=:inline or :goto")
         end
         for l in e.labels
@@ -259,7 +259,19 @@ end
 
 function generate_condition_code(edge::Edge, actions::Dict{Symbol,Expr})
     labelcode = foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), range_encode(edge.labels))
-    precondcode = foldr((p, cond) -> Expr(:&&, p.value ? actions[p.name] : :(!$(actions[p.name])), cond), :(true), edge.preconds)
+    precondcode = foldr(:(true), edge.precond) do p, ex
+        name, value = p
+        if value == BOTH
+            ex1 = :(true)
+        elseif value == TRUE
+            ex1 = :( $(actions[name]))
+        elseif value == FALSE
+            ex1 = :(!$(actions[name]))
+        else
+            ex1 = :(false)
+        end
+        return Expr(:&&, ex1, ex)
+    end
     return :($(labelcode) && $(precondcode))
 end
 
