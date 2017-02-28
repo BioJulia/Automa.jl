@@ -1,7 +1,7 @@
 # Precondition
 # ============
 
-@compat primitive type 8 Value end
+@compat primitive type Value 8 end
 
 const NONE  = reinterpret(Value, 0x00)
 const TRUE  = reinterpret(Value, 0x01)
