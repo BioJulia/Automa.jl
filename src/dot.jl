@@ -85,6 +85,9 @@ function edge2str(edge::Edge)
         for r in range_encode(edge.labels)
             if length(r) == 1
                 printbyte(first(r), true)
+            elseif length(r) == 2
+                printbyte(first(r), true)
+                printbyte(last(r), true)
             else
                 @assert length(r) > 1
                 printbyte(first(r), true)
