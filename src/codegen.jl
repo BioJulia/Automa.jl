@@ -258,7 +258,8 @@ function state_condition(s::Int)
 end
 
 function generate_condition_code(edge::Edge, actions::Dict{Symbol,Expr})
-    labelcode = foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false), range_encode(edge.labels))
+    labelcode = foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false),
+                      sort(range_encode(edge.labels), by=length, rev=true))
     precondcode = foldr(:(true), edge.precond) do p, ex
         name, value = p
         if value == BOTH
