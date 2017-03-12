@@ -131,7 +131,7 @@ end
 function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
     default = :(cs = -cs)
     return foldr(default, traverse(machine.start)) do s, els
-        then = foldr(default, s.edges) do edge, els′
+        then = foldr(default, optimize_edge_order(s.edges)) do edge, els′
             e, t = edge
             action_code = rewrite_special_macros(generate_action_code(e.actions, actions), false)
             then′ = :(cs = $(t.state); $(action_code))
@@ -178,7 +178,7 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
             end
         end)
         default = :(cs = $(-s.state); @goto exit)
-        dispatch_code = foldr(default, s.edges) do edge, els
+        dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
                 then = :(@goto $(Symbol("state_", t.state)))
@@ -348,6 +348,11 @@ function debug_actions(machine::Machine)
         return :(push!(logger, $(QuoteNode(name))))
     end
     return Dict(name => log_expr(name) for name in actions)
+end
+
+# Sort edges by its size in descending order.
+function optimize_edge_order(edges)
+    return sort!(copy(edges), by=e->length(e[1].labels), rev=true)
 end
 
 # Generic foldr.
