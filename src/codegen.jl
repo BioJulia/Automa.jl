@@ -381,10 +381,10 @@ end
     return unsafe_load(pointer(data), p)
 end
 
-@inline function check(data::AbstractVector{UInt8}, p::Integer)
-    return 1 ≤ p ≤ endof(data)
+@inline function check(data, p::Integer)
+    return checkbounds(Bool, data, p)
 end
 
-@inline function getbyte(data::AbstractVector{UInt8}, p::Integer)
+@inline function getbyte(data, p::Integer)
     @inbounds return data[p]
 end
