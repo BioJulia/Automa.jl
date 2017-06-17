@@ -278,18 +278,14 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
                     then = quote
                         while p + 4 ≤ p_end
                             l1 = $(getbyte)(data, p + 1)
-                            ok1 = $(generate_simple_condition_code(e, :l1))
+                            !$(generate_simple_condition_code(e, :l1)) && break
                             l2 = $(getbyte)(data, p + 2)
-                            ok2 = $(generate_simple_condition_code(e, :l2))
+                            !$(generate_simple_condition_code(e, :l2)) && break
                             l3 = $(getbyte)(data, p + 3)
-                            ok3 = $(generate_simple_condition_code(e, :l3))
+                            !$(generate_simple_condition_code(e, :l3)) && break
                             l4 = $(getbyte)(data, p + 4)
-                            ok4 = $(generate_simple_condition_code(e, :l4))
-                            if ok1 && ok2 && ok3 && ok4
-                                p += 4
-                            else
-                                break
-                            end
+                            !$(generate_simple_condition_code(e, :l4)) && break
+                            p += 4
                         end
                         @goto $(Symbol("state_", t.state))
                     end
