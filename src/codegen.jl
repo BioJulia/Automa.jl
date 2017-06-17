@@ -272,7 +272,30 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
-                then = :(@goto $(Symbol("state_", t.state)))
+                if s.state == t.state
+                    # unroll loop
+                    #info("unroll $(s.state)")
+                    then = quote
+                        while p + 4 ≤ p_end
+                            l1 = $(getbyte)(data, p + 1)
+                            ok1 = $(generate_simple_condition_code(e, :l1))
+                            l2 = $(getbyte)(data, p + 2)
+                            ok2 = $(generate_simple_condition_code(e, :l2))
+                            l3 = $(getbyte)(data, p + 3)
+                            ok3 = $(generate_simple_condition_code(e, :l3))
+                            l4 = $(getbyte)(data, p + 4)
+                            ok4 = $(generate_simple_condition_code(e, :l4))
+                            if ok1 && ok2 && ok3 && ok4
+                                p += 4
+                            else
+                                break
+                            end
+                        end
+                        @goto $(Symbol("state_", t.state))
+                    end
+                else
+                    then = :(@goto $(Symbol("state_", t.state)))
+                end
             else
                 then = :(@goto $(action_label[t][action_names(e.actions)]))
             end
@@ -359,6 +382,11 @@ function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{
         return Expr(:&&, ex1, ex)
     end
     return :($(labelcode) && $(precondcode))
+end
+
+function generate_simple_condition_code(edge::Edge, byte::Symbol)
+    return foldr((range, cond) -> Expr(:||, :($(byte) in $(range)), cond), :(false),
+                 sort(range_encode(edge.labels), by=length, rev=true))
 end
 
 # Used by the :table and :inline code generators.
