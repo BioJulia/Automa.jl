@@ -32,6 +32,7 @@ immutable CodeGenContext
     vars::Variables
     generator::Function
     checkbounds::Bool
+    loopunroll::Int
     getbyte::Function
     clean::Bool
 end
@@ -41,6 +42,7 @@ end
         vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator=:table,
         checkbounds=true,
+        loopunroll=0,
         getbyte=Base.getindex,
         clean=false
     )
@@ -53,6 +55,7 @@ Arguments
 - `vars`: variable names used in generated code
 - `generator`: code generator (`:table`, `:inline` or `:goto`)
 - `checkbounds`: flag of bounds check
+- `loopunroll`: loop unroll factor (0..8)
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
 - `clean`: flag of code cleansing
 """
@@ -60,8 +63,14 @@ function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator::Symbol=:table,
         checkbounds::Bool=true,
+        loopunroll::Integer=0,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
+    if !(0 ≤ loopunroll ≤ 8)
+        throw(ArgumentError("unroll factor must be within 0..8"))
+    elseif loopunroll > 0 && generator != :goto
+        throw(ArgumentError("loop unrolling is not supported for $(generator)"))
+    end
     # check generator
     if generator == :table
         generator = generate_table_code
@@ -72,7 +81,7 @@ function CodeGenContext(;
     else
         throw(ArgumentError("invalid code generator: $(generator)"))
     end
-    return CodeGenContext(vars, generator, checkbounds, getbyte, clean)
+    return CodeGenContext(vars, generator, checkbounds, loopunroll, getbyte, clean)
 end
 
 function generate_init_code(machine::Machine)
@@ -272,23 +281,8 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
-                if s.state == t.state
-                    # unroll loop
-                    #info("unroll $(s.state)")
-                    then = quote
-                        while p + 4 ≤ p_end
-                            l1 = $(getbyte)(data, p + 1)
-                            !$(generate_simple_condition_code(e, :l1)) && break
-                            l2 = $(getbyte)(data, p + 2)
-                            !$(generate_simple_condition_code(e, :l2)) && break
-                            l3 = $(getbyte)(data, p + 3)
-                            !$(generate_simple_condition_code(e, :l3)) && break
-                            l4 = $(getbyte)(data, p + 4)
-                            !$(generate_simple_condition_code(e, :l4)) && break
-                            p += 4
-                        end
-                        @goto $(Symbol("state_", t.state))
-                    end
+                if ctx.loopunroll > 0 && s.state == t.state
+                    then = generate_unrolled_loop(ctx, e, t)
                 else
                     then = :(@goto $(Symbol("state_", t.state)))
                 end
@@ -331,6 +325,36 @@ function append_code!(block::Expr, code::Expr)
     @assert code.head == :block
     append!(block.args, code.args)
     return block
+end
+
+function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
+    # Generated code looks like this (when unroll=2):
+    #     while p + 2 ≤ p_end
+    #         l1 = $(getbyte)(data, p + 1)
+    #         !$(generate_simple_condition_code(e, :l1)) && break
+    #         l2 = $(getbyte)(data, p + 2)
+    #         !$(generate_simple_condition_code(e, :l2)) && break
+    #         p += 2
+    #     end
+    #     @goto ...
+    @assert ctx.loopunroll > 0
+    body = :(begin end)
+    for k in 1:ctx.loopunroll
+        l = Symbol(ctx.vars.byte, k)
+        push!(
+            body.args,
+            quote
+                $(l) = $(ctx.getbyte)($(ctx.vars.data), $(ctx.vars.p) + $(k))
+                !$(generate_simple_condition_code(edge, l)) && break
+            end)
+    end
+    push!(body.args, :($(ctx.vars.p) += $(ctx.loopunroll)))
+    quote
+        while $(ctx.vars.p) + $(ctx.loopunroll) ≤ $(ctx.vars.p_end)
+            $(body)
+        end
+        @goto $(Symbol("state_", t.state))
+    end
 end
 
 function generate_eof_action_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
