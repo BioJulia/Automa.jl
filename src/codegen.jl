@@ -84,6 +84,19 @@ function CodeGenContext(;
     return CodeGenContext(vars, generator, checkbounds, loopunroll, getbyte, clean)
 end
 
+"""
+    generate_init_code(machine)
+
+Generate variable initialization code.
+
+The generated code is equivalent to:
+```julia
+p::Int = 1
+p_end::Int = 0
+p_eof::Int = -1
+cs::Int = <start state of machine>
+```
+"""
 function generate_init_code(machine::Machine)
     warn("this method is deprecated; use `generate_init_code(::CodeGenContext, ::Machine)`", once=true, key=generate_init_code)
     return generate_init_code(CodeGenContext(), machine)
