@@ -1,3 +1,23 @@
+using Base.Test
+import Automa
+
+@testset "SizedMemory" begin
+    mem = Automa.SizedMemory("bar")
+    @test endof(mem) === length(mem) === 3
+    @test mem[1] === UInt8('b')
+    @test mem[2] === UInt8('a')
+    @test mem[3] === UInt8('r')
+    @test_throws BoundsError mem[0]
+    @test_throws BoundsError mem[4]
+
+    mem = Automa.SizedMemory(SubString("bar", 2, 3))
+    @test endof(mem) === length(mem) === 2
+    @test mem[1] === UInt8('a')
+    @test mem[2] === UInt8('r')
+    @test_throws BoundsError mem[0]
+    @test_throws BoundsError mem[3]
+end
+
 module Test1
     import Automa
     import Automa.RegExp: @re_str

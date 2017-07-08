@@ -35,17 +35,27 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
 end
 
 function generate_init_code(tokenizer::Tokenizer)
+    # TODO: deprecate this?
+    return generate_init_code(CodeGenContext(), tokenizer)
+end
+
+function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
     quote
-        p::Int = 1
-        p_end::Int = 0
-        p_eof::Int = -1
-        cs::Int = $(tokenizer.machine.start_state)
-        ts::Int = 0
-        te::Int = 0
+        $(ctx.vars.p)::Int = 1
+        $(ctx.vars.p_end)::Int = 0
+        $(ctx.vars.p_eof)::Int = -1
+        $(ctx.vars.ts)::Int = 0
+        $(ctx.vars.te)::Int = 0
+        $(ctx.vars.cs)::Int = $(tokenizer.machine.start_state)
     end
 end
 
 function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
+    # TODO: deprecate this?
+    return generate_exec_code(CodeGenContext(), tokenizer, actions=actions)
+end
+
+function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer; actions=nothing)
     if actions == nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
@@ -55,28 +65,27 @@ function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
     else
         throw(ArgumentError("invalid actions argument"))
     end
-    actions[:__token_start] = :(ts = p)
+    actions[:__token_start] = :($(ctx.vars.ts) = $(ctx.vars.p))
     for (i, (name, _)) in enumerate(tokenizer.actions_code)
-        actions[name] = :(t = $(i); te = p)
+        actions[name] = :(t = $(i); $(ctx.vars.te) = $(ctx.vars.p))
     end
-    return generate_table_code(tokenizer, actions, true)
+    return generate_table_code(ctx, tokenizer, actions, true)
 end
 
-function generate_table_code(tokenizer::Tokenizer, actions::Associative{Symbol,Expr}, check::Bool)
-    action_dispatch_code, action_table = generate_action_dispatch_code(tokenizer.machine, actions)
+function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::Associative{Symbol,Expr}, check::Bool)
+    action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, tokenizer.machine, actions)
     trans_table = generate_transition_table(tokenizer.machine)
-    getbyte_code = generate_geybyte_code(check)
-    act_code = :(act = $(action_table)[(cs - 1) << 8 + l + 1])
-    cs_code = :(cs = $(trans_table)[(cs - 1) << 8 + l + 1])
-    eof_action_code = generate_eof_action_code(tokenizer.machine, actions)
+    getbyte_code = generate_geybyte_code(ctx)
+    cs_code = :($(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
+    eof_action_code = generate_eof_action_code(ctx, tokenizer.machine, actions)
     token_exit_code = generate_token_exit_code(tokenizer)
-    @assert size(action_table, 1) == size(trans_table, 1) == 256
     return quote
+        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         t = 0
         ts = 0
         while p ≤ p_end && cs > 0
             $(getbyte_code)
-            $(act_code)
+            $(set_act_code)
             $(cs_code)
             $(action_dispatch_code)
             p += 1

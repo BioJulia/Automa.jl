@@ -5,66 +5,127 @@
 #   * `p::Int`: position of current data
 #   * `p_end::Int`: end position of data
 #   * `p_eof::Int`: end position of file stream
+#   * `ts::Int`: start position of token (tokenizer only)
+#   * `te::Int`: end position of token (tokenizer only)
 #   * `cs::Int`: current state
+#   * `data`: input data
+#   * `mem::SizedMemory`: input data memory
+#   * `byte`: current data byte
+
+# Variable names used in generated code.
+immutable Variables
+    p::Symbol
+    p_end::Symbol
+    p_eof::Symbol
+    ts::Symbol
+    te::Symbol
+    cs::Symbol
+    data::Symbol
+    mem::Symbol
+    byte::Symbol
+end
+
+immutable CodeGenContext
+    vars::Variables
+    generator::Function
+    checkbounds::Bool
+    getbyte::Function
+    clean::Bool
+end
+
+"""
+    CodeGenContext()
+
+Create a code generation context.
+"""
+function CodeGenContext(;
+        vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
+        generator::Symbol=:table,
+        checkbounds::Bool=true,
+        getbyte::Function=Base.getindex,
+        clean::Bool=false)
+    # check generator
+    if generator == :table
+        generator = generate_table_code
+    elseif generator == :inline
+        generator = generate_inline_code
+    elseif generator == :goto
+        generator = generate_goto_code
+    else
+        throw(ArgumentError("invalid code generator: $(generator)"))
+    end
+    return CodeGenContext(vars, generator, checkbounds, getbyte, clean)
+end
 
 function generate_init_code(machine::Machine)
+    # TODO: deprecate this?
+    return generate_init_code(CodeGenContext(), machine)
+end
+
+function generate_init_code(ctx::CodeGenContext, machine::Machine)
     return quote
-        p::Int = 1
-        p_end::Int = 0
-        p_eof::Int = -1
-        cs::Int = $(machine.start_state)
+        $(ctx.vars.p)::Int = 1
+        $(ctx.vars.p_end)::Int = 0
+        $(ctx.vars.p_eof)::Int = -1
+        $(ctx.vars.cs)::Int = $(machine.start_state)
     end
 end
 
-function generate_exec_code(machine::Machine; actions=nothing, code::Symbol=:table, check::Bool=true, clean::Bool=false)
+function generate_exec_code(
+        machine::Machine;
+        actions=nothing,
+        code::Symbol=:table,
+        check::Bool=true,
+        clean::Bool=false,
+        getbyte::Function=Base.getindex)
+    # TODO: deprecate this?
+    ctx = CodeGenContext(
+        generator=code,
+        checkbounds=check,
+        getbyte=getbyte,
+        clean=clean)
+    return generate_exec_code(ctx, machine, actions=actions)
+end
+
+function generate_exec_code(ctx::CodeGenContext, machine::Machine; actions=nothing)
+    # make actions
     if actions == nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
         actions = debug_actions(machine)
     elseif isa(actions, Associative{Symbol,Expr})
-        actions = convert(Dict, actions)
+        actions = convert(Dict{Symbol,Expr}, actions)
     else
         throw(ArgumentError("invalid actions argument"))
     end
-
-    if code == :table
-        code = generate_table_code(machine, actions, check)
-    elseif code == :inline
-        code = generate_inline_code(machine, actions, check)
-    elseif code == :goto
-        code = generate_goto_code(machine, actions, check)
-    else
-        throw(ArgumentError("invalid code: $(code)"))
+    # generate code
+    code = ctx.generator(ctx, machine, actions)
+    if ctx.clean
+        code = cleanup(code)
     end
-
-    if clean
-        return cleanup(code)
-    else
-        return code
-    end
+    return code
 end
 
-function generate_table_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
-    action_dispatch_code, action_table = generate_action_dispatch_code(machine, actions)
+function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
+    action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, machine, actions)
     trans_table = generate_transition_table(machine)
-    getbyte_code = generate_geybyte_code(check)
-    act_code = :(@inbounds act = $(action_table)[(cs - 1) << 8 + l + 1])
-    cs_code = :(@inbounds cs = $(trans_table)[(cs - 1) << 8 + l + 1])
-    eof_action_code = generate_eof_action_code(machine, actions)
-    @assert size(action_table, 1) == size(trans_table, 1) == 256
+    getbyte_code = generate_geybyte_code(ctx)
+    set_cs_code = :(@inbounds $(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
+    eof_action_code = generate_eof_action_code(ctx, machine, actions)
     return quote
-        while p ≤ p_end && cs > 0
+        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
+        while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
             $(getbyte_code)
-            $(act_code)
-            $(cs_code)
+            $(set_act_code)
+            $(set_cs_code)
             $(action_dispatch_code)
-            p += 1
+            $(ctx.vars.p) += 1
         end
-        if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
             $(eof_action_code)
-            cs = 0
-        elseif cs < 0
-            p -= 1
+            $(ctx.vars.cs) = 0
+        elseif $(ctx.vars.cs) < 0
+            $(ctx.vars.p) -= 1
         end
     end
 end
@@ -85,9 +146,8 @@ function generate_transition_table(machine::Machine)
     return trans_table
 end
 
-function generate_action_dispatch_code(machine::Machine, actions::Dict{Symbol,Expr})
-    action_table = Matrix{Int}(256, length(machine.states))
-    fill!(action_table, 0)
+function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
+    action_table = fill(0, (256, length(machine.states)))
     action_ids = Dict{Vector{Symbol},Int}()
     for s in traverse(machine.start)
         for (e, t) in s.edges
@@ -100,48 +160,51 @@ function generate_action_dispatch_code(machine::Machine, actions::Dict{Symbol,Ex
             end
         end
     end
+    act = gensym()
     default = :()
     action_dispatch_code = foldr(default, action_ids) do names_id, els
         names, id = names_id
-        action_code = rewrite_special_macros(generate_action_code(names, actions), false)
-        return Expr(:if, :(act == $(id)), action_code, els)
+        action_code = rewrite_special_macros(ctx, generate_action_code(names, actions), false)
+        return Expr(:if, :($(act) == $(id)), action_code, els)
     end
-    return action_dispatch_code, action_table
+    action_code = :(@inbounds $(act) = $(action_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
+    return action_dispatch_code, action_code
 end
 
-function generate_inline_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
-    trans_code = generate_transition_code(machine, actions)
-    eof_action_code = generate_eof_action_code(machine, actions)
-    getbyte_code = generate_geybyte_code(check)
+function generate_inline_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
+    trans_code = generate_transition_code(ctx, machine, actions)
+    eof_action_code = generate_eof_action_code(ctx, machine, actions)
+    getbyte_code = generate_geybyte_code(ctx)
     return quote
-        while p ≤ p_end && cs > 0
+        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
+        while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
             $(getbyte_code)
             $(trans_code)
-            p += 1
+            $(ctx.vars.p) += 1
         end
-        if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
             $(eof_action_code)
-            cs = 0
-        elseif cs < 0
-            p -= 1
+            $(ctx.vars.cs) = 0
+        elseif $(ctx.vars.cs) < 0
+            $(ctx.vars.p) -= 1
         end
     end
 end
 
-function generate_transition_code(machine::Machine, actions::Dict{Symbol,Expr})
-    default = :(cs = -cs)
+function generate_transition_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
+    default = :($(ctx.vars.cs) = -$(ctx.vars.cs))
     return foldr(default, traverse(machine.start)) do s, els
         then = foldr(default, optimize_edge_order(s.edges)) do edge, els′
             e, t = edge
-            action_code = rewrite_special_macros(generate_action_code(e.actions, actions), false)
-            then′ = :(cs = $(t.state); $(action_code))
-            return Expr(:if, generate_condition_code(e, actions), then′, els′)
+            action_code = rewrite_special_macros(ctx, generate_action_code(e.actions, actions), false)
+            then′ = :($(ctx.vars.cs) = $(t.state); $(action_code))
+            return Expr(:if, generate_condition_code(ctx, e, actions), then′, els′)
         end
-        return Expr(:if, state_condition(s.state), then, els)
+        return Expr(:if, state_condition(ctx, s.state), then, els)
     end
 end
 
-function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check::Bool)
+function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     actions_in = Dict{Node,Set{Vector{Symbol}}}()
     for s in traverse(machine.start), (e, t) in s.edges
         push!(get!(actions_in, t, Set{Vector{Symbol}}()), action_names(e.actions))
@@ -165,19 +228,19 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
             end
             append_code!(block, quote
                 @label $(label)
-                $(rewrite_special_macros(generate_action_code(names, actions), false, s.state))
+                $(rewrite_special_macros(ctx, generate_action_code(names, actions), false, s.state))
                 @goto $(Symbol("state_", s.state))
             end)
         end
         append_code!(block, quote
             @label $(Symbol("state_", s.state))
-            p += 1
-            if p > p_end
-                cs = $(s.state)
+            $(ctx.vars.p) += 1
+            if $(ctx.vars.p) > $(ctx.vars.p_end)
+                $(ctx.vars.cs) = $(s.state)
                 @goto exit
             end
         end)
-        default = :(cs = $(-s.state); @goto exit)
+        default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
         dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
@@ -185,32 +248,33 @@ function generate_goto_code(machine::Machine, actions::Dict{Symbol,Expr}, check:
             else
                 then = :(@goto $(action_label[t][action_names(e.actions)]))
             end
-            return Expr(:if, generate_condition_code(e, actions), then, els)
+            return Expr(:if, generate_condition_code(ctx, e, actions), then, els)
         end
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
-            $(generate_geybyte_code(check))
+            $(generate_geybyte_code(ctx))
             $(dispatch_code)
         end)
         push!(blocks, block)
     end
 
     enter_code = foldr(:(@goto exit), machine.states) do s, els
-        return Expr(:if, :(cs == $(s)), :(@goto $(Symbol("state_case_", s))), els)
+        return Expr(:if, :($(ctx.vars.cs) == $(s)), :(@goto $(Symbol("state_case_", s))), els)
     end
 
-    eof_action_code = rewrite_special_macros(generate_eof_action_code(machine, actions), true)
+    eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
 
     return quote
-        if p > p_end
+        if $(ctx.vars.p) > $(ctx.vars.p_end)
             @goto exit
         end
+        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         $(enter_code)
         $(Expr(:block, blocks...))
         @label exit
-        if p > p_eof ≥ 0 && cs ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
             $(eof_action_code)
-            cs = 0
+            $(ctx.vars.cs) = 0
         end
     end
 end
@@ -222,11 +286,11 @@ function append_code!(block::Expr, code::Expr)
     return block
 end
 
-function generate_eof_action_code(machine::Machine, actions::Dict{Symbol,Expr})
+function generate_eof_action_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(:(), machine.eof_actions) do s_as, els
         s, as = s_as
-        action_code = rewrite_special_macros(generate_action_code(action_names(as), actions), true)
-        Expr(:if, state_condition(s), action_code, els)
+        action_code = rewrite_special_macros(ctx, generate_action_code(action_names(as), actions), true)
+        Expr(:if, state_condition(ctx, s), action_code, els)
     end
 end
 
@@ -238,27 +302,20 @@ function generate_action_code(names::Vector{Symbol}, actions::Dict{Symbol,Expr})
     return Expr(:block, (actions[n] for n in names)...)
 end
 
-function generate_geybyte_code(docheck::Bool)
-    block = Expr(:block)
-    if docheck
-        append_code!(block, quote
-            if !$(check)(data, p)
-                throw(BoundsError(data, p))
-            end
-        end)
+function generate_geybyte_code(ctx::CodeGenContext)
+    code = :($(ctx.vars.byte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p)))
+    if !ctx.checkbounds
+        code = :(@inbounds $(code))
     end
-    append_code!(block, quote
-        l = $(getbyte)(data, p)
-    end)
-    return block
+    return code
 end
 
-function state_condition(s::Int)
-    return :(cs == $(s))
+function state_condition(ctx::CodeGenContext, s::Int)
+    return :($(ctx.vars.cs) == $(s))
 end
 
-function generate_condition_code(edge::Edge, actions::Dict{Symbol,Expr})
-    labelcode = foldr((range, cond) -> Expr(:||, :(l in $(range)), cond), :(false),
+function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{Symbol,Expr})
+    labelcode = foldr((range, cond) -> Expr(:||, :($(ctx.vars.byte) in $(range)), cond), :(false),
                       sort(range_encode(edge.labels), by=length, rev=true))
     precondcode = foldr(:(true), edge.precond) do p, ex
         name, value = p
@@ -277,18 +334,18 @@ function generate_condition_code(edge::Edge, actions::Dict{Symbol,Expr})
 end
 
 # Used by the :table and :inline code generators.
-function rewrite_special_macros(ex::Expr, eof::Bool)
+function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool)
     args = []
     for arg in ex.args
         if arg == :(@escape)
             if !eof
                 push!(args, quote
-                    p += 1
+                    $(ctx.vars.p) += 1
                     break
                 end)
             end
         elseif isa(arg, Expr)
-            push!(args, rewrite_special_macros(arg, eof))
+            push!(args, rewrite_special_macros(ctx, arg, eof))
         else
             push!(args, arg)
         end
@@ -297,19 +354,19 @@ function rewrite_special_macros(ex::Expr, eof::Bool)
 end
 
 # Used by the :goto code generator.
-function rewrite_special_macros(ex::Expr, eof::Bool, cs::Int)
+function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool, cs::Int)
     args = []
     for arg in ex.args
         if arg == :(@escape)
             if !eof
                 push!(args, quote
-                    cs = $(cs)
-                    p += 1
+                    $(ctx.vars.cs) = $(cs)
+                    $(ctx.vars.p) += 1
                     @goto exit
                 end)
             end
         elseif isa(arg, Expr)
-            push!(args, rewrite_special_macros(arg, eof, cs))
+            push!(args, rewrite_special_macros(ctx, arg, eof, cs))
         else
             push!(args, arg)
         end
@@ -367,24 +424,4 @@ function foldr(op::Function, x0, xs)
         end
     end
     return rec(xs, start(xs))
-end
-
-
-# Accessors
-# ---------
-
-@inline function check(data::String, p::Integer)
-    return 1 ≤ p ≤ sizeof(data)
-end
-
-@inline function getbyte(data::String, p::Integer)
-    return unsafe_load(pointer(data), p)
-end
-
-@inline function check(data, p::Integer)
-    return checkbounds(Bool, data, p)
-end
-
-@inline function getbyte(data, p::Integer)
-    @inbounds return data[p]
 end
