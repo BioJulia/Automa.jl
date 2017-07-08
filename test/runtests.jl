@@ -2,6 +2,16 @@ using Base.Test
 import Automa
 
 @testset "SizedMemory" begin
+    # Vector{UInt8}
+    mem = Automa.SizedMemory(b"bar")
+    @test endof(mem) === length(mem) === 3
+    @test mem[1] === UInt8('b')
+    @test mem[2] === UInt8('a')
+    @test mem[3] === UInt8('r')
+    @test_throws BoundsError mem[0]
+    @test_throws BoundsError mem[4]
+
+    # String
     mem = Automa.SizedMemory("bar")
     @test endof(mem) === length(mem) === 3
     @test mem[1] === UInt8('b')
@@ -10,12 +20,14 @@ import Automa
     @test_throws BoundsError mem[0]
     @test_throws BoundsError mem[4]
 
-    mem = Automa.SizedMemory(SubString("bar", 2, 3))
-    @test endof(mem) === length(mem) === 2
-    @test mem[1] === UInt8('a')
-    @test mem[2] === UInt8('r')
+    # SubString
+    mem = Automa.SizedMemory(SubString("xbar", 2, 4))
+    @test endof(mem) === length(mem) === 3
+    @test mem[1] === UInt8('b')
+    @test mem[2] === UInt8('a')
+    @test mem[3] === UInt8('r')
     @test_throws BoundsError mem[0]
-    @test_throws BoundsError mem[3]
+    @test_throws BoundsError mem[4]
 end
 
 module Test1
