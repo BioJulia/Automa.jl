@@ -1,5 +1,6 @@
 using Base.Test
 import Automa
+import Automa.RegExp: @re_str
 
 @testset "SizedMemory" begin
     # Vector{UInt8}
@@ -29,6 +30,37 @@ import Automa
     @test_throws BoundsError mem[0]
     @test_throws BoundsError mem[4]
 end
+
+@testset "DOT" begin
+    re = re"[A-Za-z_][A-Za-z0-9_]*"
+    re.actions[:enter] = [:enter]
+    re.actions[:exit]  = [:exit]
+    nfa = Automa.re2nfa(re)
+    @test startswith(Automa.nfa2dot(nfa), "digraph")
+    dfa = Automa.nfa2dfa(nfa)
+    @test startswith(Automa.dfa2dot(dfa), "digraph")
+    machine = Automa.compile(re)
+    @test startswith(Automa.machine2dot(machine), "digraph")
+    @test ismatch(r"^Automa\.NFANode\(.*\)$", repr(nfa.start))
+    @test ismatch(r"^Automa\.DFANode\(.*\)$", repr(dfa.start))
+    @test ismatch(r"^Automa\.Node\(.*\)$", repr(machine.start))
+end
+
+include("test01.jl")
+include("test02.jl")
+include("test03.jl")
+include("test04.jl")
+include("test05.jl")
+include("test06.jl")
+include("test07.jl")
+include("test08.jl")
+include("test09.jl")
+include("test10.jl")
+include("test11.jl")
+include("test12.jl")
+include("test13.jl")
+include("test14.jl")
+include("test15.jl")
 
 module Test1
     import Automa
@@ -828,25 +860,6 @@ module Test15
         return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
     @test validate3(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
-end
-
-module TestDOT
-    import Automa
-    import Automa.RegExp: @re_str
-    using Base.Test
-
-    re = re"[A-Za-z_][A-Za-z0-9_]*"
-    re.actions[:enter] = [:enter]
-    re.actions[:exit]  = [:exit]
-    nfa = Automa.re2nfa(re)
-    @test startswith(Automa.nfa2dot(nfa), "digraph")
-    dfa = Automa.nfa2dfa(nfa)
-    @test startswith(Automa.dfa2dot(dfa), "digraph")
-    machine = Automa.compile(re)
-    @test startswith(Automa.machine2dot(machine), "digraph")
-    @test ismatch(r"^Automa\.NFANode\(.*\)$", repr(nfa.start))
-    @test ismatch(r"^Automa\.DFANode\(.*\)$", repr(dfa.start))
-    @test ismatch(r"^Automa\.Node\(.*\)$", repr(machine.start))
 end
 
 module TestFASTA
