@@ -62,6 +62,11 @@ function generate_init_code(machine::Machine)
     return generate_init_code(CodeGenContext(), machine)
 end
 
+"""
+    generate_init_code(context::CodeGenContext, machine::Machine)::Expr
+
+Generate variable initialization code.
+"""
 function generate_init_code(ctx::CodeGenContext, machine::Machine)
     return quote
         $(ctx.vars.p)::Int = 1
@@ -87,6 +92,11 @@ function generate_exec_code(
     return generate_exec_code(ctx, machine, actions=actions)
 end
 
+"""
+    generate_exec_code(ctx::CodeGenContext, machine::Machine; actions=nothing)::Expr
+
+Generate machine execution code with actions.
+"""
 function generate_exec_code(ctx::CodeGenContext, machine::Machine; actions=nothing)
     # make actions
     if actions == nothing
