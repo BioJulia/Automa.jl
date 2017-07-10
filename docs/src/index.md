@@ -4,7 +4,9 @@ Automa.jl
 Overview
 --------
 
-Automa.jl is a package for generating [finite-state machines (FSMs)](<https://en.wikipedia.org/wiki/Finite-state_machine>) and [tokenizers](<https://en.wikipedia.org/wiki/Lexical_analysis>) in Julia.
+Automa.jl is a package for generating [finite-state machines
+(FSMs)](https://en.wikipedia.org/wiki/Finite-state_machine) and
+[tokenizers](https://en.wikipedia.org/wiki/Lexical_analysis) in Julia.
 
 The following code is an example of tokenizing various kinds of numeric literals in Julia.
 ```julia
