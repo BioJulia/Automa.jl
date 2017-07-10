@@ -62,6 +62,56 @@ include("test13.jl")
 include("test14.jl")
 include("test15.jl")
 
+module TestFASTA
+using Base.Test
+@testset "FASTA" begin
+    include("../example/fasta.jl")
+    @test records[1].identifier == "NP_003172.1"
+    @test records[1].description == "brachyury protein isoform 1 [Homo sapiens]"
+    @test records[1].sequence[1:5] == b"MSSPG"
+    @test records[1].sequence[end-4:end] == b"SPPSM"
+end
+end
+
+module TestNumbers
+using Base.Test
+@testset "Numbers" begin
+    include("../example/numbers.jl")
+    @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
+    @test status == :ok
+    @test startswith(Automa.machine2dot(machine), "digraph")
+end
+end
+
+module TestTokenizer
+using Base.Test
+@testset "MiniJulia" begin
+    include("../example/tokenizer.jl")
+    @test tokens[1:14] == [
+        (:identifier,"quicksort"),
+        (:lparen,"("),
+        (:identifier,"xs"),
+        (:rparen,")"),
+        (:spaces," "),
+        (:equal,"="),
+        (:spaces," "),
+        (:identifier,"quicksort!"),
+        (:lparen,"("),
+        (:identifier,"copy"),
+        (:lparen,"("),
+        (:identifier,"xs"),
+        (:rparen,")"),
+        (:rparen,")")]
+    @test tokens[end-5:end] == [
+        (:keyword,"return"),
+        (:spaces," "),
+        (:identifier,"j"),
+        (:newline,"\n"),
+        (:keyword,"end"),
+        (:newline,"\n")]
+end
+end
+
 module Test1
     import Automa
     import Automa.RegExp: @re_str
@@ -860,48 +910,4 @@ module Test15
         return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
     @test validate3(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)
-end
-
-module TestFASTA
-    include("../example/fasta.jl")
-    using Base.Test
-    @test records[1].identifier == "NP_003172.1"
-    @test records[1].description == "brachyury protein isoform 1 [Homo sapiens]"
-    @test records[1].sequence[1:5] == b"MSSPG"
-    @test records[1].sequence[end-4:end] == b"SPPSM"
-end
-
-module TestNumbers
-    include("../example/numbers.jl")
-    using Base.Test
-    @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
-    @test status == :ok
-    @test startswith(Automa.machine2dot(machine), "digraph")
-end
-
-module TestTokenizer
-    include("../example/tokenizer.jl")
-    using Base.Test
-    @test tokens[1:14] == [
-        (:identifier,"quicksort"),
-        (:lparen,"("),
-        (:identifier,"xs"),
-        (:rparen,")"),
-        (:spaces," "),
-        (:equal,"="),
-        (:spaces," "),
-        (:identifier,"quicksort!"),
-        (:lparen,"("),
-        (:identifier,"copy"),
-        (:lparen,"("),
-        (:identifier,"xs"),
-        (:rparen,")"),
-        (:rparen,")")]
-    @test tokens[end-5:end] == [
-        (:keyword,"return"),
-        (:spaces," "),
-        (:identifier,"j"),
-        (:newline,"\n"),
-        (:keyword,"end"),
-        (:newline,"\n")]
 end
