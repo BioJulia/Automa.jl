@@ -112,6 +112,10 @@ using Base.Test
 end
 end
 
+
+# TODO: The follwoing tests are written using the deprecated syntax; should be
+# removed in the future.
+
 module Test1
     import Automa
     import Automa.RegExp: @re_str
@@ -670,7 +674,7 @@ module Test9
     @test_throws ErrorException tokenize("acb")
 end
 
-module Test10
+module _Test10
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
@@ -720,7 +724,7 @@ module Test10
     @test Automa.execute(machine, "foo")[1] < 0
 end
 
-module Test11
+module _Test11
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
@@ -776,7 +780,7 @@ module Test11
     @test validate2(b"1\n", 1) == ([], :error)
 end
 
-module Test12
+module _Test12
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
@@ -801,7 +805,7 @@ module Test12
     @test validate(b"aaab") == ([:a, :a, :a], :error)
 end
 
-module Test13
+module _Test13
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
@@ -829,7 +833,7 @@ module Test13
     @test validate(b"abrad") == ([], :error)
 end
 
-module Test14
+module _Test14
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
@@ -862,7 +866,7 @@ module Test14
     @test validate_table(b"ab") == validate_inline(b"ab") == validate_goto(b"ab")
 end
 
-module Test15
+module _Test15
     import Automa
     import Automa.RegExp: @re_str
     using Base.Test

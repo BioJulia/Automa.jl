@@ -18,7 +18,7 @@ using Base.Test
         p::Int
         cs::Int
         function MachineState()
-            $(Automa.generate_init_code(machine))
+            $(Automa.generate_init_code(Automa.CodeGenContext(), machine))
             return new(p, cs)
         end
     end

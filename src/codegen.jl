@@ -76,7 +76,7 @@ function CodeGenContext(;
 end
 
 function generate_init_code(machine::Machine)
-    # TODO: deprecate this?
+    warn("this method is deprecated; use `generate_init_code(::CodeGenContext, ::Machine)`", once=true, key=generate_init_code)
     return generate_init_code(CodeGenContext(), machine)
 end
 
@@ -101,7 +101,7 @@ function generate_exec_code(
         check::Bool=true,
         clean::Bool=false,
         getbyte::Function=Base.getindex)
-    # TODO: deprecate this?
+    warn("this method is deprecated; use `generate_exec_code(::CodeGenContext, ::Machine)`", once=true, key=generate_exec_code)
     ctx = CodeGenContext(
         generator=code,
         checkbounds=check,

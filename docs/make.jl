@@ -8,7 +8,7 @@ makedocs(
     format=:html,
     sitename="Automa.jl",
     modules=[Automa],
-    pages=["index.md", "references.md"])
+    pages=["Home" => "index.md", "References" => "references.md"])
 
 deploydocs(
     repo="github.com/BioJulia/Automa.jl.git",

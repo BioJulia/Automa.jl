@@ -51,7 +51,7 @@ function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
 end
 
 function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
-    # TODO: deprecate this?
+    warn("this method is deprecated; use `generate_exec_code(::CodeGenContext, ::Tokenizer)`", once=true, key=generate_exec_code)
     return generate_exec_code(CodeGenContext(), tokenizer, actions)
 end
 
