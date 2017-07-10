@@ -1,18 +1,21 @@
 # Code Generator
 # ==============
 
-# Variables:
-#   * `p::Int`: position of current data
-#   * `p_end::Int`: end position of data
-#   * `p_eof::Int`: end position of file stream
-#   * `ts::Int`: start position of token (tokenizer only)
-#   * `te::Int`: end position of token (tokenizer only)
-#   * `cs::Int`: current state
-#   * `data`: input data
-#   * `mem::SizedMemory`: input data memory
-#   * `byte`: current data byte
+"""
+Variable names used in generated code.
 
-# Variable names used in generated code.
+The following variable names may be used in the code.
+
+- `p::Int`: current position of data
+- `p_end::Int`: end position of data
+- `p_eof::Int`: end position of file stream
+- `ts::Int`: start position of token (tokenizer only)
+- `te::Int`: end position of token (tokenizer only)
+- `cs::Int`: current state
+- `data::Any`: input data
+- `mem::SizedMemory`: input data memory
+- `byte::UInt8`: current data byte
+"""
 immutable Variables
     p::Symbol
     p_end::Symbol
@@ -34,9 +37,24 @@ immutable CodeGenContext
 end
 
 """
-    CodeGenContext()
+    CodeGenContext(;
+        vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
+        generator=:table,
+        checkbounds=true,
+        getbyte=Base.getindex,
+        clean=false
+    )
 
 Create a code generation context.
+
+Arguments
+---------
+
+- `vars`: variable names used in generated code
+- `generator`: code generator (`:table`, `:inline` or `:goto`)
+- `checkbounds`: flag of bounds check
+- `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
+- `clean`: flag of code cleansing
 """
 function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
