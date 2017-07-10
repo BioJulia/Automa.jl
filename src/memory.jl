@@ -11,9 +11,12 @@ end
 
 Create a `SizedMemory` object from `data`.
 
-`data` must implement `Base.pointer` and `Base.sizeof` (or `Automa.pointerend`)
-methods.  For example, `String` and `Vector{UInt8}` support these methods. Note
-that it is user's responsibility to keep the `data` object alive during
+`data` must implement `Automa.pointerstart` and `Automa.pointerend` methods.
+These are used to get the range of the contiguous data memory of `data`.  These
+have default methods which uses `Base.pointer` and `Base.sizeof` methods.  For
+example, `String` and `Vector{UInt8}` support these `Base` methods.
+
+Note that it is user's responsibility to keep the `data` object alive during
 `SizedMemory`'s lifetime because it does not have a reference to the object.
 """
 function SizedMemory(data, len::Integer=(pointerend(data) + 1) - pointerstart(data))

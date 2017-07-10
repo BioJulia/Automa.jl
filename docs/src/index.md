@@ -1,5 +1,8 @@
-Home
-====
+Automa.jl
+=========
+
+Overview
+--------
 
 Automa.jl is a package for generating [finite-state machines (FSMs)](<https://en.wikipedia.org/wiki/Finite-state_machine>) and [tokenizers](<https://en.wikipedia.org/wiki/Lexical_analysis>) in Julia.
 
@@ -9,47 +12,47 @@ import Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
 
-# Describe regular expression patterns.
+# Describe patterns in regular expression.
+oct      = re"0o[0-7]+"
 dec      = re"[-+]?[0-9]+"
 hex      = re"0x[0-9A-Fa-f]+"
-oct      = re"0o[0-7]+"
 prefloat = re"[-+]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)"
 float    = prefloat | re.cat(prefloat | re"[-+]?[0-9]+", re"[eE][-+]?[0-9]+")
-number   = dec | hex | oct | float
+number   = oct | dec | hex | float
 numbers  = re.cat(re.opt(number), re.rep(re" +" * number), re" *")
 
 # Register action names to regular expressions.
 number.actions[:enter] = [:mark]
-int.actions[:exit]     = [:dec]
-hex.actions[:exit]     = [:hex]
 oct.actions[:exit]     = [:oct]
+dec.actions[:exit]     = [:dec]
+hex.actions[:exit]     = [:hex]
 float.actions[:exit]   = [:float]
 
 # Compile a finite-state machine.
 machine = Automa.compile(numbers)
 
-#= This generates a SVG file to visualize the state machine.
-write("numbers.dot", Automa.machine2dot(machine))
-run(`dot -Tsvg -o numbers.svg numbers.dot`)
-=#
+# This generates a SVG file to visualize the state machine.
+# write("numbers.dot", Automa.machine2dot(machine))
+# run(`dot -Tpng -o numbers.png numbers.dot`)
 
 # Bind an action code for each action name.
 actions = Dict(
     :mark  => :(mark = p),
+    :oct   => :(emit(:oct)),
     :dec   => :(emit(:dec)),
     :hex   => :(emit(:hex)),
-    :oct   => :(emit(:oct)),
     :float => :(emit(:float)),
 )
 
 # Generate a tokenizing function from the machine.
+context = Automa.CodeGenContext()
 @eval function tokenize(data::String)
     tokens = Tuple{Symbol,String}[]
     mark = 0
-    $(Automa.generate_init_code(machine))
+    $(Automa.generate_init_code(context, machine))
     p_end = p_eof = endof(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
-    $(Automa.generate_exec_code(machine, actions=actions))
+    $(Automa.generate_exec_code(context, machine, actions=actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
 end
 
@@ -73,10 +76,6 @@ julia> status
 ```
 
 ![](figure/numbers.png)
-
-
-Overview
---------
 
 Automa.jl is composed of three elements: regular expressions, compilers, and code generators. Regular expressions are used to specify patterns that you want to match and bind actions to. A regular expression can be built using APIs provided from the `Automa.RegExp` module. The regular expression with actions is then fed to a compiler function that creates a finite state machine and optimizes it to minimize the number of states. Finally, the machine object is used to generate Julia code that can be spliced into functions.
 
@@ -228,18 +227,19 @@ machine = Automa.compile(words)
 actions = Dict(:word => :(count += 1))
 
 # Generate a function using @eval.
+context = Automa.CodeGenContext()
 @eval function count_words(data)
     # initialize a result variable
     count = 0
 
     # generate code to initialize variables used by FSM
-    $(Automa.generate_init_code(machine))
+    $(Automa.generate_init_code(context, machine))
 
     # set end and EOF positions of data buffer
     p_end = p_eof = endof(data)
 
     # generate code to execute FSM
-    $(Automa.generate_exec_code(machine, actions=actions))
+    $(Automa.generate_exec_code(context, machine, actions=actions))
 
     # check if FSM properly finished
     if cs != 0
@@ -273,21 +273,79 @@ ERROR: failed to count words
 
 ```
 
-There are two functions that generate Julia and splice Julia code into a function. The first function is `generate_init_code`, which generates some code to declare and initialize local variables used by FSM.
+There are two code-generating functions: `generate_init_code` and
+`generate_exec_code`. Both of them take a `CodeGenContext` object as the first
+argument and a `Machine` object as the second. The `generate_init_code`
+generates variable declatarions used by the finite state machine (FSM). 
+
 ```jlcon
-julia> Automa.generate_init_code(machine)
-quote  # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 13:
-    p::Int = 1 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 14:
-    p_end::Int = 0 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 15:
-    p_eof::Int = -1 # /Users/kenta/.julia/v0.5/Automa/src/codegen.jl, line 16:
+julia> Automa.generate_init_code(context, machine)
+quote  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 67:
+    p::Int = 1 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 68:
+    p_end::Int = 0 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 69:
+    p_eof::Int = -1 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 70:
     cs::Int = 1
 end
 
 ```
 
-The input byte sequence is stored in the `data` variable, which, in this case, is passed as an argument. The variable `p` points at the next byte position in `data`. `p_end` points at the end position of data available in `data`. `p_eof` is similar to `p_end` but it points at the *actual* end of the input sequence. In the example above, `p_end` and `p_eof` are soon set to `sizeof(data)` because these two values can be determined immediately. `p_eof` would be undefined when `data` is too long to store in memory. In such a case, `p_eof` is set to a negative integer at the beginning and later set to a suitable position when the end of an input sequence is seen. The `cs` variable stores the current state of a machine.
+The input byte sequence is stored in the `data` variable, which, in this case,
+is passed as an argument. The `data` object must support `Automa.pointerstart`
+and `Automa.pointerend` methods. These point to the start and end memory
+positions, respectively. There are default implementations for these methods,
+which depend on `Base.pointer` and `Base.sizeof` methods. So, if `data` is a
+`Vector{UInt8}` or a `String` object, there is no need to implement them. But if
+you want to use your own type, you need to support them.
 
-The second function is `generate_exec_code`, which generates a loop to emulate the FSM by updating `cs` (current state) while reading bytes from `data`. You don't need to care about the details of generated code because it is often too complicated to read for human. In short, the generated code tries to read as many bytes as possible from `data` and stops when it reaches `p_end` or when it fails transition.
+The variable `p` points at the next byte position in `data`. `p_end` points at
+the end position of data available in `data`. `p_eof` is similar to `p_end` but
+it points at the *actual* end of the input sequence. In the example above,
+`p_end` and `p_eof` are soon set to `sizeof(data)` because these two values can
+be determined immediately.  `p_eof` would be undefined when `data` is too long
+to store in memory. In such a case, `p_eof` is set to a negative integer at the
+beginning and later set to a suitable position when the end of an input sequence
+is seen. The `cs` variable stores the current state of a machine.
+
+The `generate_exec_code` generates code that emulates the FSM execution by
+updating `cs` (current state) while reading bytes from `data`. You don't need to
+care about the details of generated code because it is often too complicated to
+read for human. In short, the generated code tries to read as many bytes as
+possible from `data` and stops when it reaches `p_end` or when it fails
+transition.
+
+```jlcon
+julia> Automa.generate_exec_code(context, machine, actions=actions)
+quote  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 116:
+    ##659 = (Automa.SizedMemory)(data) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 117:
+    while p ≤ p_end && cs > 0 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 118:
+        ##660 = (getindex)(##659, p) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 119:
+        @inbounds ##661 = ([0 0; 0 0; … ; 0 0; 0 0])[(cs - 1) << 8 + ##660 + 1] # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 120:
+        @inbounds cs = ([-1 -2; -1 -2; … ; -1 -2; -1 -2])[(cs - 1) << 8 + ##660 + 1] # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 121:
+        if ##661 == 1
+            count += 1
+        else
+            ()
+        end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 122:
+        p += 1
+    end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 124:
+    if p > p_eof ≥ 0 && cs ∈ Set([2, 1]) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 125:
+        if cs == 2
+            count += 1
+        else
+            if cs == 1
+            else
+                ()
+            end
+        end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 126:
+        cs = 0
+    else  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 127:
+        if cs < 0 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 128:
+            p -= 1
+        end
+    end
+end
+
+```
 
 After finished execution, the value stored in `cs` indicates whether the execution successfully finished or not. `cs == 0` means the FSM read all data and finished successfully. `cs < 0` means it failed somewhere. `cs > 0` means it is still in the middle of execution and needs more input data if any. The following snippet is a pseudocode of the machine execution:
 
