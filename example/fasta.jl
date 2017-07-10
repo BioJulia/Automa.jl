@@ -53,6 +53,7 @@ type FASTARecord
 end
 
 # Generate a parser function from `fasta_machine` and `fasta_actions`.
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function parse_fasta(data::Union{String,Vector{UInt8}})
     # Initialize variables you use in the action code.
     records = FASTARecord[]
@@ -62,11 +63,11 @@ end
     buffer = IOBuffer()
 
     # Initialize variables used by the state machine.
-    $(Automa.generate_init_code(fasta_machine))
+    $(Automa.generate_init_code(context, fasta_machine))
     p_end = p_eof = endof(data)
 
     # This is the main loop to iterate over the input data.
-    $(Automa.generate_exec_code(fasta_machine, actions=fasta_actions, code=:goto, check=false))
+    $(Automa.generate_exec_code(context, fasta_machine, fasta_actions))
 
     # Check the last state the machine reached.
     if cs != 0

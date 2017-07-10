@@ -47,13 +47,14 @@ write("minijulia.dot", Automa.machine2dot(minijulia.machine))
 run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
 =#
 
+context = Automa.CodeGenContext()
 @eval function tokenize(data)
-    $(Automa.generate_init_code(minijulia))
+    $(Automa.generate_init_code(context, minijulia))
     p_end = p_eof = sizeof(data)
     tokens = Tuple{Symbol,String}[]
     emit(kind) = push!(tokens, (kind, data[ts:te]))
     while p ≤ p_eof && cs > 0
-        $(Automa.generate_exec_code(minijulia))
+        $(Automa.generate_exec_code(context, minijulia))
     end
     if cs < 0
         error("failed to tokenize")

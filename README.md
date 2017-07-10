@@ -1,4 +1,5 @@
-# Automa
+Automa.jl
+=========
 
 [![Docs Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://biojulia.github.io/Automa.jl/latest/)
 [![Build Status](https://travis-ci.org/BioJulia/Automa.jl.svg?branch=master)](https://travis-ci.org/BioJulia/Automa.jl)
@@ -48,13 +49,14 @@ actions = Dict(
 )
 
 # Generate a tokenizing function from the machine.
+context = Automa.CodeGenContext()
 @eval function tokenize(data::String)
     tokens = Tuple{Symbol,String}[]
     mark = 0
-    $(Automa.generate_init_code(machine))
+    $(Automa.generate_init_code(context, machine))
     p_end = p_eof = endof(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
-    $(Automa.generate_exec_code(machine, actions=actions))
+    $(Automa.generate_exec_code(context, machine, actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
 end
 
