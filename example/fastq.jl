@@ -155,6 +155,7 @@ function Base.show(io::IO, record::FASTQRecord)
       print(io, "      quality: ", String(record.data[record.quality]))
 end
 
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function readfastq!(reader::FASTQReader, record::FASTQRecord)
     cs = reader.cs
     data = reader.data
@@ -175,7 +176,7 @@ end
     init!(record)
 
     while true
-        $(Automa.generate_exec_code(fastq_machine, actions=fastq_actions, code=:goto, check=false))
+        $(Automa.generate_exec_code(context, fastq_machine, actions=fastq_actions))
 
         reader.cs = cs
         reader.p = p
