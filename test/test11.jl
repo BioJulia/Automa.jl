@@ -20,7 +20,7 @@ using Base.Test
         :le  => :(p ≤ n))
 
     ctx = Automa.CodeGenContext(generator=:table)
-    @test_throws ErrorException Automa.generate_exec_code(ctx, machine, actions=actions)
+    @test_throws ErrorException Automa.generate_exec_code(ctx, machine, actions)
 
     for generator in (:inline, :goto), checkbounds in (true, false), clean in (true, false)
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
@@ -28,7 +28,7 @@ using Base.Test
             logger = Symbol[]
             $(Automa.generate_init_code(ctx, machine))
             p_end = p_eof = sizeof(data)
-            $(Automa.generate_exec_code(ctx, machine, actions=actions))
+            $(Automa.generate_exec_code(ctx, machine, actions))
             return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
         end
         @test validate(b"a\n", 0) == ([:two], :ok)

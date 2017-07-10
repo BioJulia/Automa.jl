@@ -107,15 +107,15 @@ function generate_exec_code(
         checkbounds=check,
         getbyte=getbyte,
         clean=clean)
-    return generate_exec_code(ctx, machine, actions=actions)
+    return generate_exec_code(ctx, machine, actions)
 end
 
 """
-    generate_exec_code(ctx::CodeGenContext, machine::Machine; actions=nothing)::Expr
+    generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)::Expr
 
 Generate machine execution code with actions.
 """
-function generate_exec_code(ctx::CodeGenContext, machine::Machine; actions=nothing)
+function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # make actions
     if actions == nothing
         actions = Dict{Symbol,Expr}()

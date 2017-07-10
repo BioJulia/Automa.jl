@@ -67,7 +67,7 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     p_end = p_eof = endof(data)
 
     # This is the main loop to iterate over the input data.
-    $(Automa.generate_exec_code(context, fasta_machine, actions=fasta_actions))
+    $(Automa.generate_exec_code(context, fasta_machine, fasta_actions))
 
     # Check the last state the machine reached.
     if cs != 0

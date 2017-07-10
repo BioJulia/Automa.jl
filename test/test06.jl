@@ -25,14 +25,12 @@ using Base.Test
 
     for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
-        init_code = Automa.generate_init_code(ctx, machine)
-        exec_code = Automa.generate_exec_code(ctx, machine, actions=:debug)
         run! = @eval function (state, data)
             ret = []
             p = state.p
             cs = state.cs
             p_end = p_eof = endof(data)
-            $(Automa.generate_exec_code(machine, actions=actions))
+            $(Automa.generate_exec_code(ctx, machine, actions))
             state.p = p
             state.cs = cs
             return ret

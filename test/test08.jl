@@ -32,7 +32,7 @@ using Base.Test
         mark = 0
         $(Automa.generate_init_code(ctx, machine))
         p_end = p_eof = endof(data)
-        $(Automa.generate_exec_code(ctx, machine, actions=actions))
+        $(Automa.generate_exec_code(ctx, machine, actions))
         return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
 

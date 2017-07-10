@@ -54,7 +54,7 @@ context = Automa.CodeGenContext()
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = endof(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
-    $(Automa.generate_exec_code(context, machine, actions=actions))
+    $(Automa.generate_exec_code(context, machine, actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
 end
 
@@ -241,7 +241,7 @@ context = Automa.CodeGenContext()
     p_end = p_eof = endof(data)
 
     # generate code to execute FSM
-    $(Automa.generate_exec_code(context, machine, actions=actions))
+    $(Automa.generate_exec_code(context, machine, actions))
 
     # check if FSM properly finished
     if cs != 0
@@ -316,7 +316,7 @@ possible from `data` and stops when it reaches `p_end` or when it fails
 transition.
 
 ```jlcon
-julia> Automa.generate_exec_code(context, machine, actions=actions)
+julia> Automa.generate_exec_code(context, machine, actions)
 quote  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 116:
     ##659 = (Automa.SizedMemory)(data) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 117:
     while p ≤ p_end && cs > 0 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 118:

@@ -52,10 +52,10 @@ end
 
 function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
     # TODO: deprecate this?
-    return generate_exec_code(CodeGenContext(), tokenizer, actions=actions)
+    return generate_exec_code(CodeGenContext(), tokenizer, actions)
 end
 
-function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer; actions=nothing)
+function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=nothing)
     if actions == nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug

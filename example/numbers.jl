@@ -45,7 +45,7 @@ context = Automa.CodeGenContext()
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = endof(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
-    $(Automa.generate_exec_code(context, machine, actions=actions))
+    $(Automa.generate_exec_code(context, machine, actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
 end
 
