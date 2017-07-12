@@ -5,6 +5,13 @@ module Automa
 import Compat: @compat, xor, take!
 import DataStructures: DefaultDict
 
+include("sdict.jl")
+include("sset.jl")
+
+# TODO: use StableDict and StableSet only where they are required
+const Dict = StableDict
+const Set = StableSet
+
 include("byteset.jl")
 include("re.jl")
 include("precond.jl")

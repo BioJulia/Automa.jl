@@ -122,7 +122,7 @@ function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothi
     elseif actions == :debug
         actions = debug_actions(machine)
     elseif isa(actions, Associative{Symbol,Expr})
-        actions = convert(Dict{Symbol,Expr}, actions)
+        actions = Dict{Symbol,Expr}(collect(actions))
     else
         throw(ArgumentError("invalid actions argument"))
     end
@@ -433,7 +433,7 @@ function debug_actions(machine::Machine)
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))
     end
-    return Dict(name => log_expr(name) for name in actions)
+    return Dict{Symbol,Expr}(name => log_expr(name) for name in actions)
 end
 
 # Sort edges by its size in descending order.
