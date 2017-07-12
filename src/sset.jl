@@ -1,11 +1,11 @@
 # Stable Set
 # ==========
 
-type StableSet{T} <: AbstractSet{T}
+type StableSet{T} <: Base.AbstractSet{T}
     dict::StableDict{T,Void}
 
-    function StableSet{T}() where T
-        return new(StableDict{T,Void}())
+    function (::Type{StableSet{T}}){T}()
+        return new{T}(StableDict{T,Void}())
     end
 end
 
@@ -27,7 +27,7 @@ function Base.length(set::StableSet)
     return length(set.dict)
 end
 
-function Base.eltype(::Type{StableSet{T}}) where T
+function Base.eltype{T}(::Type{StableSet{T}})
     return T
 end
 

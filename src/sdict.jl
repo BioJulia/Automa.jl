@@ -8,15 +8,15 @@ type StableDict{K,V} <: Associative{K,V}
     used::Int
     nextidx::Int
 
-    function StableDict{K,V}() where {K,V}
+    function (::Type{StableDict{K,V}}){K,V}()
         size = 16
         slots = zeros(Int, size)
         keys = Vector{K}(size)
         vals = Vector{V}(size)
-        return new(slots, keys, vals, 0, 1)
+        return new{K,V}(slots, keys, vals, 0, 1)
     end
 
-    function StableDict(dict::StableDict{K,V}) where {K,V}
+    function (::Type{StableDict}){K,V}(dict::StableDict{K,V})
         copy = StableDict{K,V}()
         for (k, v) in dict
             copy[k] = v
@@ -25,7 +25,7 @@ type StableDict{K,V} <: Associative{K,V}
     end
 end
 
-function StableDict(kvs::Pair{K,V}...) where {K,V}
+function StableDict{K,V}(kvs::Pair{K,V}...)
     dict = StableDict{K,V}()
     for (k, v) in kvs
         dict[k] = v
@@ -33,7 +33,7 @@ function StableDict(kvs::Pair{K,V}...) where {K,V}
     return dict
 end
 
-function StableDict{K,V}(kvs) where {K,V}
+function (::Type{StableDict{K,V}}){K,V}(kvs)
     dict = StableDict{K,V}()
     for (k, v) in kvs
         dict[k] = v
@@ -42,14 +42,14 @@ function StableDict{K,V}(kvs) where {K,V}
 end
 
 function StableDict(kvs)
-    return StableDict([k => v for (k, v) in kvs]...)
+    return StableDict([Pair(k, v) for (k, v) in kvs]...)
 end
 
 function StableDict()
     return StableDict{Any,Any}()
 end
 
-function Base.convert(::Type{StableDict{K,V}}, dict::Associative) where {K,V}
+function Base.convert{K,V}(::Type{StableDict{K,V}}, dict::Associative)
     newdict = StableDict{K,V}()
     for (k, v) in dict
         newdict[k] = v
@@ -65,13 +65,13 @@ function Base.length(dict::StableDict)
     return dict.used
 end
 
-function Base.haskey(dict::StableDict{K,V}, key) where {K,V}
-    _, j = indexes(dict, convert(K, key))
+function Base.haskey(dict::StableDict, key)
+    _, j = indexes(dict, convert(keytype(dict), key))
     return j > 0
 end
 
-function Base.getindex(dict::StableDict{K,V}, key) where {K,V}
-    _, j = indexes(dict, convert(K, key))
+function Base.getindex(dict::StableDict, key)
+    _, j = indexes(dict, convert(keytype(dict), key))
     if j == 0
         throw(KeyError(key))
     end
@@ -96,9 +96,9 @@ function Base.get!(f::Function, dict::StableDict, key)
     return val
 end
 
-function Base.setindex!(dict::StableDict{K,V}, val, key) where {K,V}
-    k = convert(K, key)
-    v = convert(V, val)
+function Base.setindex!(dict::StableDict, val, key)
+    k = convert(keytype(dict), key)
+    v = convert(valtype(dict), val)
     @label index
     i, j = indexes(dict, k)
     if j == 0
@@ -119,8 +119,8 @@ function Base.setindex!(dict::StableDict{K,V}, val, key) where {K,V}
     return dict
 end
 
-function Base.delete!(dict::StableDict{K,V}, key) where {K,V}
-    k = convert(K, key)
+function Base.delete!(dict::StableDict, key)
+    k = convert(keytype(dict), key)
     i, j = indexes(dict, k)
     if j > 0
         dict.slots[i] = -j
