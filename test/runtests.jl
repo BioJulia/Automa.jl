@@ -84,13 +84,17 @@ end
 module TestNumbers
 using Base.Test
 @testset "Numbers" begin
-    include("../example/numbers.jl")
-    @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
-    @test status == :ok
-    @test startswith(Automa.machine2dot(machine), "digraph")
+    if VERSION < v"0.6.0"
+        info("Skip tests because running them needs too long time on Julia 0.5")
+    else
+        include("../example/numbers.jl")
+        @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
+        @test status == :ok
+        @test startswith(Automa.machine2dot(machine), "digraph")
 
-    notmach(re) = Automa.machine2dot(Automa.compile(re)) != Automa.machine2dot(Automa.compile(re))
-    @test count(_->notmach(numbers), 1:15) == 0
+        notmach(re) = Automa.machine2dot(Automa.compile(re)) != Automa.machine2dot(Automa.compile(re))
+        @test count(_->notmach(numbers), 1:15) == 0
+    end
 end
 end
 
