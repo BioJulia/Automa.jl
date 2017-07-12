@@ -46,6 +46,14 @@ end
     @test ismatch(r"^Automa\.Node\(.*\)$", repr(machine.start))
 end
 
+@testset "Determinacy" begin
+    # see https://github.com/BioJulia/Automa.jl/issues/19
+    notmach(re) = Automa.machine2dot(Automa.compile(re)) != Automa.machine2dot(Automa.compile(re))
+    for re in (re"0?11|0?12", re"0?12|0?1*")
+        @test count(_->notmach(re), 1:1000) == 0
+    end
+end
+
 include("test01.jl")
 include("test02.jl")
 include("test03.jl")
@@ -80,6 +88,9 @@ using Base.Test
     @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
     @test status == :ok
     @test startswith(Automa.machine2dot(machine), "digraph")
+
+    notmach(re) = Automa.machine2dot(Automa.compile(re)) != Automa.machine2dot(Automa.compile(re))
+    @test count(_->notmach(numbers), 1:15) == 0
 end
 end
 

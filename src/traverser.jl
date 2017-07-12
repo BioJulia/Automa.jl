@@ -29,7 +29,11 @@ end
 
 function Base.next(t::Traverser, state)
     visited, unvisited = state
+    #println("before:")
+    #@show length(unvisited)
     s = pop!(unvisited)
+    #println("after:")
+    #@show length(unvisited)
     push!(visited, s)
     for (_, t) in s.edges
         if t ∉ visited
