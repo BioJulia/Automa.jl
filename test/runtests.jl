@@ -69,6 +69,7 @@ include("test12.jl")
 include("test13.jl")
 include("test14.jl")
 include("test15.jl")
+include("test16.jl")
 
 module TestFASTA
 using Base.Test

@@ -357,7 +357,7 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
         push!(
             body.args,
             quote
-                $(l) = $(ctx.getbyte)($(ctx.vars.data), $(ctx.vars.p) + $(k))
+                $(generate_geybyte_code(ctx, l, k))
                 !$(generate_simple_condition_code(edge, l)) && break
             end)
     end
@@ -387,7 +387,11 @@ function generate_action_code(names::Vector{Symbol}, actions::Dict{Symbol,Expr})
 end
 
 function generate_geybyte_code(ctx::CodeGenContext)
-    code = :($(ctx.vars.byte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p)))
+    return generate_geybyte_code(ctx, ctx.vars.byte, 0)
+end
+
+function generate_geybyte_code(ctx::CodeGenContext, varbyte::Symbol, offset::Int)
+    code = :($(varbyte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p) + $(offset)))
     if !ctx.checkbounds
         code = :(@inbounds $(code))
     end
