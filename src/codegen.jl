@@ -32,6 +32,7 @@ immutable CodeGenContext
     vars::Variables
     generator::Function
     checkbounds::Bool
+    loopunroll::Int
     getbyte::Function
     clean::Bool
 end
@@ -41,6 +42,7 @@ end
         vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator=:table,
         checkbounds=true,
+        loopunroll=0,
         getbyte=Base.getindex,
         clean=false
     )
@@ -53,6 +55,7 @@ Arguments
 - `vars`: variable names used in generated code
 - `generator`: code generator (`:table`, `:inline` or `:goto`)
 - `checkbounds`: flag of bounds check
+- `loopunroll`: loop unroll factor (0..8)
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
 - `clean`: flag of code cleansing
 """
@@ -60,8 +63,14 @@ function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator::Symbol=:table,
         checkbounds::Bool=true,
+        loopunroll::Integer=0,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
+    if !(0 ≤ loopunroll ≤ 8)
+        throw(ArgumentError("unroll factor must be within 0..8"))
+    elseif loopunroll > 0 && generator != :goto
+        throw(ArgumentError("loop unrolling is not supported for $(generator)"))
+    end
     # check generator
     if generator == :table
         generator = generate_table_code
@@ -72,9 +81,22 @@ function CodeGenContext(;
     else
         throw(ArgumentError("invalid code generator: $(generator)"))
     end
-    return CodeGenContext(vars, generator, checkbounds, getbyte, clean)
+    return CodeGenContext(vars, generator, checkbounds, loopunroll, getbyte, clean)
 end
 
+"""
+    generate_init_code(machine)
+
+Generate variable initialization code.
+
+The generated code is equivalent to:
+```julia
+p::Int = 1
+p_end::Int = 0
+p_eof::Int = -1
+cs::Int = <start state of machine>
+```
+"""
 function generate_init_code(machine::Machine)
     warn("this method is deprecated; use `generate_init_code(::CodeGenContext, ::Machine)`", once=true, key=generate_init_code)
     return generate_init_code(CodeGenContext(), machine)
@@ -272,7 +294,11 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
-                then = :(@goto $(Symbol("state_", t.state)))
+                if ctx.loopunroll > 0 && s.state == t.state
+                    then = generate_unrolled_loop(ctx, e, t)
+                else
+                    then = :(@goto $(Symbol("state_", t.state)))
+                end
             else
                 then = :(@goto $(action_label[t][action_names(e.actions)]))
             end
@@ -314,6 +340,36 @@ function append_code!(block::Expr, code::Expr)
     return block
 end
 
+function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
+    # Generated code looks like this (when unroll=2):
+    #     while p + 2 ≤ p_end
+    #         l1 = $(getbyte)(data, p + 1)
+    #         !$(generate_simple_condition_code(e, :l1)) && break
+    #         l2 = $(getbyte)(data, p + 2)
+    #         !$(generate_simple_condition_code(e, :l2)) && break
+    #         p += 2
+    #     end
+    #     @goto ...
+    @assert ctx.loopunroll > 0
+    body = :(begin end)
+    for k in 1:ctx.loopunroll
+        l = Symbol(ctx.vars.byte, k)
+        push!(
+            body.args,
+            quote
+                $(generate_geybyte_code(ctx, l, k))
+                !$(generate_simple_condition_code(edge, l)) && break
+            end)
+    end
+    push!(body.args, :($(ctx.vars.p) += $(ctx.loopunroll)))
+    quote
+        while $(ctx.vars.p) + $(ctx.loopunroll) ≤ $(ctx.vars.p_end)
+            $(body)
+        end
+        @goto $(Symbol("state_", t.state))
+    end
+end
+
 function generate_eof_action_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(:(), machine.eof_actions) do s_as, els
         s, as = s_as
@@ -331,7 +387,11 @@ function generate_action_code(names::Vector{Symbol}, actions::Dict{Symbol,Expr})
 end
 
 function generate_geybyte_code(ctx::CodeGenContext)
-    code = :($(ctx.vars.byte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p)))
+    return generate_geybyte_code(ctx, ctx.vars.byte, 0)
+end
+
+function generate_geybyte_code(ctx::CodeGenContext, varbyte::Symbol, offset::Int)
+    code = :($(varbyte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p) + $(offset)))
     if !ctx.checkbounds
         code = :(@inbounds $(code))
     end
@@ -359,6 +419,11 @@ function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{
         return Expr(:&&, ex1, ex)
     end
     return :($(labelcode) && $(precondcode))
+end
+
+function generate_simple_condition_code(edge::Edge, byte::Symbol)
+    return foldr((range, cond) -> Expr(:||, :($(byte) in $(range)), cond), :(false),
+                 sort(range_encode(edge.labels), by=length, rev=true))
 end
 
 # Used by the :table and :inline code generators.
