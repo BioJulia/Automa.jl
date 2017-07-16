@@ -141,10 +141,15 @@ function Base.pop!(dict::StableDict)
 end
 
 function Base.start(dict::StableDict)
-    idx = sort!(dict.slots[dict.slots .> 0])
-    @assert length(idx) == length(dict)
-    keys = dict.keys[idx]
-    vals = dict.vals[idx]
+    if dict.used == dict.nextidx - 1
+        keys = dict.keys[1:dict.used]
+        vals = dict.vals[1:dict.used]
+    else
+        idx = sort!(dict.slots[dict.slots .> 0])
+        @assert length(idx) == length(dict)
+        keys = dict.keys[idx]
+        vals = dict.vals[idx]
+    end
     return 1, keys, vals
 end
 
