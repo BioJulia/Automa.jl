@@ -51,7 +51,7 @@ function Base.hash(set::StableSet, h::UInt)
     return h
 end
 
-function Base.in(set::StableSet, val)
+function Base.in(val, set::StableSet)
     return haskey(set.dict, val)
 end
 
