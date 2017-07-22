@@ -55,7 +55,7 @@ Arguments
 - `vars`: variable names used in generated code
 - `generator`: code generator (`:table`, `:inline` or `:goto`)
 - `checkbounds`: flag of bounds check
-- `loopunroll`: loop unroll factor (0..8)
+- `loopunroll`: loop unroll factor (≥ 0)
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
 - `clean`: flag of code cleansing
 """
@@ -66,8 +66,8 @@ function CodeGenContext(;
         loopunroll::Integer=0,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
-    if !(0 ≤ loopunroll ≤ 8)
-        throw(ArgumentError("unroll factor must be within 0..8"))
+    if loopunroll < 0
+        throw(ArgumentError("loop unroll factor must be a non-negative integer"))
     elseif loopunroll > 0 && generator != :goto
         throw(ArgumentError("loop unrolling is not supported for $(generator)"))
     end
@@ -358,7 +358,10 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
             body.args,
             quote
                 $(generate_geybyte_code(ctx, l, k))
-                !$(generate_simple_condition_code(edge, l)) && break
+                $(generate_simple_condition_code(edge, l)) || begin
+                    $(ctx.vars.p) += $(k-1)
+                    break
+                end
             end)
     end
     push!(body.args, :($(ctx.vars.p) += $(ctx.loopunroll)))
