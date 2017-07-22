@@ -7,7 +7,7 @@ using Base.Test
 @testset "Test16" begin
     @test_throws ArgumentError Automa.CodeGenContext(generator=:table,  loopunroll=1)
     @test_throws ArgumentError Automa.CodeGenContext(generator=:inline, loopunroll=1)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto,   loopunroll=9)
+    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto,   loopunroll=-1)
 
     re = re"A+(B+C)*(D|E)+"
     machine = Automa.compile(re)
