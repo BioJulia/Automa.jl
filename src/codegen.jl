@@ -358,7 +358,10 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
             body.args,
             quote
                 $(generate_geybyte_code(ctx, l, k))
-                !$(generate_simple_condition_code(edge, l)) && break
+                $(generate_simple_condition_code(edge, l)) || begin
+                    $(ctx.vars.p) += $(k-1)
+                    break
+                end
             end)
     end
     push!(body.args, :($(ctx.vars.p) += $(ctx.loopunroll)))
