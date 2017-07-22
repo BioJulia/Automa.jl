@@ -109,7 +109,7 @@ var documenterSearchIndex = {"docs": [
     "page": "References",
     "title": "Automa.CodeGenContext",
     "category": "Type",
-    "text": "CodeGenContext(;\n    vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),\n    generator=:table,\n    checkbounds=true,\n    loopunroll=0,\n    getbyte=Base.getindex,\n    clean=false\n)\n\nCreate a code generation context.\n\nArguments\n\nvars: variable names used in generated code\ngenerator: code generator (:table, :inline or :goto)\ncheckbounds: flag of bounds check\nloopunroll: loop unroll factor (0..8)\ngetbyte: function of byte access (i.e. getbyte(data, p))\nclean: flag of code cleansing\n\n\n\n"
+    "text": "CodeGenContext(;\n    vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),\n    generator=:table,\n    checkbounds=true,\n    loopunroll=0,\n    getbyte=Base.getindex,\n    clean=false\n)\n\nCreate a code generation context.\n\nArguments\n\nvars: variable names used in generated code\ngenerator: code generator (:table, :inline or :goto)\ncheckbounds: flag of bounds check\nloopunroll: loop unroll factor (≥ 0)\ngetbyte: function of byte access (i.e. getbyte(data, p))\nclean: flag of code cleansing\n\n\n\n"
 },
 
 {
