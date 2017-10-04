@@ -192,7 +192,9 @@ type Tokenizer
 end
 ```
 
-A tokenizer can be created using the `compile` function as well but the argument types are different. When defining a tokenizer, `compile` takes a list of pattern and action pairs as follows:
+A tokenizer can be created using the `compile` function as well but the
+argument types are different. When defining a tokenizer, `compile` takes a list
+of pattern and action pairs as follows:
 ```julia
 tokenizer = Automa.compile(
     re"if|else|while|end"      => :(emit(:keyword)),
@@ -206,7 +208,18 @@ tokenizer = Automa.compile(
 )
 ```
 
-A tokenizer tries to find the longest token that is available from the current reading position. When multiple patterns match a substring of the same length, higher priority token placed at a former position in the arguments list will be selected. For example, `"else"` matches both `:keyword` and `:identifier` but the `:keyword` action will be run because it is placed before `:identifier` in the arguments list.
+The order of arguments is used to resolve ambiguity of pattern matching. A
+tokenizer tries to find the longest token that is available from the current
+reading position. When multiple patterns match a substring of the same length,
+higher priority token placed at a former position in the arguments list will be
+selected. For example, `"else"` matches both `:keyword` and `:identifier` but
+the `:keyword` action will be run because it is placed before `:identifier` in
+the arguments list.
+
+Once a pattern is determined, the start and end positions of the token
+substring can be accessed via `ts` and `te` local variables in the action code.
+Other special variables (i.e. `p`, `p_end`, `p_eof` and `cs`) will be explained
+in the following section. See example/tokenizer.jl for a complete example.
 
 
 Code generators
