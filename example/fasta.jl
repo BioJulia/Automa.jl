@@ -3,7 +3,6 @@
 
 import Automa
 import Automa.RegExp: @re_str
-import Compat: take!
 const re = Automa.RegExp
 
 # Create a machine of FASTA.
