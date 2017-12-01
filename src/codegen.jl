@@ -16,7 +16,7 @@ The following variable names may be used in the code.
 - `mem::SizedMemory`: input data memory
 - `byte::UInt8`: current data byte
 """
-immutable Variables
+struct Variables
     p::Symbol
     p_end::Symbol
     p_eof::Symbol
@@ -28,7 +28,7 @@ immutable Variables
     byte::Symbol
 end
 
-immutable CodeGenContext
+struct CodeGenContext
     vars::Variables
     generator::Function
     checkbounds::Bool

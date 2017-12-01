@@ -1,7 +1,7 @@
 # SizedMemory
 # ===========
 
-immutable SizedMemory
+struct SizedMemory
     ptr::Ptr{UInt8}
     len::UInt
 end

@@ -1,7 +1,7 @@
 # Non-deterministic Finite Automaton
 # ==================================
 
-immutable NFANode
+struct NFANode
     edges::Vector{Tuple{Edge,NFANode}}
 end
 
@@ -13,7 +13,7 @@ function Base.show(io::IO, node::NFANode)
     print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
 end
 
-immutable NFA
+struct NFA
     start::NFANode
     final::NFANode
 

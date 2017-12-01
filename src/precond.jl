@@ -25,7 +25,7 @@ function Base.:&(v1::Value, v2::Value)
 end
 
 
-immutable Precondition
+struct Precondition
     names::Vector{Symbol}
     values::Vector{Value}
 end

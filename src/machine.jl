@@ -1,7 +1,7 @@
 # Machine
 # =======
 
-immutable Node
+struct Node
     state::Int
     edges::Vector{Tuple{Edge,Node}}
 end
@@ -23,7 +23,7 @@ function findedge(s::Node, b::UInt8)
     error("$(b) ∈ label not found")
 end
 
-immutable Machine
+struct Machine
     start::Node
     states::UnitRange{Int}
     start_state::Int

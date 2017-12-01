@@ -1,7 +1,7 @@
 # Action
 # ======
 
-immutable Action
+struct Action
     name::Symbol
     order::Int
 end
@@ -9,7 +9,7 @@ end
 # An action list type.
 # * Action names are unique.
 # * Actions are sorted by its order.
-immutable ActionList
+struct ActionList
     actions::Vector{Action}
 
     function ActionList(actions::Vector{Action}=Action[])
