@@ -1,7 +1,7 @@
 # Stable Set
 # ==========
 
-type StableSet{T} <: Base.AbstractSet{T}
+mutable struct StableSet{T} <: Base.AbstractSet{T}
     dict::StableDict{T,Void}
 
     function (::Type{StableSet{T}}){T}()

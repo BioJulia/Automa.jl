@@ -1,7 +1,7 @@
 # Stable Dictionary
 # =================
 
-type StableDict{K,V} <: Associative{K,V}
+mutable struct StableDict{K,V} <: Associative{K,V}
     slots::Vector{Int}
     keys::Vector{K}
     vals::Vector{V}

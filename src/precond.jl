@@ -1,7 +1,7 @@
 # Precondition
 # ============
 
-@compat primitive type Value 8 end
+primitive type Value 8 end
 
 const NONE  = reinterpret(Value, 0x00)
 const TRUE  = reinterpret(Value, 0x01)
@@ -25,7 +25,7 @@ function Base.:&(v1::Value, v2::Value)
 end
 
 
-immutable Precondition
+struct Precondition
     names::Vector{Symbol}
     values::Vector{Value}
 end

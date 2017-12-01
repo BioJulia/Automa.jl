@@ -3,7 +3,6 @@
 
 import Automa
 import Automa.RegExp: @re_str
-import Compat: take!
 const re = Automa.RegExp
 
 # Create a machine of FASTA.
@@ -46,7 +45,7 @@ fasta_actions = Dict(
     :record      => :(push!(records, FASTARecord(identifier, description, take!(buffer)))))
 
 # Define a type to store a FASTA record.
-type FASTARecord
+mutable struct FASTARecord
     identifier::String
     description::String
     sequence::Vector{UInt8}

@@ -1,7 +1,7 @@
 # Byte Set
 # ========
 
-immutable ByteSet <: Base.AbstractSet{UInt8}
+struct ByteSet <: Base.AbstractSet{UInt8}
     a::UInt64  # 0x00:0x3F
     b::UInt64  # 0x40:0x7F
     c::UInt64  # 0x80:0xBF

@@ -1,7 +1,7 @@
 # Deterministic Finite Automaton
 # ==============================
 
-immutable DFANode
+struct DFANode
     edges::Vector{Tuple{Edge,DFANode}}
     final::Bool
     eof_actions::ActionList
@@ -20,7 +20,7 @@ function Base.show(io::IO, node::DFANode)
     print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
 end
 
-immutable DFA
+struct DFA
     start::DFANode
 end
 

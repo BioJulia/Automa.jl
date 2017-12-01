@@ -2,7 +2,6 @@ __precompile__()
 
 module Automa
 
-import Compat: @compat, xor, take!
 import DataStructures: DefaultDict
 
 include("sdict.jl")

@@ -1,7 +1,7 @@
 # Node Traverser
 # ==============
 
-immutable Traverser{T}
+struct Traverser{T}
     start::T
 end
 

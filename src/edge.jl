@@ -1,7 +1,7 @@
 # Edge
 # ====
 
-immutable Edge
+struct Edge
     labels::ByteSet
     precond::Precondition
     actions::ActionList

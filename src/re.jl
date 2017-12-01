@@ -3,7 +3,6 @@
 
 module RegExp
 
-import Compat: @compat
 import DataStructures: DefaultDict
 import Automa: ByteSet
 
@@ -11,7 +10,7 @@ function gen_empty_names()
     return Symbol[]
 end
 
-type RE
+mutable struct RE
     head::Symbol
     args::Vector
     actions::DefaultDict{Symbol,Vector{Symbol},typeof(gen_empty_names)}
@@ -113,7 +112,7 @@ const METACHAR = ".*+?()[]\\|"
 function escape_re_string(str::String)
     buf = IOBuffer()
     escape_re_string(buf, str)
-    return @compat String(take!(buf))
+    return String(take!(buf))
 end
 
 function escape_re_string(io::IO, str::String)
