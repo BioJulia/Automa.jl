@@ -10,7 +10,7 @@ function gen_empty_names()
     return Symbol[]
 end
 
-type RE
+mutable struct RE
     head::Symbol
     args::Vector
     actions::DefaultDict{Symbol,Vector{Symbol},typeof(gen_empty_names)}
