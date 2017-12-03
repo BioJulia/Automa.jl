@@ -294,7 +294,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
-                if ctx.loopunroll > 0 && s.state == t.state
+                if ctx.loopunroll > 0 && s.state == t.state && length(e.labels) ≥ 4
                     then = generate_unrolled_loop(ctx, e, t)
                 else
                     then = :(@goto $(Symbol("state_", t.state)))
@@ -434,7 +434,7 @@ function generate_membership_code(var::Symbol, set::ByteSet)
             return :($(var) in $(min:max))
         end
     elseif max - min + 1 ≤ 64 && all(b - min ≥ max for b in 0x00:0xff if b < min)
-        # storable in a 64-bit integer
+        # storable in a 64-bit bitmap
         bitmap = UInt64(0)
         for x in set
             bitmap |= UInt64(1) << (x - min)
