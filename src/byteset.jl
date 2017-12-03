@@ -98,6 +98,34 @@ function Base.setdiff(s1::ByteSet, s2::ByteSet)
     return ByteSet(s1.a & ~s2.a, s1.b & ~s2.b, s1.c & ~s2.c, s1.d & ~s2.d)
 end
 
+function Base.minimum(set::ByteSet)
+    if set.a != 0x00
+        return UInt8(trailing_zeros(set.a))
+    elseif set.b != 0x00
+        return UInt8(trailing_zeros(set.b)) + 0x40
+    elseif set.c != 0x00
+        return UInt8(trailing_zeros(set.c)) + 0x80
+    elseif set.d != 0x00
+        return UInt8(trailing_zeros(set.d)) + 0xc0
+    else
+        throw(ArgumentError("empty set"))
+    end
+end
+
+function Base.maximum(set::ByteSet)
+    if set.d != 0x00
+        return UInt8(63 - leading_zeros(set.d)) + 0xc0
+    elseif set.c != 0x00
+        return UInt8(63 - leading_zeros(set.c)) + 0x80
+    elseif set.b != 0x00
+        return UInt8(63 - leading_zeros(set.b)) + 0x40
+    elseif set.a != 0x00
+        return UInt8(63 - leading_zeros(set.a))
+    else
+        throw(ArgumentError("empty set"))
+    end
+end
+
 function isdisjoint(s1::ByteSet, s2::ByteSet)
     return isempty(intersect(s1, s2))
 end
