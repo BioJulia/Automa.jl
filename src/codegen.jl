@@ -425,6 +425,7 @@ end
 
 function generate_membership_code(var::Symbol, set::ByteSet)
     min, max = minimum(set), maximum(set)
+    @assert min isa UInt8 && max isa UInt8
     if max - min + 1 == length(set)
         # contiguous
         if min == max
@@ -432,7 +433,7 @@ function generate_membership_code(var::Symbol, set::ByteSet)
         else
             return :($(var) in $(min:max))
         end
-    elseif max - min + 1 ≤ 64
+    elseif max - min + 1 ≤ 64 && all(b - min ≥ max for b in 0x00:0xff if b < min)
         # storable in a 64-bit integer
         bitmap = UInt64(0)
         for x in set
