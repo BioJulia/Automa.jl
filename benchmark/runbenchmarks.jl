@@ -97,3 +97,31 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=1
     return cs == 0
 end
 println("Automa.jl (unrolled): ", @benchmark match(data))
+
+
+# Case 4
+# ------
+
+println()
+println("Case 4 ", raw"([A-Za-z\*-]*\r?\n)*")
+println("PCRE:                 ", @benchmark ismatch($(r"^(:?[A-Za-z\*-]*\r?\n)*$"), data))
+
+machine = Automa.compile(re"([A-Za-z\*-]*\r?\n)*")
+VISUALIZE && writesvg("case4", machine)
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+@eval function match(data)
+    $(Automa.generate_init_code(context, machine))
+    p_end = p_eof = endof(data)
+    $(Automa.generate_exec_code(context, machine))
+    return cs == 0
+end
+println("Automa.jl:            ", @benchmark match(data))
+
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
+@eval function match(data)
+    $(Automa.generate_init_code(context, machine))
+    p_end = p_eof = endof(data)
+    $(Automa.generate_exec_code(context, machine))
+    return cs == 0
+end
+println("Automa.jl (unrolled): ", @benchmark match(data))
