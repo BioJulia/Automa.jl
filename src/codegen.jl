@@ -294,7 +294,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
             e, t = edge
             if isempty(e.actions)
-                if ctx.loopunroll > 0 && s.state == t.state
+                if ctx.loopunroll > 0 && s.state == t.state && length(e.labels) ≥ 4
                     then = generate_unrolled_loop(ctx, e, t)
                 else
                     then = :(@goto $(Symbol("state_", t.state)))
@@ -344,9 +344,9 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
     # Generated code looks like this (when unroll=2):
     #     while p + 2 ≤ p_end
     #         l1 = $(getbyte)(data, p + 1)
-    #         !$(generate_simple_condition_code(e, :l1)) && break
+    #         !$(generate_membership_code(:l1, e.labels)) && break
     #         l2 = $(getbyte)(data, p + 2)
-    #         !$(generate_simple_condition_code(e, :l2)) && break
+    #         !$(generate_membership_code(:l2, e.labels)) && break
     #         p += 2
     #     end
     #     @goto ...
@@ -358,7 +358,7 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
             body.args,
             quote
                 $(generate_geybyte_code(ctx, l, k))
-                $(generate_simple_condition_code(edge, l)) || begin
+                $(generate_membership_code(l, edge.labels)) || begin
                     $(ctx.vars.p) += $(k-1)
                     break
                 end
@@ -406,8 +406,7 @@ function state_condition(ctx::CodeGenContext, s::Int)
 end
 
 function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{Symbol,Expr})
-    labelcode = foldr((range, cond) -> Expr(:||, :($(ctx.vars.byte) in $(range)), cond), :(false),
-                      sort(range_encode(edge.labels), by=length, rev=true))
+    labelcode = generate_membership_code(ctx.vars.byte, edge.labels)
     precondcode = foldr(:(true), edge.precond) do p, ex
         name, value = p
         if value == BOTH
@@ -424,9 +423,29 @@ function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{
     return :($(labelcode) && $(precondcode))
 end
 
-function generate_simple_condition_code(edge::Edge, byte::Symbol)
-    return foldr((range, cond) -> Expr(:||, :($(byte) in $(range)), cond), :(false),
-                 sort(range_encode(edge.labels), by=length, rev=true))
+function generate_membership_code(var::Symbol, set::ByteSet)
+    min, max = minimum(set), maximum(set)
+    @assert min isa UInt8 && max isa UInt8
+    if max - min + 1 == length(set)
+        # contiguous
+        if min == max
+            return :($(var) == $(min))
+        else
+            return :($(var) in $(min:max))
+        end
+    elseif max - min + 1 ≤ 64 && all(b - min ≥ max for b in 0x00:0xff if b < min)
+        # storable in a 64-bit bitmap
+        bitmap = UInt64(0)
+        for x in set
+            bitmap |= UInt64(1) << (x - min)
+        end
+        return :(($(UInt64(1)) << ($(var) - $(min))) & $(bitmap) != 0)
+    else
+        # fallback
+        return foldr((range, cond) -> Expr(:||, :($(var) in $(range)), cond),
+                     :(false),
+                     sort(range_encode(set), by=length, rev=true))
+    end
 end
 
 # Used by the :table and :inline code generators.
