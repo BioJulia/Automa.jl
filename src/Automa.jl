@@ -4,6 +4,10 @@ module Automa
 
 import DataStructures: DefaultDict
 
+if VERSION > v"0.7-"
+    using Printf: @sprintf
+end
+
 include("sdict.jl")
 include("sset.jl")
 
