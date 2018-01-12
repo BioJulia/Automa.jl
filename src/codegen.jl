@@ -452,7 +452,7 @@ end
 function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool)
     args = []
     for arg in ex.args
-        if arg == :(@escape)
+        if isescape(arg)
             if !eof
                 push!(args, quote
                     $(ctx.vars.p) += 1
@@ -472,7 +472,7 @@ end
 function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool, cs::Int)
     args = []
     for arg in ex.args
-        if arg == :(@escape)
+        if isescape(arg)
             if !eof
                 push!(args, quote
                     $(ctx.vars.cs) = $(cs)
@@ -487,6 +487,10 @@ function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool, cs::In
         end
     end
     return Expr(ex.head, args...)
+end
+
+function isescape(arg)
+    return arg isa Expr && arg.head == :macrocall && arg.args[1] == Symbol("@escape")
 end
 
 function cleanup(ex::Expr)
