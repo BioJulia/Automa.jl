@@ -174,7 +174,7 @@ end
 function satisfies(edge::Edge, names::Vector{Symbol}, pv::UInt64)
     for (n, v) in edge.precond
         i = findfirst(names, n)
-        @assert 0 < i ≤ 64
+        @assert i != nothing && 0 < i ≤ 64
         vi = bitat(pv, i)
         if !(v == BOTH || (v == TRUE && vi) || (v == FALSE && !vi))
             return false
@@ -191,7 +191,7 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
     for name in names
         sort!(pvs)
         k = findfirst(pv -> bitat(pv, left), pvs)
-        if (k - 1) * 2 == length(pvs)
+        if k != nothing && (k - 1) * 2 == length(pvs)
             redundant = true
             for i in 1:k-1
                 m = mask(left - 1)

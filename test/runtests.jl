@@ -1,4 +1,4 @@
-using Base.Test
+using Test
 import Automa
 import Automa.RegExp: @re_str
 
