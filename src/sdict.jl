@@ -1,14 +1,14 @@
 # Stable Dictionary
 # =================
 
-mutable struct StableDict{K,V} <: Associative{K,V}
+mutable struct StableDict{K, V} <: AbstractDict{K, V}
     slots::Vector{Int}
     keys::Vector{K}
     vals::Vector{V}
     used::Int
     nextidx::Int
 
-    function (::Type{StableDict{K,V}}){K,V}()
+    function StableDict{K, V}() where {K, V}
         size = 16
         slots = zeros(Int, size)
         keys = Vector{K}(size)
@@ -16,8 +16,8 @@ mutable struct StableDict{K,V} <: Associative{K,V}
         return new{K,V}(slots, keys, vals, 0, 1)
     end
 
-    function (::Type{StableDict}){K,V}(dict::StableDict{K,V})
-        copy = StableDict{K,V}()
+    function StableDict(dict::StableDict{K, V}) where {K, V}
+        copy = StableDict{K, V}()
         for (k, v) in dict
             copy[k] = v
         end
@@ -25,16 +25,16 @@ mutable struct StableDict{K,V} <: Associative{K,V}
     end
 end
 
-function StableDict{K,V}(kvs::Pair{K,V}...)
-    dict = StableDict{K,V}()
+function StableDict(kvs::Pair{K, V}...) where {K, V}
+    dict = StableDict{K, V}()
     for (k, v) in kvs
         dict[k] = v
     end
     return dict
 end
 
-function (::Type{StableDict{K,V}}){K,V}(kvs)
-    dict = StableDict{K,V}()
+function StableDict{K, V}(kvs) where {K, V}
+    dict = StableDict{K, V}()
     for (k, v) in kvs
         dict[k] = v
     end
@@ -46,11 +46,11 @@ function StableDict(kvs)
 end
 
 function StableDict()
-    return StableDict{Any,Any}()
+    return StableDict{Any, Any}()
 end
 
-function Base.convert{K,V}(::Type{StableDict{K,V}}, dict::Associative)
-    newdict = StableDict{K,V}()
+function Base.convert(::Type{StableDict{K, V}}, dict::AbstractDict) where {K, V}
+    newdict = StableDict{K, V}()
     for (k, v) in dict
         newdict[k] = v
     end
