@@ -2,10 +2,10 @@
 # ==========
 
 mutable struct StableSet{T} <: Base.AbstractSet{T}
-    dict::StableDict{T,Void}
+    dict::StableDict{T, Nothing}
 
-    function (::Type{StableSet{T}}){T}()
-        return new{T}(StableDict{T,Void}())
+    function StableSet{T}() where T
+        return new{T}(StableDict{T, Nothing}())
     end
 end
 
@@ -27,7 +27,7 @@ function Base.length(set::StableSet)
     return length(set.dict)
 end
 
-function Base.eltype{T}(::Type{StableSet{T}})
+function Base.eltype(::Type{StableSet{T}}) where T
     return T
 end
 
