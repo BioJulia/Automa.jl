@@ -46,7 +46,7 @@ end
 function Base.push!(precond::Precondition, kv::Pair{Symbol,Value})
     name, value = kv
     i = findfirst(n -> n == name, precond.names)
-    if i == 0
+    if i == nothing
         push!(precond.names, name)
         push!(precond.values, value)
     else
