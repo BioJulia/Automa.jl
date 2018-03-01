@@ -3,7 +3,7 @@ __precompile__()
 module Automa
 
 import DataStructures: DefaultDict
-import Compat: Compat, AbstractDict
+import Compat: Compat, AbstractDict, argmax, lastindex, uninitialized
 
 if VERSION > v"0.7-"
     using Printf: @sprintf

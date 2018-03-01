@@ -11,8 +11,8 @@ mutable struct StableDict{K, V} <: AbstractDict{K, V}
     function StableDict{K, V}() where {K, V}
         size = 16
         slots = zeros(Int, size)
-        keys = Vector{K}(size)
-        vals = Vector{V}(size)
+        keys = Vector{K}(uninitialized, size)
+        vals = Vector{V}(uninitialized, size)
         return new{K,V}(slots, keys, vals, 0, 1)
     end
 
@@ -102,7 +102,7 @@ function Base.setindex!(dict::StableDict, val, key)
     @label index
     i, j = indexes(dict, k)
     if j == 0
-        if dict.nextidx > endof(dict.keys)
+        if dict.nextidx > lastindex(dict.keys)
             expand!(dict)
             @goto index
         end
@@ -133,7 +133,7 @@ function Base.pop!(dict::StableDict)
     if isempty(dict)
         throw(ArgumentError("empty"))
     end
-    i = dict.slots[indmax(dict.slots)]
+    i = dict.slots[argmax(dict.slots)]
     key = dict.keys[i]
     val = dict.vals[i]
     delete!(dict, key)
