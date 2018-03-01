@@ -157,6 +157,7 @@ end
 module Test1
     import Automa
     import Automa.RegExp: @re_str
+    import Compat: lastindex
 
     if VERSION >= v"0.7-"
         using Test
@@ -222,6 +223,7 @@ module Test2
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    import Compat: lastindex
 
     if VERSION >= v"0.7-"
         using Test
@@ -298,6 +300,7 @@ module Test3
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
+    import Compat: lastindex
     if VERSION >= v"0.7-"
         using Test
     else
