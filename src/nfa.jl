@@ -30,7 +30,7 @@ function iseps(e::Edge)
     return isempty(e.labels)
 end
 
-function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
+function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action} = Dict{Symbol,Action}())
     actions = Dict{Tuple{RegExp.RE,Symbol},Action}()
     action_order = 1
 
