@@ -10,7 +10,8 @@ import Compat: Compat,
     uninitialized,
     findfirst,
     Nothing,
-    popfirst!
+    popfirst!,
+    objectid
 
 if VERSION > v"0.7-"
     using Printf: @sprintf
