@@ -1,8 +1,13 @@
 module Test07
 
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
 import Automa
 import Automa.RegExp: @re_str
-using Base.Test
+import Compat: lastindex
 
 @testset "Test07" begin
     re1 = re"a.*b"
@@ -10,7 +15,7 @@ using Base.Test
     ctx = Automa.CodeGenContext()
     @eval function ismatch1(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(Automa.generate_exec_code(ctx, machine))
         return cs == 0
     end
@@ -25,7 +30,7 @@ using Base.Test
     ctx = Automa.CodeGenContext()
     @eval function ismatch2(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(Automa.generate_exec_code(ctx, machine))
         return cs == 0
     end
@@ -41,7 +46,7 @@ using Base.Test
     ctx = Automa.CodeGenContext()
     @eval function ismatch3(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(Automa.generate_exec_code(ctx, machine))
         return cs == 0
     end

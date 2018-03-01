@@ -1,8 +1,13 @@
 module Test02
 
-using Base.Test
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
 import Automa
 import Automa.RegExp: @re_str
+import Compat: lastindex
 
 @testset "Test02" begin
     re = Automa.RegExp
@@ -34,7 +39,7 @@ import Automa.RegExp: @re_str
         validate = @eval function (data)
             logger = Symbol[]
             $(init_code)
-            p_end = p_eof = endof(data)
+            p_end = p_eof = lastindex(data)
             $(exec_code)
             return cs == 0, logger
         end
