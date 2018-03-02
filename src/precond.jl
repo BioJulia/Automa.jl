@@ -74,7 +74,7 @@ function Base.start(precond::Precondition)
 end
 
 function Base.done(precond::Precondition, i)
-    return i > endof(precond.names)
+    return i > lastindex(precond.names)
 end
 
 function Base.next(precond::Precondition, i)
