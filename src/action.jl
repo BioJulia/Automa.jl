@@ -23,7 +23,7 @@ function Base.:(==)(l1::ActionList, l2::ActionList)
     if length(l1) != length(l2)
         return false
     end
-    for i in 1:endof(l1.actions)
+    for i in 1:lastindex(l1.actions)
         if l1.actions[i].name != l2.actions[i].name
             return false
         end
