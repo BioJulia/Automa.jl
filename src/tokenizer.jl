@@ -10,7 +10,7 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
     start = NFANode()
     final = NFANode()
     actions = Dict{Symbol,Action}()
-    for i in 1:endof(tokens)
+    for i in 1:lastindex(tokens)
         # HACK: place token exit actions after any other actions
         action = Action(Symbol(:__token, i), 10000 - i)
         actions[action.name] = action
