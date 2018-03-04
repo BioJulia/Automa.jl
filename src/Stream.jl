@@ -69,7 +69,6 @@ function generate_reader(
         $(Automa.generate_init_code(context, machine))
         $(stateful ? :(cs = state.cs) : nothing)
         $(initcode)
-        eof(stream)
 
         @label __exec__
         if p_eof ≥ 0 || eof(stream)
