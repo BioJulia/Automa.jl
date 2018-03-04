@@ -54,7 +54,7 @@ context = Automa.CodeGenContext()
     tokens = Tuple{Symbol,String}[]
     mark = 0
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
     $(Automa.generate_exec_code(context, machine, actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
