@@ -149,3 +149,123 @@ end
         (:newline,"\n")]
 end
 end
+
+module TestStream
+
+import Automa
+import Automa.RegExp: @re_str
+import Automa.Stream: @mark, @relpos, @abspos
+using TranscodingStreams
+using Base.Test
+
+# Test 1
+machine = let
+    line = re"[^\r\n]*"
+    newline = re"\r?\n"
+    Automa.compile(line * newline)
+end
+Automa.Stream.generate_reader(:readline, machine) |> eval
+@testset "Scanning a line" begin
+    for (data, state) in [
+            ("\n",      :ok),
+            ("foo\n",   :ok),
+            ("foo\r\n", :ok),
+            ("",        :incomplete),
+            ("\r",      :incomplete),
+            ("foo",     :incomplete),
+            ("\r\r",    :error),
+            ("\r\nx",   :error),
+            ("foo\nx",  :error),]
+        s = readline(NoopStream(IOBuffer(data)))
+        if state == :ok
+            @test s == 0
+        elseif state == :incomplete
+            @test s > 0
+        else
+            @test s < 0
+        end
+    end
+end
+
+# Test 2
+machine = let
+    alphanum = re"[A-Za-z0-9]+"
+    alphanum.actions[:enter] = [:start_alphanum]
+    alphanum.actions[:exit]  = [:end_alphanum]
+    whitespace = re"[ \t\r\n]*"
+    Automa.compile(whitespace * alphanum * whitespace)
+end
+actions = Dict(
+   :start_alphanum => :(@mark; start_alphanum = @relpos(p)),
+   :end_alphanum   => :(end_alphanum = @relpos(p-1)),
+)
+initcode = :(start_alphanum = end_alphanum = 0)
+returncode = :(return cs == 0 ? String(data[@abspos(start_alphanum):@abspos(end_alphanum)]) : "")
+Automa.Stream.generate_reader(:stripwhitespace, machine, actions=actions, initcode=initcode, returncode=returncode) |> eval
+@testset "Stripping whitespace" begin
+    for (data, value) in [
+            ("x", "x"),
+            (" foo ", "foo"),
+            ("  \r\n123\n  ", "123"),
+            ("   abc123   ", "abc123"),
+            ("", ""),
+            ("  12+3 ", ""),
+           ]
+        for bufsize in [1:5; 100]
+            @test stripwhitespace(NoopStream(IOBuffer(data), bufsize=bufsize)) == value
+        end
+    end
+end
+
+# Three-column BED file format.
+cat = Automa.RegExp.cat
+rep = Automa.RegExp.rep
+machine = let
+    chrom = re"[^\t]+"
+    chrom.actions[:exit] = [:chrom]
+    chromstart = re"[0-9]+"
+    chromstart.actions[:exit] = [:chromstart]
+    chromend = re"[0-9]+"
+    chromend.actions[:exit] = [:chromend]
+    record = cat(chrom, '\t', chromstart, '\t', chromend)
+    record.actions[:enter] = [:mark]
+    bed = rep(cat(record, re"\r?\n"))
+    Automa.compile(bed)
+end
+#write("bed.dot", Automa.machine2dot(machine))
+#run(`dot -Tsvg -o bed.svg bed.dot`)
+actions = Dict(
+    :mark => :(@mark; mark = @relpos(p)),
+    :chrom => :(chrom = @relpos(p-1)),
+    :chromstart => :(chromstart = @relpos(p-1)),
+    :chromend => :(chromend = @relpos(p-1); found = true; @escape)
+)
+initcode = :(mark = chrom = chromstart = chromend = 0; found = false)
+loopcode = :(found && @goto __return__)
+returncode = quote
+    if found
+        return String(data[@abspos(mark):@abspos(chrom)]),
+               parse(Int, String(data[@abspos(chrom)+2:@abspos(chromstart)])),
+               parse(Int, String(data[@abspos(chromstart)+2:@abspos(chromend)]))
+    else
+        return ("", -1, 0)
+    end
+end
+Automa.Stream.generate_reader(:readrecord!, machine, stateful=true, actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
+
+@testset "Three-column BED (stateful)" begin
+    stream = NoopStream(IOBuffer("""chr1\t10\t200\n"""))
+    state = Automa.Stream.MachineState(machine.start_state)
+    @test readrecord!(stream, state) == ("chr1", 10, 200)
+    @test readrecord!(stream, state) == ("", -1, 0)
+    @test state.cs == 0
+    stream = NoopStream(IOBuffer("""1\t10\t200000\nchr12\t0\t21000\r\nchrM\t123\t12345\n"""))
+    state = Automa.Stream.MachineState(machine.start_state)
+    @test readrecord!(stream, state) == ("1", 10, 200000)
+    @test readrecord!(stream, state) == ("chr12", 0, 21000)
+    @test readrecord!(stream, state) == ("chrM", 123, 12345)
+    @test readrecord!(stream, state) == ("", -1, 0)
+    @test state.cs == 0
+end
+
+end
