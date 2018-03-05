@@ -78,7 +78,6 @@ function generate_reader(
         p = buffer.bufferpos
         p_end = buffer.marginpos - 1
         $(Automa.generate_exec_code(context, machine, actions))
-
         Base.skip(stream, p - buffer.bufferpos)
 
         $(loopcode)
