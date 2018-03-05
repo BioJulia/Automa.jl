@@ -364,7 +364,7 @@ Automa.Stream.generate_reader(
     >seq1 hogehoge
     ACGT
     TGCA
-    """))
+    """), bufsize=10)
     state = Automa.Stream.MachineState(machine.start_state)
     record = Record()
     @test readrecord!(stream, state, record) == 0
@@ -379,7 +379,7 @@ Automa.Stream.generate_reader(
     >seq2 2nd sequence
     -----AAA
     GGGGG---
-    """))
+    """), bufsize=10)
     state = Automa.Stream.MachineState(machine.start_state)
     record = Record()
     @test readrecord!(stream, state, record) > 0
@@ -404,7 +404,7 @@ Automa.Stream.generate_reader(
     G---
 
 
-    """))
+    """), bufsize=10)
     state = Automa.Stream.MachineState(machine.start_state)
     record = Record()
     @test readrecord!(stream, state, record) > 0
