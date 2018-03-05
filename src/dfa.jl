@@ -17,7 +17,7 @@ function DFANode(final::Bool, nodes::Set{NFANode})
 end
 
 function Base.show(io::IO, node::DFANode)
-    print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
+    print(io, summary(node), "(<", length(node.edges), " edges", '@', objectid(node), ">)")
 end
 
 struct DFA

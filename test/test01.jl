@@ -7,14 +7,14 @@ else
 end
 import Automa
 import Automa.RegExp: @re_str
-import Compat: lastindex
+import Compat: lastindex, contains
 
 @testset "Test01" begin
     re = re""
     re.actions[:enter] = [:enter]
     re.actions[:exit] = [:exit]
     machine = Automa.compile(re)
-    @test ismatch(r"^Automa.Machine\(<.*>\)$", repr(machine))
+    @test contains(repr(machine), r"^Automa.Machine\(<.*>\)$")
 
     for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
