@@ -23,12 +23,21 @@ macro mark()
 end
 
 """
+    @markpos()
+
+Get the markerd position.
+"""
+macro markpos()
+    esc(:(buffer.markpos))
+end
+
+"""
     @relpos(pos)
 
 Get the relative position of the absolute position `pos`.
 """
 macro relpos(pos)
-    esc(:(@assert buffer.markpos > 0; $(pos) - buffer.markpos))
+    esc(:(@assert buffer.markpos > 0; $(pos) - buffer.markpos + 1))
 end
 
 """
@@ -37,7 +46,7 @@ end
 Get the absolute position of the relative position `pos`.
 """
 macro abspos(pos)
-    esc(:(@assert buffer.markpos > 0; $(pos) + buffer.markpos))
+    esc(:(@assert buffer.markpos > 0; $(pos) + buffer.markpos - 1))
 end
 
 """
@@ -51,6 +60,7 @@ function generate_reader(
         funcname::Symbol,
         machine::Automa.Machine;
         stateful::Bool=false,
+        arguments::Tuple=(),
         context::Automa.CodeGenContext=Automa.CodeGenContext(),
         actions::Dict{Symbol,Expr}=Dict{Symbol,Expr}(),
         initcode::Expr=:(),
@@ -62,6 +72,9 @@ function generate_reader(
     functioncode = :(function $(funcname)(stream::$(TranscodingStream)) end)
     if stateful
         push!(functioncode.args[1].args, :(state::$(MachineState)))
+    end
+    for arg in arguments
+        push!(functioncode.args[1].args, arg)
     end
     functioncode.args[2] = quote
         buffer = stream.state.buffer1
