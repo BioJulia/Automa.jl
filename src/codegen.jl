@@ -143,7 +143,7 @@ function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothi
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
         actions = debug_actions(machine)
-    elseif isa(actions, Associative{Symbol,Expr})
+    elseif isa(actions, AbstractDict{Symbol,Expr})
         actions = Dict{Symbol,Expr}(collect(actions))
     else
         throw(ArgumentError("invalid actions argument"))
