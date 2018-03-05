@@ -4,13 +4,6 @@ import Automa
 import TranscodingStreams: TranscodingStream
 
 """
-State of a machine.
-"""
-mutable struct MachineState
-    cs::Int
-end
-
-"""
     @mark
 
 Mark at the current position.
@@ -59,7 +52,6 @@ TODO: docs.
 function generate_reader(
         funcname::Symbol,
         machine::Automa.Machine;
-        stateful::Bool=false,
         arguments::Tuple=(),
         context::Automa.CodeGenContext=Automa.CodeGenContext(),
         actions::Dict{Symbol,Expr}=Dict{Symbol,Expr}(),
@@ -70,9 +62,6 @@ function generate_reader(
         returncode = Expr(:return, returncode)
     end
     functioncode = :(function $(funcname)(stream::$(TranscodingStream)) end)
-    if stateful
-        push!(functioncode.args[1].args, :(state::$(MachineState)))
-    end
     for arg in arguments
         push!(functioncode.args[1].args, arg)
     end
@@ -80,7 +69,6 @@ function generate_reader(
         buffer = stream.state.buffer1
         data = buffer.data
         $(Automa.generate_init_code(context, machine))
-        $(stateful ? :(cs = state.cs) : nothing)
         $(initcode)
 
         @label __exec__
@@ -92,7 +80,6 @@ function generate_reader(
         $(Automa.generate_exec_code(context, machine, actions))
 
         Base.skip(stream, p - buffer.bufferpos)
-        $(stateful ? :(state.cs = cs) : nothing)
 
         $(loopcode)
 

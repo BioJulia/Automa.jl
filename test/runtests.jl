@@ -240,32 +240,40 @@ actions = Dict(
     :chromstart => :(chromstart = @relpos(p-1)),
     :chromend => :(chromend = @relpos(p-1); found = true; @escape)
 )
-initcode = :(mark = chrom = chromstart = chromend = 0; found = false)
+initcode = :(cs = state; mark = chrom = chromstart = chromend = 0; found = false)
 loopcode = :(found && @goto __return__)
 returncode = quote
     if found
-        return String(data[@abspos(mark):@abspos(chrom)]),
-               parse(Int, String(data[@abspos(chrom)+2:@abspos(chromstart)])),
-               parse(Int, String(data[@abspos(chromstart)+2:@abspos(chromend)]))
+        return (
+            String(data[@abspos(mark):@abspos(chrom)]),
+            parse(Int, String(data[@abspos(chrom)+2:@abspos(chromstart)])),
+            parse(Int, String(data[@abspos(chromstart)+2:@abspos(chromend)]))),
+            cs
     else
-        return ("", -1, 0)
+        return ("", -1, 0), cs
     end
 end
-Automa.Stream.generate_reader(:readrecord!, machine, stateful=true, actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
+Automa.Stream.generate_reader(:readrecord!, machine, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
 
 @testset "Three-column BED (stateful)" begin
     stream = NoopStream(IOBuffer("""chr1\t10\t200\n"""))
-    state = Automa.Stream.MachineState(machine.start_state)
-    @test readrecord!(stream, state) == ("chr1", 10, 200)
-    @test readrecord!(stream, state) == ("", -1, 0)
-    @test state.cs == 0
+    state = machine.start_state
+    val, state = readrecord!(stream, state)
+    @test val == ("chr1", 10, 200)
+    val, state = readrecord!(stream, state)
+    @test val == ("", -1, 0)
+    @test state == 0
     stream = NoopStream(IOBuffer("""1\t10\t200000\nchr12\t0\t21000\r\nchrM\t123\t12345\n"""))
-    state = Automa.Stream.MachineState(machine.start_state)
-    @test readrecord!(stream, state) == ("1", 10, 200000)
-    @test readrecord!(stream, state) == ("chr12", 0, 21000)
-    @test readrecord!(stream, state) == ("chrM", 123, 12345)
-    @test readrecord!(stream, state) == ("", -1, 0)
-    @test state.cs == 0
+    state = machine.start_state
+    val, state = readrecord!(stream, state)
+    @test val == ("1", 10, 200000)
+    val, state = readrecord!(stream, state)
+    @test val == ("chr12", 0, 21000)
+    val, state = readrecord!(stream, state)
+    @test val == ("chrM", 123, 12345)
+    val, state = readrecord!(stream, state)
+    @test val == ("", -1, 0)
+    @test state == 0
 end
 
 # FASTA
@@ -334,6 +342,7 @@ actions = Dict(
     end
 )
 initcode = quote
+    cs = state
     pos = 0
     found = false
     empty!(record)
@@ -345,8 +354,7 @@ context = Automa.CodeGenContext(generator=:goto)
 Automa.Stream.generate_reader(
     :readrecord!,
     machine,
-    stateful=true,
-    arguments=(:(record::$(Record)),),
+    arguments=(:(state::Int), :(record::$(Record)),),
     actions=actions,
     context=context,
     initcode=initcode,
@@ -355,23 +363,21 @@ Automa.Stream.generate_reader(
 
 @testset "Streaming FASTA" begin
     stream = NoopStream(IOBuffer(""))
-    state = Automa.Stream.MachineState(machine.start_state)
+    state = machine.start_state
     record = Record()
     @test readrecord!(stream, state, record) == 0
-    @test state.cs == 0
 
     stream = NoopStream(IOBuffer("""
     >seq1 hogehoge
     ACGT
     TGCA
     """), bufsize=10)
-    state = Automa.Stream.MachineState(machine.start_state)
+    state = machine.start_state
     record = Record()
     @test readrecord!(stream, state, record) == 0
     @test String(record.data[record.identifier]) == "seq1"
     @test String(record.data[record.description]) == "hogehoge"
     @test String(record.data[record.sequence]) == "ACGTTGCA"
-    @test state.cs == 0
 
     stream = NoopStream(IOBuffer("""
     >seq1 1st sequence
@@ -380,13 +386,15 @@ Automa.Stream.generate_reader(
     -----AAA
     GGGGG---
     """), bufsize=10)
-    state = Automa.Stream.MachineState(machine.start_state)
+    state = machine.start_state
     record = Record()
-    @test readrecord!(stream, state, record) > 0
+    state = readrecord!(stream, state, record)
+    @test state > 0
     @test String(record.data[record.identifier]) == "seq1"
     @test String(record.data[record.description]) == "1st sequence"
     @test String(record.data[record.sequence]) == "NANANANA"
-    @test readrecord!(stream, state, record) == 0
+    state = readrecord!(stream, state, record)
+    @test state == 0
     @test String(record.data[record.identifier]) == "seq2"
     @test String(record.data[record.description]) == "2nd sequence"
     @test String(record.data[record.sequence]) == "-----AAAGGGGG---"
@@ -405,13 +413,15 @@ Automa.Stream.generate_reader(
 
 
     """), bufsize=10)
-    state = Automa.Stream.MachineState(machine.start_state)
+    state = machine.start_state
     record = Record()
-    @test readrecord!(stream, state, record) > 0
+    state = readrecord!(stream, state, record)
+    @test state > 0
     @test String(record.data[record.identifier]) == "seq1"
     @test String(record.data[record.description]) == "1st sequence"
     @test String(record.data[record.sequence]) == "NANANANA"
-    @test readrecord!(stream, state, record) == 0
+    state = readrecord!(stream, state, record)
+    @test state == 0
     @test String(record.data[record.identifier]) == "seq2"
     @test String(record.data[record.description]) == "2nd sequence"
     @test String(record.data[record.sequence]) == "-----AAAGGGGG---"
