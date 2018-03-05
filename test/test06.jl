@@ -19,7 +19,7 @@ import Compat: lastindex
 
     machine = Automa.compile(foos)
 
-    @eval type MachineState
+    @eval mutable struct MachineState
         p::Int
         cs::Int
         function MachineState()

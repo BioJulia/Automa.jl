@@ -181,7 +181,7 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
 end
 
 function generate_transition_table(machine::Machine)
-    trans_table = Matrix{Int}(256, length(machine.states))
+    trans_table = Matrix{Int}(uninitialized, 256, length(machine.states))
     for j in 1:size(trans_table, 2)
         trans_table[:,j] = -j
     end
