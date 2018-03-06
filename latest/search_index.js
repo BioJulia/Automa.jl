@@ -117,7 +117,7 @@ var documenterSearchIndex = {"docs": [
     "page": "References",
     "title": "Automa.generate_init_code",
     "category": "function",
-    "text": "generate_init_code(machine)\n\nGenerate variable initialization code.\n\nThe generated code is equivalent to:\n\np::Int = 1\np_end::Int = 0\np_eof::Int = -1\ncs::Int = <start state of machine>\n\n\n\ngenerate_init_code(context::CodeGenContext, machine::Machine)::Expr\n\nGenerate variable initialization code.\n\n\n\n"
+    "text": "generate_init_code(context::CodeGenContext, machine::Machine)::Expr\n\nGenerate variable initialization code.\n\n\n\n"
 },
 
 {
