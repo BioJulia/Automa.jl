@@ -10,7 +10,7 @@ function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
     start = NFANode()
     final = NFANode()
     actions = Dict{Symbol,Action}()
-    for i in 1:endof(tokens)
+    for i in 1:lastindex(tokens)
         # HACK: place token exit actions after any other actions
         action = Action(Symbol(:__token, i), 10000 - i)
         actions[action.name] = action
@@ -60,7 +60,7 @@ function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=n
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
         actions = debug_actions(tokenizer.machine)
-    elseif isa(actions, Associative{Symbol,Expr})
+    elseif isa(actions, AbstractDict{Symbol,Expr})
         actions = copy(actions)
     else
         throw(ArgumentError("invalid actions argument"))
@@ -72,7 +72,7 @@ function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=n
     return generate_table_code(ctx, tokenizer, actions, true)
 end
 
-function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::Associative{Symbol,Expr}, check::Bool)
+function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::AbstractDict{Symbol,Expr}, check::Bool)
     action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, tokenizer.machine, actions)
     trans_table = generate_transition_table(tokenizer.machine)
     getbyte_code = generate_geybyte_code(ctx)

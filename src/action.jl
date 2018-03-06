@@ -23,7 +23,7 @@ function Base.:(==)(l1::ActionList, l2::ActionList)
     if length(l1) != length(l2)
         return false
     end
-    for i in 1:endof(l1.actions)
+    for i in 1:lastindex(l1.actions)
         if l1.actions[i].name != l2.actions[i].name
             return false
         end
@@ -39,8 +39,8 @@ function Base.hash(list::ActionList, h::UInt)
 end
 
 function Base.push!(list::ActionList, action::Action)
-    i = findfirst(a -> a.name == action.name, list.actions)
-    if i > 0
+    i = Compat.findfirst(a -> a.name == action.name, list.actions)
+    if i != nothing
         if action.order < list.actions[i].order
             list.actions[i] = action  # replace
         end

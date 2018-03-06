@@ -1,11 +1,19 @@
-using Base.Test
+
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
+
 import Automa
 import Automa.RegExp: @re_str
+
+import Compat: contains, lastindex
 
 @testset "SizedMemory" begin
     # Vector{UInt8}
     mem = Automa.SizedMemory(b"bar")
-    @test endof(mem) === length(mem) === 3
+    @test lastindex(mem) === length(mem) === 3
     @test mem[1] === UInt8('b')
     @test mem[2] === UInt8('a')
     @test mem[3] === UInt8('r')
@@ -14,7 +22,7 @@ import Automa.RegExp: @re_str
 
     # String
     mem = Automa.SizedMemory("bar")
-    @test endof(mem) === length(mem) === 3
+    @test lastindex(mem) === length(mem) === 3
     @test mem[1] === UInt8('b')
     @test mem[2] === UInt8('a')
     @test mem[3] === UInt8('r')
@@ -23,7 +31,7 @@ import Automa.RegExp: @re_str
 
     # SubString
     mem = Automa.SizedMemory(SubString("xbar", 2, 4))
-    @test endof(mem) === length(mem) === 3
+    @test lastindex(mem) === length(mem) === 3
     @test mem[1] === UInt8('b')
     @test mem[2] === UInt8('a')
     @test mem[3] === UInt8('r')
@@ -41,9 +49,9 @@ end
     @test startswith(Automa.dfa2dot(dfa), "digraph")
     machine = Automa.compile(re)
     @test startswith(Automa.machine2dot(machine), "digraph")
-    @test ismatch(r"^Automa\.NFANode\(.*\)$", repr(nfa.start))
-    @test ismatch(r"^Automa\.DFANode\(.*\)$", repr(dfa.start))
-    @test ismatch(r"^Automa\.Node\(.*\)$", repr(machine.start))
+    @test contains(repr(nfa.start), r"^Automa\.NFANode\(.*\)$")
+    @test contains(repr(dfa.start), r"^Automa\.DFANode\(.*\)$")
+    @test contains(repr(machine.start), r"^Automa\.Node\(.*\)$")
 end
 
 @testset "Determinacy" begin
@@ -72,7 +80,13 @@ include("test15.jl")
 include("test16.jl")
 
 module TestFASTA
-using Base.Test
+
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
+
 @testset "FASTA" begin
     include("../example/fasta.jl")
     @test records[1].identifier == "NP_003172.1"
@@ -83,7 +97,13 @@ end
 end
 
 module TestNumbers
-using Base.Test
+
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
+
 @testset "Numbers" begin
     include("../example/numbers.jl")
     @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
@@ -96,7 +116,13 @@ end
 end
 
 module TestTokenizer
-using Base.Test
+
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
+
 @testset "MiniJulia" begin
     include("../example/tokenizer.jl")
     @test tokens[1:14] == [
@@ -131,7 +157,13 @@ end
 module Test1
     import Automa
     import Automa.RegExp: @re_str
-    using Base.Test
+    import Compat: lastindex
+
+    if VERSION >= v"0.7-"
+        using Test
+    else
+        using Base.Test
+    end
 
     re = re""
 
@@ -154,7 +186,7 @@ module Test1
     @eval function validate(data)
         logger = Symbol[]
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0, logger
     end
@@ -167,7 +199,7 @@ module Test1
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0, logger
     end
@@ -179,7 +211,7 @@ module Test1
     @eval function validate3(data)
         logger = Symbol[]
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0, logger
     end
@@ -191,7 +223,13 @@ module Test2
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
-    using Base.Test
+    import Compat: lastindex
+
+    if VERSION >= v"0.7-"
+        using Test
+    else
+        using Base.Test
+    end
 
     a = re.rep('a')
     b = re.cat('b', re.rep('b'))
@@ -219,7 +257,7 @@ module Test2
     @eval function validate(data)
         logger = Symbol[]
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0, logger
     end
@@ -234,7 +272,7 @@ module Test2
     @eval function validate2(data)
         logger = Symbol[]
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0, logger
     end
@@ -248,7 +286,7 @@ module Test2
     @eval function validate3(data)
         logger = Symbol[]
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0, logger
     end
@@ -262,7 +300,12 @@ module Test3
     import Automa
     import Automa.RegExp: @re_str
     const re = Automa.RegExp
-    using Base.Test
+    import Compat: lastindex
+    if VERSION >= v"0.7-"
+        using Test
+    else
+        using Base.Test
+    end
 
     header = re"[ -~]*"
     newline = re"\r?\n"
@@ -275,7 +318,7 @@ module Test3
 
     @eval function validate(data)
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0
     end
@@ -295,7 +338,7 @@ module Test3
     exec_code = Automa.generate_exec_code(machine, code=:inline)
     @eval function validate2(data)
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0
     end
@@ -314,7 +357,7 @@ module Test3
     exec_code = Automa.generate_exec_code(machine, code=:goto)
     @eval function validate3(data)
         $(init_code)
-        p_end = p_eof = endof(data)
+        p_end = p_eof = lastindex(data)
         $(exec_code)
         return cs == 0
     end

@@ -135,10 +135,10 @@ function range_encode(set::ByteSet)
     labels = collect(set)
     labels′ = UnitRange{UInt8}[]
     while !isempty(labels)
-        lo = shift!(labels)
+        lo = popfirst!(labels)
         hi = lo
         while !isempty(labels) && first(labels) == hi + 1
-            hi = shift!(labels)
+            hi = popfirst!(labels)
         end
         push!(labels′, lo:hi)
     end

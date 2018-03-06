@@ -57,7 +57,7 @@ function Base.getindex(mem::SizedMemory, i::Integer)
     return unsafe_load(mem.ptr, i)
 end
 
-function Base.endof(mem::SizedMemory)
+function Compat.lastindex(mem::SizedMemory)
     return Int(mem.len)
 end
 

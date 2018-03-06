@@ -46,7 +46,7 @@ end
 function Base.push!(precond::Precondition, kv::Pair{Symbol,Value})
     name, value = kv
     i = findfirst(n -> n == name, precond.names)
-    if i == 0
+    if i == nothing
         push!(precond.names, name)
         push!(precond.values, value)
     else
@@ -74,7 +74,7 @@ function Base.start(precond::Precondition)
 end
 
 function Base.done(precond::Precondition, i)
-    return i > endof(precond.names)
+    return i > lastindex(precond.names)
 end
 
 function Base.next(precond::Precondition, i)

@@ -5,11 +5,11 @@ struct Traverser{T}
     start::T
 end
 
-function Base.eltype{T}(::Type{Traverser{T}})
+function Base.eltype(::Type{Traverser{T}}) where T
     return T
 end
 
-function Base.iteratorsize{T}(::Type{Traverser{T}})
+function Compat.IteratorSize(::Type{Traverser{T}}) where T
     return Base.SizeUnknown()
 end
 
@@ -17,7 +17,7 @@ function traverse(start::Union{NFANode,DFANode,Node})
     return Traverser(start)
 end
 
-function Base.start{T}(t::Traverser{T})
+function Base.start(t::Traverser{T}) where T
     visited = Set{T}()
     unvisited = Set([t.start])
     return visited, unvisited

@@ -5,7 +5,7 @@ module RegExp
 
 import DataStructures: DefaultDict
 import Automa: ByteSet
-import Compat: Nothing
+import Compat: Nothing, popfirst!
 
 function gen_empty_names()
     return Symbol[]
@@ -14,15 +14,15 @@ end
 mutable struct RE
     head::Symbol
     args::Vector
-    actions::DefaultDict{Symbol,Vector{Symbol},typeof(gen_empty_names)}
-    when::Union{Symbol,Nothing}
+    actions::DefaultDict{Symbol, Vector{Symbol}, typeof(gen_empty_names)}
+    when::Union{Symbol, Nothing}
 end
 
 function RE(head::Symbol, args::Vector)
-    return RE(head, args, DefaultDict{Symbol,Vector{Symbol}}(gen_empty_names), nothing)
+    return RE(head, args, DefaultDict{Symbol, Vector{Symbol}}(gen_empty_names), nothing)
 end
 
-const Primitive = Union{RE,ByteSet,UInt8,UnitRange{UInt8},Char,String,Vector{UInt8}}
+const Primitive = Union{RE, ByteSet, UInt8, UnitRange{UInt8}, Char, String, Vector{UInt8}}
 
 function primitive(re::RE)
     return re
@@ -254,7 +254,7 @@ function parse_class(str, s)
     end
     if !isempty(chars) && first(chars) == '^'
         head = :cclass
-        shift!(chars)
+        popfirst!(chars)
     else
         head = :class
     end
@@ -264,11 +264,11 @@ function parse_class(str, s)
 
     args = []
     while !isempty(chars)
-        c = shift!(chars)
+        c = popfirst!(chars)
         if !isempty(chars) && first(chars) == '-' && length(chars) ≥ 2
             push!(args, UInt8(c):UInt8(chars[2]))
-            shift!(chars)
-            shift!(chars)
+            popfirst!(chars)
+            popfirst!(chars)
         else
             push!(args, UInt8(c):UInt8(c))
         end

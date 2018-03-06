@@ -1,8 +1,13 @@
 module Test03
 
+if VERSION >= v"0.7-"
+    using Test
+else
+    using Base.Test
+end
 import Automa
 import Automa.RegExp: @re_str
-using Base.Test
+import Compat: lastindex
 
 @testset "Test03" begin
     re = Automa.RegExp
@@ -19,7 +24,7 @@ using Base.Test
         exec_code = Automa.generate_exec_code(ctx, machine)
         validate = @eval function (data)
             $(init_code)
-            p_end = p_eof = endof(data)
+            p_end = p_eof = lastindex(data)
             $(exec_code)
             return cs == 0
         end

@@ -10,7 +10,7 @@ function NFANode()
 end
 
 function Base.show(io::IO, node::NFANode)
-    print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
+    print(io, summary(node), "(<", length(node.edges), " edges", '@', objectid(node), ">)")
 end
 
 struct NFA

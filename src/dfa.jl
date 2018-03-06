@@ -17,7 +17,7 @@ function DFANode(final::Bool, nodes::Set{NFANode})
 end
 
 function Base.show(io::IO, node::DFANode)
-    print(io, summary(node), "(<", length(node.edges), " edges", '@', object_id(node), ">)")
+    print(io, summary(node), "(<", length(node.edges), " edges", '@', objectid(node), ">)")
 end
 
 struct DFA
@@ -28,7 +28,7 @@ end
 function validate(dfa::DFA)
     is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
     for s in traverse(dfa.start)
-        for i in 1:endof(s.edges), j in 1:i-1
+        for i in 1:lastindex(s.edges), j in 1:i-1
             ei = s.edges[i][1]
             ej = s.edges[j][1]
             if overlaps(ei, ej)
@@ -190,7 +190,8 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
     left = length(names)
     for name in names
         sort!(pvs)
-        k = findfirst(pv -> bitat(pv, left), pvs)
+        fnd = findfirst(pv -> bitat(pv, left), pvs)
+        k = ifelse(fnd == nothing, 0, fnd) # TODO: See if there is a more elegant way of doing this.
         if (k - 1) * 2 == length(pvs)
             redundant = true
             for i in 1:k-1
@@ -205,13 +206,13 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
         end
         if redundant
             left -= 1
-            for i in 1:endof(pvs)
+            for i in 1:lastindex(pvs)
                 # remove the redundant bit
                 pvs[i] = pvs[i] & mask(left)
             end
         else
             push!(newnames, name)
-            for i in 1:endof(pvs)
+            for i in 1:lastindex(pvs)
                 # circular left shift
                 pvs[i] = ((pvs[i] << 1) & mask(left)) | bitat(pvs[i], left)
             end

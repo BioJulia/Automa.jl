@@ -1,6 +1,7 @@
 import Automa
 import Automa.RegExp: @re_str
 using BenchmarkTools
+import Compat: lastindex
 
 srand(1234)
 data = String(vcat([push!(rand(b"ACGTacgt", 59), UInt8('\n')) for _ in 1:1000]...))
@@ -29,7 +30,7 @@ VISUALIZE && writesvg("case1", machine)
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -39,7 +40,7 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -61,7 +62,7 @@ VISUALIZE && writesvg("case2", machine)
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -71,7 +72,7 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -93,7 +94,7 @@ VISUALIZE && writesvg("case3", machine)
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -103,7 +104,7 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -125,7 +126,7 @@ VISUALIZE && writesvg("case4", machine)
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -135,7 +136,7 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = endof(data)
+    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
