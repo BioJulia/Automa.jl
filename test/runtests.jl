@@ -291,7 +291,7 @@ function Record()
     return Record(UInt8[], 1:0, 1:0, 1:0)
 end
 
-function Base.initialize!(record::Record)
+function initialize!(record::Record)
     empty!(record.data)
     record.identifier = record.description = record.sequence = 1:0
     return record
