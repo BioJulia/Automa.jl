@@ -427,4 +427,211 @@ Automa.Stream.generate_reader(
     @test String(record.data[record.sequence]) == "-----AAAGGGGG---"
 end
 
+
+# TODO: The follwoing tests are written using the deprecated syntax; should be
+# removed in the future.
+
+module Test1
+    import Automa
+    import Automa.RegExp: @re_str
+    using Base.Test
+
+    re = re""
+
+    re.actions[:enter] = [:enter_re]
+    re.actions[:exit] = [:exit_re]
+
+    machine = Automa.compile(re)
+    @test ismatch(r"^Automa.Machine\(<.*>\)$", repr(machine))
+
+    last, actions = Automa.execute(machine, "")
+    @test last == 0
+    @test actions == [:enter_re, :exit_re]
+    last, actions = Automa.execute(machine, "a")
+    @test last < 0
+    @test actions == []
+
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug)
+
+    @eval function validate(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+
+    @test validate(b"") == (true, [:enter_re, :exit_re])
+    @test validate(b"a") == (false, Symbol[])
+
+    # inlined code
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:inline)
+    @eval function validate2(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate2(b"") == (true, [:enter_re, :exit_re])
+    @test validate2(b"a") == (false, Symbol[])
+
+    # goto code
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:goto)
+    @eval function validate3(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate3(b"") == (true, [:enter_re, :exit_re])
+    @test validate3(b"a") == (false, Symbol[])
+end
+
+module Test2
+    import Automa
+    import Automa.RegExp: @re_str
+    const re = Automa.RegExp
+    using Base.Test
+
+    a = re.rep('a')
+    b = re.cat('b', re.rep('b'))
+    ab = re.cat(a, b)
+
+    a.actions[:enter] = [:enter_a]
+    a.actions[:exit] = [:exit_a]
+    a.actions[:final] = [:final_a]
+    b.actions[:enter] = [:enter_b]
+    b.actions[:exit] = [:exit_b]
+    b.actions[:final] = [:final_b]
+    ab.actions[:enter] = [:enter_re]
+    ab.actions[:exit] = [:exit_re]
+    ab.actions[:final] = [:final_re]
+
+    machine = Automa.compile(ab)
+
+    last, actions = Automa.execute(machine, "ab")
+    @test last == 0
+    @test actions == [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re]
+
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine, actions=:debug)
+
+    @eval function validate(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+
+    @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate(b"a") == (false, [:enter_re,:enter_a,:final_a])
+    @test validate(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
+
+    # inlined code
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:inline)
+    @eval function validate2(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate2(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate2(b"a") == (false, [:enter_re,:enter_a,:final_a])
+    @test validate2(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate2(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
+
+    # goto code
+    exec_code = Automa.generate_exec_code(machine, actions=:debug, code=:goto)
+    @eval function validate3(data)
+        logger = Symbol[]
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0, logger
+    end
+    @test validate3(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate3(b"a") == (false, [:enter_re,:enter_a,:final_a])
+    @test validate3(b"ab") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])
+    @test validate3(b"abb") == (true, [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:final_b,:final_re,:exit_b,:exit_re])
+end
+
+module Test3
+    import Automa
+    import Automa.RegExp: @re_str
+    const re = Automa.RegExp
+    using Base.Test
+
+    header = re"[ -~]*"
+    newline = re"\r?\n"
+    sequence = re.rep(re.cat(re"[A-Za-z]*", newline))
+    fasta = re.rep(re.cat('>', header, newline, sequence))
+
+    machine = Automa.compile(fasta)
+    init_code = Automa.generate_init_code(machine)
+    exec_code = Automa.generate_exec_code(machine)
+
+    @eval function validate(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0
+    end
+
+    @test validate(b"") == true
+    @test validate(b">\naa\n") == true
+    @test validate(b">seq1\n") == true
+    @test validate(b">seq1\na\n") == true
+    @test validate(b">seq1\nac\ngt\n") == true
+    @test validate(b">seq1\r\nacgt\r\n") == true
+    @test validate(b">seq1\nac\n>seq2\ngt\n") == true
+    @test validate(b"a") == false
+    @test validate(b">") == false
+    @test validate(b">seq1\na") == false
+    @test validate(b">seq1\nac\ngt") == false
+
+    exec_code = Automa.generate_exec_code(machine, code=:inline)
+    @eval function validate2(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0
+    end
+    @test validate2(b"") == true
+    @test validate2(b">\naa\n") == true
+    @test validate2(b">seq1\n") == true
+    @test validate2(b">seq1\na\n") == true
+    @test validate2(b">seq1\nac\ngt\n") == true
+    @test validate2(b">seq1\r\nacgt\r\n") == true
+    @test validate2(b">seq1\nac\n>seq2\ngt\n") == true
+    @test validate2(b"a") == false
+    @test validate2(b">") == false
+    @test validate2(b">seq1\na") == false
+    @test validate2(b">seq1\nac\ngt") == false
+
+    exec_code = Automa.generate_exec_code(machine, code=:goto)
+    @eval function validate3(data)
+        $(init_code)
+        p_end = p_eof = endof(data)
+        $(exec_code)
+        return cs == 0
+    end
+    @test validate3(b"") == true
+    @test validate3(b">\naa\n") == true
+    @test validate3(b">seq1\n") == true
+    @test validate3(b">seq1\na\n") == true
+    @test validate3(b">seq1\nac\ngt\n") == true
+    @test validate3(b">seq1\r\nacgt\r\n") == true
+    @test validate3(b">seq1\nac\n>seq2\ngt\n") == true
+    @test validate3(b"a") == false
+    @test validate3(b">") == false
+    @test validate3(b">seq1\na") == false
+    @test validate3(b">seq1\nac\ngt") == false
+end
+
 end
