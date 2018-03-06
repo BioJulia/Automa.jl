@@ -50,11 +50,6 @@ function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
     end
 end
 
-function generate_exec_code(tokenizer::Tokenizer; actions=nothing)
-    warn("this method is deprecated; use `generate_exec_code(::CodeGenContext, ::Tokenizer)`", once=true, key=generate_exec_code)
-    return generate_exec_code(CodeGenContext(), tokenizer, actions)
-end
-
 function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=nothing)
     if actions == nothing
         actions = Dict{Symbol,Expr}()
