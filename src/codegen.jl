@@ -85,24 +85,6 @@ function CodeGenContext(;
 end
 
 """
-    generate_init_code(machine)
-
-Generate variable initialization code.
-
-The generated code is equivalent to:
-```julia
-p::Int = 1
-p_end::Int = 0
-p_eof::Int = -1
-cs::Int = <start state of machine>
-```
-"""
-function generate_init_code(machine::Machine)
-    warn("this method is deprecated; use `generate_init_code(::CodeGenContext, ::Machine)`", once=true, key=generate_init_code)
-    return generate_init_code(CodeGenContext(), machine)
-end
-
-"""
     generate_init_code(context::CodeGenContext, machine::Machine)::Expr
 
 Generate variable initialization code.
@@ -114,22 +96,6 @@ function generate_init_code(ctx::CodeGenContext, machine::Machine)
         $(ctx.vars.p_eof)::Int = -1
         $(ctx.vars.cs)::Int = $(machine.start_state)
     end
-end
-
-function generate_exec_code(
-        machine::Machine;
-        actions=nothing,
-        code::Symbol=:table,
-        check::Bool=true,
-        clean::Bool=false,
-        getbyte::Function=Base.getindex)
-    warn("this method is deprecated; use `generate_exec_code(::CodeGenContext, ::Machine)`", once=true, key=generate_exec_code)
-    ctx = CodeGenContext(
-        generator=code,
-        checkbounds=check,
-        getbyte=getbyte,
-        clean=clean)
-    return generate_exec_code(ctx, machine, actions)
 end
 
 """
