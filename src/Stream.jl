@@ -4,7 +4,7 @@ import Automa
 import TranscodingStreams: TranscodingStream
 
 """
-    @mark
+    @mark()
 
 Mark at the current position.
 
