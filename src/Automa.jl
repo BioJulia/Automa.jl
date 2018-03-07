@@ -38,5 +38,6 @@ include("dot.jl")
 include("memory.jl")
 include("codegen.jl")
 include("tokenizer.jl")
+include("Stream.jl")
 
 end # module
