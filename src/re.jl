@@ -5,7 +5,7 @@ module RegExp
 
 import DataStructures: DefaultDict
 import Automa: ByteSet
-import Compat: Nothing, popfirst!
+import Compat: Nothing, popfirst!, codeunits
 
 function gen_empty_names()
     return Symbol[]
@@ -294,10 +294,10 @@ function shallow_desugar(re::RE)
     elseif head == :cclass
         return RE(:set, [foldl(setdiff, ByteSet(0x00:0xff), map(ByteSet, args))])
     elseif head == :char
-        bytes = convert(Vector{UInt8}, string(args[1]))
+        bytes = convert(Vector{UInt8}, codeunits(string(args[1])))
         return RE(:cat, [RE(:set, [ByteSet(b)]) for b in bytes])
     elseif head == :str
-        bytes = convert(Vector{UInt8}, args[1])
+        bytes = convert(Vector{UInt8}, codeunits(args[1]))
         return RE(:cat, [RE(:set, [ByteSet(b)]) for b in bytes])
     elseif head == :bytes
         return RE(:cat, [RE(:set, [ByteSet(b)]) for b in args])

@@ -26,8 +26,8 @@ import Compat: lastindex
 
     actions = Dict(
         :mark  => :(mark = p),
-        :int   => :(push!(tokens, (:int, data[mark:p-1]))),
-        :float => :(push!(tokens, (:float, data[mark:p-1]))),
+        :int   => :(push!(tokens, (:int, String(data[mark:p-1])))),
+        :float => :(push!(tokens, (:float, String(data[mark:p-1])))),
     )
 
     ctx = Automa.CodeGenContext()
