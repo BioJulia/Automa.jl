@@ -11,7 +11,8 @@ import Compat: Compat,
     findfirst,
     Nothing,
     popfirst!,
-    objectid
+    objectid,
+    codeunits
 
 if VERSION > v"0.7-"
     using Printf: @sprintf

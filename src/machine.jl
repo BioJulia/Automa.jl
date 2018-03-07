@@ -94,5 +94,5 @@ function execute(machine::Machine, data::Vector{UInt8})
 end
 
 function execute(machine::Machine, data::String)
-    return execute(machine, convert(Vector{UInt8}, data))
+    return execute(machine, convert(Vector{UInt8}, codeunits(data)))
 end
