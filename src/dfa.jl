@@ -173,7 +173,8 @@ end
 
 function satisfies(edge::Edge, names::Vector{Symbol}, pv::UInt64)
     for (n, v) in edge.precond
-        i = findfirst(names, n)
+        i = Compat.findfirst(equalto(n), names)
+        @assert i !== nothing
         @assert 0 < i ≤ 64
         vi = bitat(pv, i)
         if !(v == BOTH || (v == TRUE && vi) || (v == FALSE && !vi))
