@@ -1,3 +1,9 @@
+"""
+Streaming Interface of Automa.jl.
+
+NOTE: This module is still experimental. The behavior may change without
+deprecations.
+"""
 module Stream
 
 import Automa
