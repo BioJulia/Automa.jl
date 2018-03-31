@@ -1,7 +1,8 @@
 import Automa
 import Automa.RegExp: @re_str
 using BenchmarkTools
-import Compat: lastindex
+import Compat: lastindex, occursin
+using Compat.Random: srand
 
 srand(1234)
 data = String(vcat([push!(rand(b"ACGTacgt", 59), UInt8('\n')) for _ in 1:1000]...))
@@ -21,7 +22,7 @@ end
 # ------
 
 println("Case 1 ", raw"([A-z]*\r?\n)*")
-match(data) = ismatch(r"^(:?[A-z]*\r?\n)*$", data)
+match(data) = occursin(r"^(:?[A-z]*\r?\n)*$", data)
 @assert match(data)
 println("PCRE:                 ", @benchmark match(data))
 
@@ -53,7 +54,7 @@ println("Automa.jl (unrolled): ", @benchmark match(data))
 
 println()
 println("Case 2 ", raw"([A-Za-z]*\r?\n)*")
-match(data) = ismatch(r"^(:?[A-Za-z]*\r?\n)*$", data)
+match(data) = occursin(r"^(:?[A-Za-z]*\r?\n)*$", data)
 @assert match(data)
 println("PCRE:                 ", @benchmark match(data))
 
@@ -85,7 +86,7 @@ println("Automa.jl (unrolled): ", @benchmark match(data))
 
 println()
 println("Case 3 ", raw"([ACGTacgt]*\r?\n)*")
-match(data) = ismatch(r"^(:?[ACGTacgt]*\r?\n)*$", data)
+match(data) = occursin(r"^(:?[ACGTacgt]*\r?\n)*$", data)
 @assert match(data)
 println("PCRE:                 ", @benchmark match(data))
 
@@ -117,7 +118,7 @@ println("Automa.jl (unrolled): ", @benchmark match(data))
 
 println()
 println("Case 4 ", raw"([A-Za-z\*-]*\r?\n)*")
-match(data) = ismatch(r"^(:?[A-Za-z\*-]*\r?\n)*$", data)
+match(data) = occursin(r"^(:?[A-Za-z\*-]*\r?\n)*$", data)
 @assert match(data)
 println("PCRE:                 ", @benchmark match(data))
 
