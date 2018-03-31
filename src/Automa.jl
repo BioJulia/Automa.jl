@@ -2,22 +2,19 @@ __precompile__()
 
 module Automa
 
-import DataStructures: DefaultDict
-import Compat: Compat,
+using DataStructures: DefaultDict
+using Compat:
     AbstractDict,
     argmax,
     lastindex,
-    uninitialized,
+    undef,
     findfirst,
-    equalto,
     Nothing,
     popfirst!,
     objectid,
     codeunits
-
-if VERSION > v"0.7-"
-    using Printf: @sprintf
-end
+using Compat.Printf: @sprintf
+import Compat
 
 include("sdict.jl")
 include("sset.jl")
