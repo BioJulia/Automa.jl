@@ -11,8 +11,8 @@ mutable struct StableDict{K, V} <: AbstractDict{K, V}
     function StableDict{K, V}() where {K, V}
         size = 16
         slots = zeros(Int, size)
-        keys = Vector{K}(uninitialized, size)
-        vals = Vector{V}(uninitialized, size)
+        keys = Vector{K}(undef, size)
+        vals = Vector{V}(undef, size)
         return new{K,V}(slots, keys, vals, 0, 1)
     end
 

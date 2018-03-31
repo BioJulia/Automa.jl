@@ -7,7 +7,7 @@ end
 import Automa
 import Automa.RegExp: @re_str
 
-import Compat: contains, lastindex
+import Compat: occursin, lastindex
 
 @testset "SizedMemory" begin
     # Vector{UInt8}
@@ -48,9 +48,9 @@ end
     @test startswith(Automa.dfa2dot(dfa), "digraph")
     machine = Automa.compile(re)
     @test startswith(Automa.machine2dot(machine), "digraph")
-    @test contains(repr(nfa.start), r"^Automa\.NFANode\(.*\)$")
-    @test contains(repr(dfa.start), r"^Automa\.DFANode\(.*\)$")
-    @test contains(repr(machine.start), r"^Automa\.Node\(.*\)$")
+    @test occursin(r"^Automa\.NFANode\(.*\)$", repr(nfa.start))
+    @test occursin(r"^Automa\.DFANode\(.*\)$", repr(dfa.start))
+    @test occursin(r"^Automa\.Node\(.*\)$", repr(machine.start))
 end
 
 @testset "Determinacy" begin
