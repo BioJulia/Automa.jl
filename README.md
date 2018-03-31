@@ -7,6 +7,13 @@ Automa.jl
 
 A Julia package for text validation, parsing, and tokenizing based on state machine compiler.
 
+Automa.jl compiles regular expressions into Julia code, which is then compiled
+into low-level machine code by the Julia compiler. Automa.jl is designed to
+generate very efficient code to scan large text data, which is often much faster
+than handcrafted code. Automa.jl can insert arbitrary Julia code that will be
+executed in state transitions. This makes it possible, for example, to extract
+substrings that match a part of a regular expression.
+
 This is a number literal tokenizer using Automa.jl ([numbers.jl](example/numbers.jl)):
 ```julia
 # A tokenizer of octal, decimal, hexadecimal and floating point numbers
