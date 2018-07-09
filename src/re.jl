@@ -108,7 +108,7 @@ macro re_str(s::String)
     return parse(unescape_string(escape_re_string(s)))
 end
 
-const METACHAR = ".*+?()[]\\|"
+const METACHAR = ".*+?()[]\\|-^"
 
 function escape_re_string(str::String)
     buf = IOBuffer()
@@ -237,7 +237,7 @@ function prec(op::Symbol)
 end
 
 function parse_class(str, s)
-    chars = []
+    chars = Tuple{Bool, Char}[]
     while !done(str, s)
         c, s = next(str, s)
         if c == ']'
@@ -247,12 +247,12 @@ function parse_class(str, s)
                 error("missing ]")
             end
             c, s = next(str, s)
-            push!(chars, c)
+            push!(chars, (true, c))
         else
-            push!(chars, c)
+            push!(chars, (false, c))
         end
     end
-    if !isempty(chars) && first(chars) == '^'
+    if !isempty(chars) && !first(chars)[1] && first(chars)[2] == '^'
         head = :cclass
         popfirst!(chars)
     else
@@ -264,9 +264,9 @@ function parse_class(str, s)
 
     args = []
     while !isempty(chars)
-        c = popfirst!(chars)
-        if !isempty(chars) && first(chars) == '-' && length(chars) ≥ 2
-            push!(args, UInt8(c):UInt8(chars[2]))
+        c = popfirst!(chars)[2]
+        if !isempty(chars) && !first(chars)[1] && first(chars)[2] == '-' && length(chars) ≥ 2
+            push!(args, UInt8(c):UInt8(chars[2][2]))
             popfirst!(chars)
             popfirst!(chars)
         else
