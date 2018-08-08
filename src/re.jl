@@ -3,9 +3,8 @@
 
 module RegExp
 
-import DataStructures: DefaultDict
 import Automa: ByteSet
-import Compat: Nothing, popfirst!, codeunits
+import DataStructures: DefaultDict
 
 function gen_empty_names()
     return Symbol[]
@@ -108,7 +107,7 @@ macro re_str(s::String)
     return parse(unescape_string(escape_re_string(s)))
 end
 
-const METACHAR = ".*+?()[]\\|-^"
+const METACHAR = raw".*+?()[]\|-^"
 
 function escape_re_string(str::String)
     buf = IOBuffer()
@@ -117,26 +116,23 @@ function escape_re_string(str::String)
 end
 
 function escape_re_string(io::IO, str::String)
-    s = start(str)
-    while !done(str, s)
-        c, s = next(str, s)
-        if c == '\\' && !done(str, s)
-            c′, s′ = next(str, s)
+    cs = iterate(str)
+    while cs != nothing
+        c, s = cs
+        if c == '\\' && (cs′ = iterate(str, s)) != nothing
+            c′, s′ = cs′
             if c′ ∈ METACHAR
                 print(io, "\\\\")
                 c, s = c′, s′
             end
         end
         print(io, c)
+        cs = iterate(str, s)
     end
 end
 
 # Parse a regular expression string using the shunting-yard algorithm.
 function parse(str::String)
-    if isempty(str)
-        return RE(:cat, [])
-    end
-
     # stacks
     operands = RE[]
     operators = Symbol[]
@@ -159,10 +155,13 @@ function parse(str::String)
         end
     end
 
-    s = start(str)
+    cs = iterate(str)
+    if cs == nothing
+        return RE(:cat, [])
+    end
     need_cat = false
-    while !done(str, s)
-        c, s = next(str, s)
+    while cs != nothing
+        c, s = cs
         # @show c operands operators
         if need_cat && c ∉ ('*', '+', '?', '|', ')')
             while !isempty(operators) && prec(:cat) ≤ prec(last(operators))
@@ -199,19 +198,22 @@ function parse(str::String)
             end
             pop!(operators)
         elseif c == '['
-            class, s = parse_class(str, s)
+            class, cs = parse_class(str, s)
             push!(operands, class)
+            continue
         elseif c == '.'
             push!(operands, any())
-        elseif c == '\\' && !done(str, s)
-            c, s′ = next(str, s)
+        elseif c == '\\' && (cs′ = iterate(str, s)) != nothing
+            c, s = cs′
             if c ∈ METACHAR
                 push!(operands, primitive(c))
-                s = s′
+            else
+                throw(ArgumentError("invalid escape sequence: \\$(c)"))
             end
         else
             push!(operands, primitive(c))
         end
+        cs = iterate(str, s)
     end
 
     while !isempty(operators)
@@ -222,6 +224,7 @@ function parse(str::String)
     return first(operands)
 end
 
+# Operator's precedence.
 function prec(op::Symbol)
     if op == :rep || op == :rep1 || op == :opt
         return 3
@@ -232,25 +235,29 @@ function prec(op::Symbol)
     elseif op == :lparen
         return 0
     else
-        error()
+        @assert false
     end
 end
 
 function parse_class(str, s)
     chars = Tuple{Bool, Char}[]
-    while !done(str, s)
-        c, s = next(str, s)
+    cs = iterate(str, s)
+    while cs != nothing
+        c, s = cs
         if c == ']'
+            cs = iterate(str, s)
             break
         elseif c == '\\'
-            if done(str, s)
+            cs = iterate(str, s)
+            if cs == nothing
                 error("missing ]")
             end
-            c, s = next(str, s)
+            c, s = cs
             push!(chars, (true, c))
         else
             push!(chars, (false, c))
         end
+        cs = iterate(str, s)
     end
     if !isempty(chars) && !first(chars)[1] && first(chars)[2] == '^'
         head = :cclass
@@ -273,7 +280,7 @@ function parse_class(str, s)
             push!(args, UInt8(c):UInt8(c))
         end
     end
-    return RE(head, args), s
+    return RE(head, args), cs
 end
 
 function shallow_desugar(re::RE)
@@ -290,9 +297,9 @@ function shallow_desugar(re::RE)
     elseif head == :range
         return RE(:set, [ByteSet(args[1])])
     elseif head == :class
-        return RE(:set, [foldl(union, ByteSet(), map(ByteSet, args))])
+        return RE(:set, [foldl(union, map(ByteSet, args), init=ByteSet())])
     elseif head == :cclass
-        return RE(:set, [foldl(setdiff, ByteSet(0x00:0xff), map(ByteSet, args))])
+        return RE(:set, [foldl(setdiff, map(ByteSet, args), init=ByteSet(0x00:0xff))])
     elseif head == :char
         bytes = convert(Vector{UInt8}, codeunits(string(args[1])))
         return RE(:cat, [RE(:set, [ByteSet(b)]) for b in bytes])

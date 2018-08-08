@@ -1,13 +1,8 @@
 module Test04
 
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
 import Automa
 import Automa.RegExp: @re_str
-import Compat: lastindex
+using Test
 
 @testset "Test04" begin
     re = Automa.RegExp

@@ -173,7 +173,7 @@ end
 
 function satisfies(edge::Edge, names::Vector{Symbol}, pv::UInt64)
     for (n, v) in edge.precond
-        i = Compat.findfirst(isequal(n), names)
+        i = findfirst(isequal(n), names)
         @assert i !== nothing
         @assert 0 < i ≤ 64
         vi = bitat(pv, i)
@@ -240,7 +240,7 @@ function reduce_nodes(dfa::DFA)
     newnodes = Dict{Set{DFANode},DFANode}()
     new(S) = get!(newnodes, S) do
         s = first(S)
-        return DFANode(s.final, s.eof_actions, foldl((x, s) -> union(x, s.nfanodes), Set{NFANode}(), S))
+        return DFANode(s.final, s.eof_actions, foldl((x, s) -> union(x, s.nfanodes), S, init=Set{NFANode}()))
     end
     equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
     isvisited(T) = haskey(newnodes, T)
@@ -262,7 +262,7 @@ function reduce_nodes(dfa::DFA)
 end
 
 function distinct_nodes(S::Set{DFANode})
-    labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), ByteSet(), s.edges) for s in S)
+    labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), s.edges, init=ByteSet()) for s in S)
     distinct = Set{Tuple{DFANode,DFANode}}()
 
     for s1 in S, s2 in S

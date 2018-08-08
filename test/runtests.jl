@@ -1,13 +1,7 @@
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
-
 import Automa
 import Automa.RegExp: @re_str
 
-import Compat: occursin, lastindex
+using Test
 
 @testset "SizedMemory" begin
     # Vector{UInt8}
@@ -36,6 +30,10 @@ import Compat: occursin, lastindex
     @test mem[3] === UInt8('r')
     @test_throws BoundsError mem[0]
     @test_throws BoundsError mem[4]
+end
+
+@testset "RegExp" begin
+    @test_throws ArgumentError("invalid escape sequence: \\o") Automa.RegExp.parse("\\o")
 end
 
 @testset "DOT" begin
@@ -80,13 +78,7 @@ include("test16.jl")
 include("test17.jl")
 
 module TestFASTA
-
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
-
+using Test
 @testset "FASTA" begin
     include("../example/fasta.jl")
     @test records[1].identifier == "NP_003172.1"
@@ -97,13 +89,7 @@ end
 end
 
 module TestNumbers
-
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
-
+using Test
 @testset "Numbers" begin
     include("../example/numbers.jl")
     @test tokens == [(:dec,"1"),(:hex,"0x0123BEEF"),(:oct,"0o754"),(:float,"3.14"),(:float,"-1e4"),(:float,"+6.022045e23")]
@@ -116,13 +102,7 @@ end
 end
 
 module TestTokenizer
-
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
-
+using Test
 @testset "MiniJulia" begin
     include("../example/tokenizer.jl")
     @test tokens[1:14] == [
@@ -156,11 +136,7 @@ import Automa
 import Automa.RegExp: @re_str
 import Automa.Stream: @mark, @markpos, @relpos, @abspos
 using TranscodingStreams
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
+using Test
 
 # Test 1
 machine = let

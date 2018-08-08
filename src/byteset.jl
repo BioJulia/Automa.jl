@@ -55,16 +55,7 @@ function Base.length(set::ByteSet)
     return count_ones(set.a) + count_ones(set.b) + count_ones(set.c) + count_ones(set.d)
 end
 
-function Base.start(set::ByteSet)
-    return set.a, set.b, set.c, set.d
-end
-
-function Base.done(::ByteSet, abcd)
-    a, b, c, d = abcd
-    return a == 0 && b == 0 && c == 0 && d == 0
-end
-
-function Base.next(::ByteSet, abcd)
+function Base.iterate(set::ByteSet, abcd=(set.a, set.b, set.c, set.d))
     a, b, c, d = abcd
     if a != 0
         byte = UInt8(trailing_zeros(a))
@@ -78,10 +69,12 @@ function Base.next(::ByteSet, abcd)
         byte = UInt8(trailing_zeros(c))
         c = xor(c, UInt64(1) << byte)
         byte += 0x80
-    else
+    elseif d != 0
         byte = UInt8(trailing_zeros(d))
         d = xor(d, UInt64(1) << byte)
         byte += 0xc0
+    else
+        return nothing
     end
     return byte, (a, b, c, d)
 end

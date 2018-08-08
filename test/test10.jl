@@ -1,14 +1,9 @@
 module Test10
 
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
 import Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
-import Compat: lastindex
+using Test
 
 @testset "Test10" begin
     machine = Automa.compile(re.primitive(0x61))

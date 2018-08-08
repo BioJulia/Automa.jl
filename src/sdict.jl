@@ -49,14 +49,6 @@ function StableDict()
     return StableDict{Any, Any}()
 end
 
-function Base.convert(::Type{StableDict{K, V}}, dict::AbstractDict) where {K, V}
-    newdict = StableDict{K, V}()
-    for (k, v) in dict
-        newdict[k] = v
-    end
-    return newdict
-end
-
 function Base.copy(dict::StableDict)
     return StableDict(dict)
 end
@@ -140,7 +132,10 @@ function Base.pop!(dict::StableDict)
     return key => val
 end
 
-function Base.start(dict::StableDict)
+function Base.iterate(dict::StableDict)
+    if length(dict) == 0
+        return nothing
+    end
     if dict.used == dict.nextidx - 1
         keys = dict.keys[1:dict.used]
         vals = dict.vals[1:dict.used]
@@ -150,15 +145,14 @@ function Base.start(dict::StableDict)
         keys = dict.keys[idx]
         vals = dict.vals[idx]
     end
-    return 1, keys, vals
+    return (keys[1] => vals[1]), (2, keys, vals)
 end
 
-function Base.done(dict::StableDict, st)
-    return st[1] > length(st[2])
-end
-
-function Base.next(dict::StableDict, st)
+function Base.iterate(dict::StableDict, st)
     i = st[1]
+    if i > length(st[2])
+        return nothing
+    end
     return (st[2][i] => st[3][i]), (i + 1, st[2], st[3])
 end
 
