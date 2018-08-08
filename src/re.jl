@@ -117,14 +117,15 @@ function escape_re_string(str::String)
 end
 
 function escape_re_string(io::IO, str::String)
-    s = start(str)
-    while !done(str, s)
-        c, s = next(str, s)
-        if c == '\\' && !done(str, s)
-            c′, s′ = next(str, s)
+    cs = iterate(str)
+    while cs != nothing
+        c = cs[1]
+        cs = iterate(str, cs[2])
+        if c == '\\' && cs != nothing
+            c′ = cs[1]
             if c′ ∈ METACHAR
                 print(io, "\\\\")
-                c, s = c′, s′
+                c = c′
             end
         end
         print(io, c)
