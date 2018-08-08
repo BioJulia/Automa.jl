@@ -119,16 +119,16 @@ end
 function escape_re_string(io::IO, str::String)
     cs = iterate(str)
     while cs != nothing
-        c = cs[1]
-        cs = iterate(str, cs[2])
-        if c == '\\' && cs != nothing
-            c′ = cs[1]
+        c, s = cs
+        if c == '\\' && (cs′ = iterate(str, s)) != nothing
+            c′ = cs′[1]
             if c′ ∈ METACHAR
                 print(io, "\\\\")
-                c = c′
+                cs = cs′
             end
         end
-        print(io, c)
+        print(io, cs[1])
+        cs = iterate(str, cs[2])
     end
 end
 
@@ -163,6 +163,7 @@ function parse(str::String)
     need_cat = false
     while cs != nothing
         c, s = cs
+        #@show cs
         # @show c operands operators
         if need_cat && c ∉ ('*', '+', '?', '|', ')')
             while !isempty(operators) && prec(:cat) ≤ prec(last(operators))
@@ -201,6 +202,7 @@ function parse(str::String)
         elseif c == '['
             class, cs = parse_class(str, s)
             push!(operands, class)
+            continue
         elseif c == '.'
             push!(operands, any())
         elseif c == '\\' && (cs′ = iterate(str, s)) != nothing
