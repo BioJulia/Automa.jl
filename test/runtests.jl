@@ -32,6 +32,10 @@ using Test
     @test_throws BoundsError mem[4]
 end
 
+@testset "RegExp" begin
+    @test_throws ArgumentError("invalid escape sequence: \\o") Automa.RegExp.parse("\\o")
+end
+
 @testset "DOT" begin
     re = re"[A-Za-z_][A-Za-z0-9_]*"
     re.actions[:enter] = [:enter]

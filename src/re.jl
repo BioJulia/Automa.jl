@@ -107,7 +107,7 @@ macro re_str(s::String)
     return parse(unescape_string(escape_re_string(s)))
 end
 
-const METACHAR = ".*+?()[]\\|-^"
+const METACHAR = raw".*+?()[]\|-^"
 
 function escape_re_string(str::String)
     buf = IOBuffer()
@@ -120,14 +120,14 @@ function escape_re_string(io::IO, str::String)
     while cs != nothing
         c, s = cs
         if c == '\\' && (cs′ = iterate(str, s)) != nothing
-            c′ = cs′[1]
+            c′, s′ = cs′
             if c′ ∈ METACHAR
                 print(io, "\\\\")
-                cs = cs′
+                c, s = c′, s′
             end
         end
-        print(io, cs[1])
-        cs = iterate(str, cs[2])
+        print(io, c)
+        cs = iterate(str, s)
     end
 end
 
@@ -162,7 +162,6 @@ function parse(str::String)
     need_cat = false
     while cs != nothing
         c, s = cs
-        #@show cs
         # @show c operands operators
         if need_cat && c ∉ ('*', '+', '?', '|', ')')
             while !isempty(operators) && prec(:cat) ≤ prec(last(operators))
@@ -205,15 +204,16 @@ function parse(str::String)
         elseif c == '.'
             push!(operands, any())
         elseif c == '\\' && (cs′ = iterate(str, s)) != nothing
-            c′, s′ = cs′
-            if c′ ∈ METACHAR
-                push!(operands, primitive(c′))
-                cs = cs′
+            c, s = cs′
+            if c ∈ METACHAR
+                push!(operands, primitive(c))
+            else
+                throw(ArgumentError("invalid escape sequence: \\$(c)"))
             end
         else
             push!(operands, primitive(c))
         end
-        cs = iterate(str, cs[2])
+        cs = iterate(str, s)
     end
 
     while !isempty(operators)
