@@ -1,13 +1,8 @@
 module Test16
 
-if VERSION >= v"0.7-"
-    using Test
-else
-    using Base.Test
-end
 import Automa
 import Automa.RegExp: @re_str
-import Compat: lastindex
+using Test
 
 @testset "Test16" begin
     @test_throws ArgumentError Automa.CodeGenContext(generator=:table,  loopunroll=1)
