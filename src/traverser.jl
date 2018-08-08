@@ -17,6 +17,24 @@ function traverse(start::Union{NFANode,DFANode,Node})
     return Traverser(start)
 end
 
+function Base.iterate(t::Traverser{T}, state=nothing) where T
+    if state == nothing
+        state = (visited = Set{T}(), unvisited = Set([t.start]))
+    end
+    if isempty(state.unvisited)
+        return nothing
+    end
+    s = pop!(state.unvisited)
+    push!(state.visited, s)
+    for (_, t) in s.edges
+        if t ∉ state.visited
+            push!(state.unvisited, t)
+        end
+    end
+    return s, state
+end
+
+#=
 function Base.start(t::Traverser{T}) where T
     visited = Set{T}()
     unvisited = Set([t.start])
@@ -38,3 +56,4 @@ function Base.next(t::Traverser, state)
     end
     return s, (visited, unvisited)
 end
+=#

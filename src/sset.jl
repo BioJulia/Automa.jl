@@ -93,6 +93,14 @@ function Base.filter(f::Function, set::StableSet)
     return newset
 end
 
+function Base.iterate(set::StableSet, s=iterate(set.dict))
+    if s == nothing
+        return nothing
+    end
+    return s[1][1], iterate(set.dict, s[2])
+end
+
+#=
 function Base.start(set::StableSet)
     return start(set.dict)
 end
@@ -105,3 +113,4 @@ function Base.next(set::StableSet, s)
     item, s = next(set.dict, s)
     return item[1], s
 end
+=#

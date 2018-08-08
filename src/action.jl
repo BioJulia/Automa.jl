@@ -62,6 +62,14 @@ function Base.length(list::ActionList)
     return length(list.actions)
 end
 
+function Base.iterate(list::ActionList, i=1)
+    if i > length(list.actions)
+        return nothing
+    end
+    return list.actions[i], i + 1
+end
+
+#=
 function Base.start(list::ActionList)
     return 1
 end
@@ -73,6 +81,7 @@ end
 function Base.next(list::ActionList, i)
     return list.actions[i], i + 1
 end
+=#
 
 function action_names(list::ActionList)
     return [a.name for a in list.actions]
