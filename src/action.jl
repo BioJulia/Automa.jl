@@ -39,7 +39,7 @@ function Base.hash(list::ActionList, h::UInt)
 end
 
 function Base.push!(list::ActionList, action::Action)
-    i = Compat.findfirst(a -> a.name == action.name, list.actions)
+    i = findfirst(a -> a.name == action.name, list.actions)
     if i != nothing
         if action.order < list.actions[i].order
             list.actions[i] = action  # replace

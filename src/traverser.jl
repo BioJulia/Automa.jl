@@ -9,7 +9,7 @@ function Base.eltype(::Type{Traverser{T}}) where T
     return T
 end
 
-function Compat.IteratorSize(::Type{Traverser{T}}) where T
+function Base.IteratorSize(::Type{Traverser{T}}) where T
     return Base.SizeUnknown()
 end
 

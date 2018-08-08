@@ -1,18 +1,7 @@
 module Automa
 
 using DataStructures: DefaultDict
-using Compat:
-    AbstractDict,
-    argmax,
-    lastindex,
-    undef,
-    findfirst,
-    Nothing,
-    popfirst!,
-    objectid,
-    codeunits
-using Compat.Printf: @sprintf
-import Compat
+using Printf: @sprintf
 
 include("sdict.jl")
 include("sset.jl")

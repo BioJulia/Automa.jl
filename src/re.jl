@@ -5,7 +5,6 @@ module RegExp
 
 import DataStructures: DefaultDict
 import Automa: ByteSet
-import Compat: Nothing, popfirst!, codeunits
 
 function gen_empty_names()
     return Symbol[]
