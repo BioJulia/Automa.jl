@@ -149,7 +149,7 @@ end
 function generate_transition_table(machine::Machine)
     trans_table = Matrix{Int}(undef, 256, length(machine.states))
     for j in 1:size(trans_table, 2)
-        trans_table[:,j] = -j
+        trans_table[:,j] .= -j
     end
     for s in traverse(machine.start), (e, t) in s.edges
         if !isempty(e.precond)
@@ -501,12 +501,11 @@ end
 # Generic foldr.
 function foldr(op::Function, x0, xs)
     function rec(xs, s)
-        if done(xs, s)
+        if s == nothing
             return x0
         else
-            x, s = next(xs, s)
-            return op(x, rec(xs, s))
+            return op(s[1], rec(xs, iterate(xs, s[2])))
         end
     end
-    return rec(xs, start(xs))
+    return rec(xs, iterate(xs))
 end
