@@ -1,10 +1,9 @@
 import Automa
 import Automa.RegExp: @re_str
 using BenchmarkTools
-import Compat: lastindex, occursin
-using Compat.Random: srand
+using Random: seed!
 
-srand(1234)
+seed!(1234)
 data = String(vcat([push!(rand(b"ACGTacgt", 59), UInt8('\n')) for _ in 1:1000]...))
 
 VISUALIZE = false
