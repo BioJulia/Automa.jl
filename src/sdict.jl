@@ -49,13 +49,13 @@ function StableDict()
     return StableDict{Any, Any}()
 end
 
-function Base.convert(::Type{StableDict{K, V}}, dict::AbstractDict) where {K, V}
-    newdict = StableDict{K, V}()
-    for (k, v) in dict
-        newdict[k] = v
-    end
-    return newdict
-end
+#function Base.convert(::Type{StableDict{K, V}}, dict::AbstractDict) where {K, V}
+#    newdict = StableDict{K, V}()
+#    for (k, v) in dict
+#        newdict[k] = v
+#    end
+#    return newdict
+#end
 
 function Base.copy(dict::StableDict)
     return StableDict(dict)
