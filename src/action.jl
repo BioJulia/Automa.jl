@@ -69,20 +69,6 @@ function Base.iterate(list::ActionList, i=1)
     return list.actions[i], i + 1
 end
 
-#=
-function Base.start(list::ActionList)
-    return 1
-end
-
-function Base.done(list::ActionList, i)
-    return i > length(list)
-end
-
-function Base.next(list::ActionList, i)
-    return list.actions[i], i + 1
-end
-=#
-
 function action_names(list::ActionList)
     return [a.name for a in list.actions]
 end

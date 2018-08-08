@@ -164,30 +164,6 @@ function Base.iterate(dict::StableDict, st)
     return (st[2][i] => st[3][i]), (i + 1, st[2], st[3])
 end
 
-#=
-function Base.start(dict::StableDict)
-    if dict.used == dict.nextidx - 1
-        keys = dict.keys[1:dict.used]
-        vals = dict.vals[1:dict.used]
-    else
-        idx = sort!(dict.slots[dict.slots .> 0])
-        @assert length(idx) == length(dict)
-        keys = dict.keys[idx]
-        vals = dict.vals[idx]
-    end
-    return 1, keys, vals
-end
-
-function Base.done(dict::StableDict, st)
-    return st[1] > length(st[2])
-end
-
-function Base.next(dict::StableDict, st)
-    i = st[1]
-    return (st[2][i] => st[3][i]), (i + 1, st[2], st[3])
-end
-=#
-
 function hashindex(key, sz)
     return (reinterpret(Int, hash(key)) & (sz-1)) + 1
 end

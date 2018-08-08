@@ -79,39 +79,6 @@ function Base.iterate(set::ByteSet, abcd=(set.a, set.b, set.c, set.d))
     return byte, (a, b, c, d)
 end
 
-#=
-function Base.start(set::ByteSet)
-    return set.a, set.b, set.c, set.d
-end
-
-function Base.done(::ByteSet, abcd)
-    a, b, c, d = abcd
-    return a == 0 && b == 0 && c == 0 && d == 0
-end
-
-function Base.next(::ByteSet, abcd)
-    a, b, c, d = abcd
-    if a != 0
-        byte = UInt8(trailing_zeros(a))
-        a = xor(a, UInt64(1) << byte)
-        byte += 0x00
-    elseif b != 0
-        byte = UInt8(trailing_zeros(b))
-        b = xor(b, UInt64(1) << byte)
-        byte += 0x40
-    elseif c != 0
-        byte = UInt8(trailing_zeros(c))
-        c = xor(c, UInt64(1) << byte)
-        byte += 0x80
-    else
-        byte = UInt8(trailing_zeros(d))
-        d = xor(d, UInt64(1) << byte)
-        byte += 0xc0
-    end
-    return byte, (a, b, c, d)
-end
-=#
-
 function Base.union(s1::ByteSet, s2::ByteSet)
     return ByteSet(s1.a | s2.a, s1.b | s2.b, s1.c | s2.c, s1.d | s2.d)
 end

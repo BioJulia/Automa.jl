@@ -75,21 +75,6 @@ function Base.iterate(precond::Precondition, i=1)
     return (precond.names[i], precond.values[i]), i + 1
 end
 
-#=
-function Base.start(precond::Precondition)
-    @assert length(precond.names) == length(precond.values)
-    return 1
-end
-
-function Base.done(precond::Precondition, i)
-    return i > lastindex(precond.names)
-end
-
-function Base.next(precond::Precondition, i)
-    return (precond.names[i], precond.values[i]), i + 1
-end
-=#
-
 function isconditioned(precond::Precondition)
     for v in precond.values
         if v != BOTH
