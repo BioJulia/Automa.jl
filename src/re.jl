@@ -290,9 +290,9 @@ function shallow_desugar(re::RE)
     elseif head == :range
         return RE(:set, [ByteSet(args[1])])
     elseif head == :class
-        return RE(:set, [foldl(union, ByteSet(), map(ByteSet, args))])
+        return RE(:set, [foldl(union, map(ByteSet, args), init=ByteSet())])
     elseif head == :cclass
-        return RE(:set, [foldl(setdiff, ByteSet(0x00:0xff), map(ByteSet, args))])
+        return RE(:set, [foldl(setdiff, map(ByteSet, args), init=ByteSet(0x00:0xff))])
     elseif head == :char
         bytes = convert(Vector{UInt8}, codeunits(string(args[1])))
         return RE(:cat, [RE(:set, [ByteSet(b)]) for b in bytes])
