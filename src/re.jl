@@ -3,8 +3,8 @@
 
 module RegExp
 
-import DataStructures: DefaultDict
 import Automa: ByteSet
+import DataStructures: DefaultDict
 
 function gen_empty_names()
     return Symbol[]
