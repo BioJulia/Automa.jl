@@ -158,7 +158,7 @@ Compilers
 After finished defining a regular expression with optional actions you can compile it into a finite-state machine using the `compile` function. The `Machine` type is defined as follows:
 
 ```julia
-type Machine
+mutable struct Machine
     start::Node
     states::UnitRange{Int}
     start_state::Int
@@ -186,7 +186,7 @@ julia> Automa.execute(machine, "aab")
 The `Tokenizer` type is also a useful tool built on top of `Machine`:
 
 ```julia
-type Tokenizer
+mutable struct Tokenizer
     machine::Machine
     actions_code::Vector{Tuple{Symbol,Expr}}
 end
