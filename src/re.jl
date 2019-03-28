@@ -188,13 +188,6 @@ function parse(str::String)
                 c, s = unescape(str, s)
             end
             push!(operands, primitive(c))
-        #elseif c == '\\' && (cs′ = iterate(str, s)) != nothing
-        #    c, s = cs′
-        #    if c ∈ METACHAR
-        #        push!(operands, primitive(c))
-        #    else
-        #        throw(ArgumentError("invalid escape sequence: \\$(c)"))
-        #    end
         else
             push!(operands, primitive(c))
         end
@@ -268,26 +261,39 @@ function parse_class(str, s)
 end
 
 function unescape(str::String, s::Int)
+    invalid() = throw(ArgumentError("invalid escape sequence"))
+    ishex(b) = '0' ≤ b ≤ '9' || 'A' ≤ b ≤ 'F' || 'a' ≤ b ≤ 'f'
     cs = iterate(str, s)
-    if cs === nothing
-        throw(ArgumentError("invalid escape sequence"))
-    end
+    cs === nothing && invalid()
     c, s = cs
-    if c == 't'
+    if c == 'a'
+        return '\a', s
+    elseif c == 'b'
+        return '\b', s
+    elseif c == 't'
         return '\t', s
     elseif c == 'n'
         return '\n', s
+    elseif c == 'v'
+        return '\v', s
     elseif c == 'r'
         return '\r', s
-    elseif c == 'f'
-        return '\f', s
-    elseif c == 'a'
-        return '\a', s
+    elseif c == '0'
+        return '\0', s
     elseif c ∈ METACHAR
         return c, s
-    #else TODO
+    elseif c == 'x'
+        cs1 = iterate(str, s)
+        (cs1 === nothing || !ishex(cs1[1])) && invalid()
+        cs2 = iterate(str, cs1[2])
+        (cs2 === nothing || !ishex(cs2[1])) && invalid()
+        c1, c2 = cs1[1], cs2[1]
+        return first(unescape_string("\\x$(c1)$(c2)")), cs2[2]
+    elseif c == 'u' || c == 'U'
+        throw(ArgumentError("escaped Unicode sequence is not supported"))
+    else
+        throw(ArgumentError("invalid escape sequence: \\$(c)"))
     end
-    throw(ArgumentError("invalid escape sequence: \\$(c)"))
 end
 
 function shallow_desugar(re::RE)
