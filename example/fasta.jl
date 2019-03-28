@@ -4,7 +4,6 @@
 import Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
-import Compat: lastindex
 
 # Create a machine of FASTA.
 fasta_machine = (function ()

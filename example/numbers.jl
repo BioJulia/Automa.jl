@@ -4,7 +4,6 @@
 import Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
-import Compat: lastindex
 
 # Describe patterns in regular expression.
 oct      = re"0o[0-7]+"
