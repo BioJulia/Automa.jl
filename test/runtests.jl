@@ -76,6 +76,7 @@ include("test14.jl")
 include("test15.jl")
 include("test16.jl")
 include("test17.jl")
+include("test18.jl")
 
 module TestFASTA
 using Test

@@ -103,33 +103,11 @@ Base.:&(re1::RE, re2::RE) = isec(re1, re2)
 Base.:\(re1::RE, re2::RE) = diff(re1, re2)
 Base.:!(re::RE) = neg(re)
 
-macro re_str(s::String)
-    return parse(unescape_string(escape_re_string(s)))
+macro re_str(str::String)
+    parse(str)
 end
 
 const METACHAR = raw".*+?()[]\|-^"
-
-function escape_re_string(str::String)
-    buf = IOBuffer()
-    escape_re_string(buf, str)
-    return String(take!(buf))
-end
-
-function escape_re_string(io::IO, str::String)
-    cs = iterate(str)
-    while cs != nothing
-        c, s = cs
-        if c == '\\' && (cs′ = iterate(str, s)) != nothing
-            c′, s′ = cs′
-            if c′ ∈ METACHAR
-                print(io, "\\\\")
-                c, s = c′, s′
-            end
-        end
-        print(io, c)
-        cs = iterate(str, s)
-    end
-end
 
 # Parse a regular expression string using the shunting-yard algorithm.
 function parse(str::String)
@@ -203,13 +181,13 @@ function parse(str::String)
             continue
         elseif c == '.'
             push!(operands, any())
-        elseif c == '\\' && (cs′ = iterate(str, s)) != nothing
-            c, s = cs′
-            if c ∈ METACHAR
-                push!(operands, primitive(c))
+        elseif c == '\\'
+            if iterate(str, s) === nothing
+                c = '\\'
             else
-                throw(ArgumentError("invalid escape sequence: \\$(c)"))
+                c, s = unescape(str, s)
             end
+            push!(operands, primitive(c))
         else
             push!(operands, primitive(c))
         end
@@ -248,11 +226,10 @@ function parse_class(str, s)
             cs = iterate(str, s)
             break
         elseif c == '\\'
-            cs = iterate(str, s)
-            if cs == nothing
+            if iterate(str, s) === nothing
                 error("missing ]")
             end
-            c, s = cs
+            c, s = unescape(str, s)
             push!(chars, (true, c))
         else
             push!(chars, (false, c))
@@ -281,6 +258,42 @@ function parse_class(str, s)
         end
     end
     return RE(head, args), cs
+end
+
+function unescape(str::String, s::Int)
+    invalid() = throw(ArgumentError("invalid escape sequence"))
+    ishex(b) = '0' ≤ b ≤ '9' || 'A' ≤ b ≤ 'F' || 'a' ≤ b ≤ 'f'
+    cs = iterate(str, s)
+    cs === nothing && invalid()
+    c, s = cs
+    if c == 'a'
+        return '\a', s
+    elseif c == 'b'
+        return '\b', s
+    elseif c == 't'
+        return '\t', s
+    elseif c == 'n'
+        return '\n', s
+    elseif c == 'v'
+        return '\v', s
+    elseif c == 'r'
+        return '\r', s
+    elseif c == '0'
+        return '\0', s
+    elseif c ∈ METACHAR
+        return c, s
+    elseif c == 'x'
+        cs1 = iterate(str, s)
+        (cs1 === nothing || !ishex(cs1[1])) && invalid()
+        cs2 = iterate(str, cs1[2])
+        (cs2 === nothing || !ishex(cs2[1])) && invalid()
+        c1, c2 = cs1[1], cs2[1]
+        return first(unescape_string("\\x$(c1)$(c2)")), cs2[2]
+    elseif c == 'u' || c == 'U'
+        throw(ArgumentError("escaped Unicode sequence is not supported"))
+    else
+        throw(ArgumentError("invalid escape sequence: \\$(c)"))
+    end
 end
 
 function shallow_desugar(re::RE)
