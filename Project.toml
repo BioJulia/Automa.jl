@@ -7,3 +7,9 @@ version = "0.7.0"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
