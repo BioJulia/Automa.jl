@@ -123,21 +123,27 @@ function epsilon_closure(nodes::Set{NFANode})
     return closure
 end
 
-function getparents(nodes::Base.Set{NFANode})
-    allchildren = Base.Set{NFANode}()
-    for node in nodes
-        for (edge, child) in node.edges
-            push!(allchildren, child)
+"Find the nodes in this set where no other node has an edge to it"
+function gettop(S::Set{NFANode})
+    top = copy(S)
+    for s in S
+        for (e, t) in s.edges
+            if iseps(e)
+                delete!(top, t)
+            end
         end
     end
-    return filter(x -> !in(x, allchildren), nodes)
+    return top
 end
 
-function get_epsilon_paths(parents::Base.Set{NFANode})
-    paths = Tuple{Edge, Vector{Action}}[]
+function get_epsilon_paths(parents::Set{NFANode})
+    paths = Tuple{Union{Nothing, Edge}, Vector{Action}}[]
     heads = [(node, Action[]) for node in parents]
     while !isempty(heads)
         node, actions = pop!(heads)
+        if iszero(length(node.edges))
+            push!(paths, (nothing, actions))
+        end
         for (edge, child) in node.edges
             if iseps(edge)
                 push!(heads, (child, append!(copy(actions), edge.actions)))
@@ -149,33 +155,37 @@ function get_epsilon_paths(parents::Base.Set{NFANode})
     return paths
 end
 
-function validate_paths(paths::Vector{Tuple{Edge, Vector{Action}}})
+function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Action}}})
     all(actions == paths[1][2] for (n, actions) in paths) && return nothing
     for i in 1:length(paths) - 1
         edge1, actions1 = paths[i]
         for j in i+1:length(paths)
             edge2, actions2 = paths[j]
-            if actions1 != actions2 && !isdisjoint(edge1.labels, edge2.labels)
-                byte = first(intersect(edge1.labels, edge2.labels))
+            # If either ends with EOF, they don't have same conditions and we can exit
+            (edge1 === nothing) ⊻ (edge2 === nothing) && return nothing
+            eof = (edge1 === nothing) & (edge2 === nothing)
+            samebyte = eof || !isdisjoint(edge1.labels, edge2.labels)
+            if actions1 != actions2 && samebyte
+                byte = eof ? "EOF" : repr(first(intersect(edge1.labels, edge2.labels)))
                 a1 = isempty(actions1) ? nothing : [a.name for a in actions1]
                 a2 = isempty(actions2) ? nothing : [a.name for a in actions2]
-                error("Ambiguous DFA: Byte $(repr(byte)) can lead to actions $a1 or $a2")
+                error("Ambiguous DFA: Input $byte can lead to actions $a1 or $a2")
             end
         end
     end
 end
 
-function validate_nfanodes(nodes_::StableSet{NFANode})
+function validate_nfanodes(nodes::StableSet{NFANode})
     # Quick path: If no branches, everything is OK
-    all(length(node.edges) == 1 for node in nodes_) && return nothing
+    all(length(node.edges) == 1 for node in nodes) && return nothing
 
     # First get "parents", that's the starting epsilon nodes that cannot be
     # reached by another epsilon node. All paths lead from those
-    parents = getparents(Base.Set{NFANode}(nodes_))
+    tops = gettop(nodes)
 
     # Now we transverse all possible epsilon-paths and keep track of the actions
     # taken along the way
-    paths = get_epsilon_paths(parents)
+    paths = get_epsilon_paths(tops)
 
     # If any two paths have different actions, and can be reached with the same
     # byte, the DFA's actions cannot be resolved, and we raise an error.
@@ -205,14 +215,7 @@ function disjoint_split(sets::Vector{ByteSet})
 end
 
 function accumulate_actions(S::Set{NFANode})
-    top = copy(S)
-    for s in S
-        for (e, t) in s.edges
-            if iseps(e)
-                delete!(top, t)
-            end
-        end
-    end
+    top = gettop(S)
     @assert !isempty(top)
     actions = Dict(s => ActionList() for s in S)
     visited = Set{NFANode}()
