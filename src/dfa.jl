@@ -38,7 +38,7 @@ function validate(dfa::DFA)
     end
 end
 
-function nfa2dfa(nfa::NFA)
+function nfa2dfa(nfa::NFA, validate_ambiguity::Bool=true)
     newnodes = Dict{Set{NFANode},DFANode}()
     new(S) = get!(newnodes, S, DFANode(nfa.final ∈ S, S))
     isvisited(S) = haskey(newnodes, S)
@@ -98,8 +98,10 @@ function nfa2dfa(nfa::NFA)
         end
     end
     # Check for ambiguous actions
-    for nfaset in keys(newnodes)
-        validate_nfanodes(nfaset)
+    if validate_ambiguity
+        for nfaset in keys(newnodes)
+            validate_nfanodes(nfaset)
+        end
     end
     return DFA(start)
 end
@@ -176,12 +178,12 @@ function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Action}
 end
 
 function validate_nfanodes(nodes::StableSet{NFANode})
-    # Quick path: If no branches, everything is OK
-    all(length(node.edges) == 1 for node in nodes) && return nothing
-
     # First get "parents", that's the starting epsilon nodes that cannot be
     # reached by another epsilon node. All paths lead from those
     tops = gettop(nodes)
+    
+    # Quick path: If no branches, everything is OK
+    length(tops) == 1 && all(length(node.edges) == 1 for node in nodes) && return nothing
 
     # Now we transverse all possible epsilon-paths and keep track of the actions
     # taken along the way
