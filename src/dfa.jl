@@ -97,8 +97,9 @@ function nfa2dfa(nfa::NFA)
             end
         end
     end
+    # Check for ambiguous actions
     for nfaset in keys(newnodes)
-        validate_paths(nfaset)
+        validate_nfanodes(nfaset)
     end
     return DFA(start)
 end
@@ -122,15 +123,17 @@ function epsilon_closure(nodes::Set{NFANode})
     return closure
 end
 
-function validate_paths(nodes_::StableSet{NFANode})
-    nodes = Base.Set{NFANode}(nodes_)
+function getparents(nodes::Base.Set{NFANode})
     allchildren = Base.Set{NFANode}()
     for node in nodes
         for (edge, child) in node.edges
             push!(allchildren, child)
         end
     end
-    parents = filter(x -> !in(x, allchildren), nodes)
+    return filter(x -> !in(x, allchildren), nodes)
+end
+
+function get_epsilon_paths(parents::Base.Set{NFANode})
     paths = Tuple{Edge, Vector{Action}}[]
     heads = [(node, Action[]) for node in parents]
     while !isempty(heads)
@@ -143,7 +146,10 @@ function validate_paths(nodes_::StableSet{NFANode})
             end
         end
     end
+    return paths
+end
 
+function validate_paths(paths::Vector{Tuple{Edge, Vector{Action}}})
     all(actions == paths[1][2] for (n, actions) in paths) && return nothing
     for i in 1:length(paths) - 1
         edge1, actions1 = paths[i]
@@ -153,10 +159,27 @@ function validate_paths(nodes_::StableSet{NFANode})
                 byte = first(intersect(edge1.labels, edge2.labels))
                 a1 = isempty(actions1) ? nothing : [a.name for a in actions1]
                 a2 = isempty(actions2) ? nothing : [a.name for a in actions2]
-                error("Ambiguous NFA: Byte $(repr(byte)) can lead to actions $a1 or $a2")
+                error("Ambiguous DFA: Byte $(repr(byte)) can lead to actions $a1 or $a2")
             end
         end
     end
+end
+
+function validate_nfanodes(nodes_::StableSet{NFANode})
+    # Quick path: If no branches, everything is OK
+    all(length(node.edges) == 1 for node in nodes_) && return nothing
+
+    # First get "parents", that's the starting epsilon nodes that cannot be
+    # reached by another epsilon node. All paths lead from those
+    parents = getparents(Base.Set{NFANode}(nodes_))
+
+    # Now we transverse all possible epsilon-paths and keep track of the actions
+    # taken along the way
+    paths = get_epsilon_paths(parents)
+
+    # If any two paths have different actions, and can be reached with the same
+    # byte, the DFA's actions cannot be resolved, and we raise an error.
+    validate_paths(paths)
 end
 
 function disjoint_split(sets::Vector{ByteSet})
