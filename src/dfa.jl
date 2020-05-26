@@ -97,6 +97,9 @@ function nfa2dfa(nfa::NFA)
             end
         end
     end
+    for nfaset in keys(newnodes)
+        validate_paths(nfaset)
+    end
     return DFA(start)
 end
 
@@ -117,6 +120,43 @@ function epsilon_closure(nodes::Set{NFANode})
         end
     end
     return closure
+end
+
+function validate_paths(nodes_::StableSet{NFANode})
+    nodes = Base.Set{NFANode}(nodes_)
+    allchildren = Base.Set{NFANode}()
+    for node in nodes
+        for (edge, child) in node.edges
+            push!(allchildren, child)
+        end
+    end
+    parents = filter(x -> !in(x, allchildren), nodes)
+    paths = Tuple{Edge, Vector{Action}}[]
+    heads = [(node, Action[]) for node in parents]
+    while !isempty(heads)
+        node, actions = pop!(heads)
+        for (edge, child) in node.edges
+            if iseps(edge)
+                push!(heads, (child, append!(copy(actions), edge.actions)))
+            else
+                push!(paths, (edge, actions))
+            end
+        end
+    end
+
+    all(actions == paths[1][2] for (n, actions) in paths) && return nothing
+    for i in 1:length(paths) - 1
+        edge1, actions1 = paths[i]
+        for j in i+1:length(paths)
+            edge2, actions2 = paths[j]
+            if actions1 != actions2 && !isdisjoint(edge1.labels, edge2.labels)
+                byte = first(intersect(edge1.labels, edge2.labels))
+                a1 = isempty(actions1) ? nothing : [a.name for a in actions1]
+                a2 = isempty(actions2) ? nothing : [a.name for a in actions2]
+                error("Ambiguous NFA: Byte $(repr(byte)) can lead to actions $a1 or $a2")
+            end
+        end
+    end
 end
 
 function disjoint_split(sets::Vector{ByteSet})
