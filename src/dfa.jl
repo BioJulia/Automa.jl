@@ -97,7 +97,8 @@ function nfa2dfa(nfa::NFA, validate_ambiguity::Bool=true)
             end
         end
     end
-    # Check for ambiguous actions
+    # Each key represents a set of NFANodes that collapses to one DFANode.
+    # If any set contain conflicting possible actions, raise an error.
     if validate_ambiguity
         for nfaset in keys(newnodes)
             validate_nfanodes(nfaset)
@@ -125,7 +126,7 @@ function epsilon_closure(nodes::Set{NFANode})
     return closure
 end
 
-"Find the nodes in this set where no other node has an edge to it"
+"Find the nodes in this set where no other node in the set has an edge to it"
 function gettop(S::Set{NFANode})
     top = copy(S)
     for s in S
@@ -138,9 +139,10 @@ function gettop(S::Set{NFANode})
     return top
 end
 
-function get_epsilon_paths(parents::Set{NFANode})
+"Find paths from top nodes through epsilon edges, keeping track of actions taken."
+function get_epsilon_paths(tops::Set{NFANode})
     paths = Tuple{Union{Nothing, Edge}, Vector{Action}}[]
-    heads = [(node, Action[]) for node in parents]
+    heads = [(node, Action[]) for node in tops]
     while !isempty(heads)
         node, actions = pop!(heads)
         if iszero(length(node.edges))
@@ -163,14 +165,14 @@ function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Action}
         edge1, actions1 = paths[i]
         for j in i+1:length(paths)
             edge2, actions2 = paths[j]
-            # If either ends with EOF, they don't have same conditions and we can exit
-            (edge1 === nothing) ⊻ (edge2 === nothing) && return nothing
+            # If either ends with EOF, they don't have same conditions and we can continue
+            (edge1 === nothing) ⊻ (edge2 === nothing) && continue
             eof = (edge1 === nothing) & (edge2 === nothing)
             samebyte = eof || !isdisjoint(edge1.labels, edge2.labels)
             if actions1 != actions2 && samebyte
                 byte = eof ? "EOF" : repr(first(intersect(edge1.labels, edge2.labels)))
-                a1 = isempty(actions1) ? nothing : [a.name for a in actions1]
-                a2 = isempty(actions2) ? nothing : [a.name for a in actions2]
+                a1 = isempty(actions1) ? "nothing" : [a.name for a in actions1]
+                a2 = isempty(actions2) ? "nothing" : [a.name for a in actions2]
                 error("Ambiguous DFA: Input $byte can lead to actions $a1 or $a2")
             end
         end
@@ -178,11 +180,11 @@ function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Action}
 end
 
 function validate_nfanodes(nodes::StableSet{NFANode})
-    # First get "parents", that's the starting epsilon nodes that cannot be
+    # First get "tops", that's the starting epsilon nodes that cannot be
     # reached by another epsilon node. All paths lead from those
     tops = gettop(nodes)
     
-    # Quick path: If no branches, everything is OK
+    # Quick path: If only one path, everything is OK
     length(tops) == 1 && all(length(node.edges) == 1 for node in nodes) && return nothing
 
     # Now we transverse all possible epsilon-paths and keep track of the actions
