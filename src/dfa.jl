@@ -235,23 +235,21 @@ function bitat(x::UInt64, i::Integer)
 end
 
 function reduce_nodes(dfa::DFA)
-    Q = Set(traverse(dfa.start))
-    distinct = distinct_nodes(Q)
+    equivalents = get_equivalent(collect(traverse(dfa.start)))
     newnodes = Dict{Set{DFANode},DFANode}()
     new(S) = get!(newnodes, S) do
         s = first(S)
         return DFANode(s.final, s.eof_actions, foldl((x, s) -> union(x, s.nfanodes), S, init=Set{NFANode}()))
     end
-    equivalent(s) = filter(t -> (s, t) ∉ distinct, Q)
     isvisited(T) = haskey(newnodes, T)
-    S = equivalent(dfa.start)
+    S = equivalents[dfa.start]
     start = new(S)
     unvisited = [S]
     while !isempty(unvisited)
         S = pop!(unvisited)
         s′ = new(S)
         for (e, t) in first(S).edges
-            T = equivalent(t)
+            T = equivalents[t]
             if !isvisited(T)
                 push!(unvisited, T)
             end
@@ -261,35 +259,100 @@ function reduce_nodes(dfa::DFA)
     return DFA(start)
 end
 
-function distinct_nodes(S::Set{DFANode})
-    labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), s.edges, init=ByteSet()) for s in S)
-    distinct = Set{Tuple{DFANode,DFANode}}()
+function get_groupof(v::Vector{DFANode})
+    # These are sets of the outgoing bytes from every node
+    labels = Dict(s => foldl((x, y) -> union(x, y[1].labels), s.edges, init=ByteSet()) for s in v)
+    
+    # First we create groups of nodes that MAY be identical based on quick-to-compute
+    # characteristics. This narrows down the number of comparisons needed later.
+    # Nodes may be equal if the have the same outgoing bytes, same final node and same
+    # EOF actions.
+    groupof = Dict{DFANode,Vector{DFANode}}()
+    for s1 in v
+        unique = true
+        for group in values(groupof)
+            s2 = first(group)
+            if s1.final == s2.final && labels[s1] == labels[s2] && s1.eof_actions == s2.eof_actions
+                push!(group, s1)
+                groupof[s1] = group
+                unique = false
+                break
+            end
+        end
+        unique && (groupof[s1] = [s1])
+    end
+    return groupof
+end
 
-    for s1 in S, s2 in S
-        if s1.final != s2.final || labels[s1] != labels[s2] || s1.eof_actions != s2.eof_actions
-            push!(distinct, (s1, s2))
+function equivalent_pairs(groupof, v)
+    # Here, we check each pair in each group. If they share an edge with an overlapping byte,
+    # compatible preconditions, but the edge have different actions or leads no a non-equivalent
+    # node, they're different. Because a parent's nonequivalence relies on the status of
+    # its children, we need to update the parents every time we update a node.
+    equivalent_pairs = Set{Tuple{DFANode,DFANode}}()
+    for group in values(groupof), s1 in group, s2 in group
+        push!(equivalent_pairs, (s1, s2))
+    end
+    
+    # Get a node => vector of parents of node dict
+    parentsof = Dict{DFANode,Vector{DFANode}}()
+    for s in v, (e,c) in s.edges
+        if haskey(parentsof, c)
+            push!(parentsof[c], s)
+        else
+            parentsof[c] = [s]
         end
     end
-
-    converged = false
-    while !converged
-        converged = true
-        for s1 in S, s2 in S
-            if s1 == s2 || (s1, s2) ∈ distinct
-                continue
-            end
-            @assert labels[s1] == labels[s2] && s1.eof_actions == s2.eof_actions
+    unupdated = Set(v)
+    while !isempty(unupdated)
+        s1 = pop!(unupdated)
+        group = groupof[s1]
+        for s2 in group
+            (s1 == s2 || (s1, s2) ∉ equivalent_pairs) && continue
             for (e1, t1) in s1.edges, (e2, t2) in s2.edges
-                if overlaps(e1, e2) && ((t1, t2) ∈ distinct || e1.actions != e2.actions)
-                    push!(distinct, (s1, s2), (s2, s1))
-                    converged = false
+                if overlaps(e1, e2) && ((t1, t2) ∉ equivalent_pairs || e1.actions != e2.actions)
+                    delete!(equivalent_pairs, (s1, s2))
+                    haskey(parentsof, s1) && union!(unupdated, parentsof[s1])
                     break
                 end
             end
         end
     end
+    return equivalent_pairs
+end
 
-    return distinct
+function split_group(group::Vector{DFANode}, pairs)
+    remaining = copy(group)
+    result = Vector{DFANode}[]
+    nonequivalents = DFANode[]
+    while !isempty(remaining)
+        s1 = first(remaining)
+        equivalents = DFANode[]
+        for s2 in remaining
+            (s1, s2) ∈ pairs ? push!(equivalents, s2) : push!(nonequivalents, s2)
+        end
+        push!(result, equivalents)
+        (nonequivalents, remaining) = (remaining, nonequivalents)
+        empty!(nonequivalents)
+    end
+    return result
+end
+
+"Creates a DFANode => Set{DFANode} dict with equivalent nodes for every node in v"
+function get_equivalent(v::Vector{DFANode})
+    groupof = get_groupof(v)
+    pairs = equivalent_pairs(groupof, v)
+    groups = collect(keys(IdDict{Vector{DFANode},Nothing}(v => nothing for v in values(groupof))))
+    result = Dict{DFANode,Set{DFANode}}()
+    for group in groups
+        for subgroup in split_group(group, pairs)
+            S = Set(subgroup)
+            for node in subgroup
+                result[node] = S
+            end
+        end
+    end
+    return result
 end
 
 function overlaps(e1::Edge, e2::Edge)
