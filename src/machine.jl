@@ -35,8 +35,24 @@ function Base.show(io::IO, machine::Machine)
     print(io, summary(machine), "(<states=", machine.states, ",start_state=", machine.start_state, ",final_states=", machine.final_states, ">)")
 end
 
-function compile(re::RegExp.RE; optimize::Bool=true)
-    dfa = nfa2dfa(remove_dead_nodes(re2nfa(re)))
+"""
+    compile(re::RegExp; optimize, unambiguous) -> Machine
+
+Compile a finite state machine (FSM) from RegExp `re`. If `optimize`, attempt to minimize the number
+of states in the FSM. If `unambiguous`, disallow creation of FSM where the actions are not deterministic.
+
+# Examples
+```
+machine let
+    name = re"[A-Z][a-z]+"
+    first_last = name * re" " * name
+    last_first = name * re", " * name
+    Automa.compile(first_last | last_first)
+end
+```
+"""
+function compile(re::RegExp.RE; optimize::Bool=true, unambiguous::Bool=true)
+    dfa = nfa2dfa(remove_dead_nodes(re2nfa(re)), unambiguous)
     if optimize
         dfa = remove_dead_nodes(reduce_nodes(dfa))
     end

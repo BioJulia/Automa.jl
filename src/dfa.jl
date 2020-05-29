@@ -38,7 +38,7 @@ function validate(dfa::DFA)
     end
 end
 
-function nfa2dfa(nfa::NFA, validate_ambiguity::Bool=true)
+function nfa2dfa(nfa::NFA, unambiguous::Bool=true)
     newnodes = Dict{Set{NFANode},DFANode}()
     new(S) = get!(newnodes, S, DFANode(nfa.final ∈ S, S))
     isvisited(S) = haskey(newnodes, S)
@@ -99,7 +99,7 @@ function nfa2dfa(nfa::NFA, validate_ambiguity::Bool=true)
     end
     # Each key represents a set of NFANodes that collapses to one DFANode.
     # If any set contain conflicting possible actions, raise an error.
-    if validate_ambiguity
+    if unambiguous
         for nfaset in keys(newnodes)
             validate_nfanodes(nfaset)
         end
@@ -141,8 +141,8 @@ end
 
 "Find paths from top nodes through epsilon edges, keeping track of actions taken."
 function get_epsilon_paths(tops::Set{NFANode})
-    paths = Tuple{Union{Nothing, Edge}, Vector{Action}}[]
-    heads = [(node, Action[]) for node in tops]
+    paths = Tuple{Union{Nothing, Edge}, Vector{Symbol}}[]
+    heads = [(node, Symbol[]) for node in tops]
     while !isempty(heads)
         node, actions = pop!(heads)
         if iszero(length(node.edges))
@@ -150,7 +150,7 @@ function get_epsilon_paths(tops::Set{NFANode})
         end
         for (edge, child) in node.edges
             if iseps(edge)
-                push!(heads, (child, append!(copy(actions), edge.actions)))
+                push!(heads, (child, append!(copy(actions), [a.name for a in edge.actions])))
             else
                 push!(paths, (edge, actions))
             end
@@ -159,7 +159,7 @@ function get_epsilon_paths(tops::Set{NFANode})
     return paths
 end
 
-function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Action}}})
+function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Symbol}}})
     all(actions == paths[1][2] for (n, actions) in paths) && return nothing
     for i in 1:length(paths) - 1
         edge1, actions1 = paths[i]
@@ -167,14 +167,13 @@ function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Action}
             edge2, actions2 = paths[j]
             # If either ends with EOF, they don't have same conditions and we can continue
             (edge1 === nothing) ⊻ (edge2 === nothing) && continue
+            actions1 == actions2 && continue
             eof = (edge1 === nothing) & (edge2 === nothing)
-            samebyte = eof || !isdisjoint(edge1.labels, edge2.labels)
-            if actions1 != actions2 && samebyte
-                byte = eof ? "EOF" : repr(first(intersect(edge1.labels, edge2.labels)))
-                a1 = isempty(actions1) ? "nothing" : [a.name for a in actions1]
-                a2 = isempty(actions2) ? "nothing" : [a.name for a in actions2]
-                error("Ambiguous DFA: Input $byte can lead to actions $a1 or $a2")
-            end
+            !(eof || overlaps(edge1, edge2)) && continue
+            byte = eof ? "EOF" : repr(first(intersect(edge1.labels, edge2.labels)))
+            a1 = isempty(actions1) ? "nothing" : actions1
+            a2 = isempty(actions2) ? "nothing" : actions2
+            error("Ambiguous DFA: Input $byte can lead to actions $a1 or $a2")
         end
     end
 end
@@ -262,7 +261,7 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
     for name in names
         sort!(pvs)
         fnd = findfirst(pv -> bitat(pv, left), pvs)
-        k = ifelse(fnd == nothing, 0, fnd) # TODO: See if there is a more elegant way of doing this.
+        k = ifelse(fnd === nothing, 0, fnd) # TODO: See if there is a more elegant way of doing this.
         if (k - 1) * 2 == length(pvs)
             redundant = true
             for i in 1:k-1
