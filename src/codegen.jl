@@ -106,7 +106,7 @@ Generate machine execution code with actions.
 function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # make actions
     if actions == nothing
-        actions = Dict{Symbol,Expr}()
+        actions = Dict{Symbol,Expr}(a => quote nothing end for a in action_names(machine))
     elseif actions == :debug
         actions = debug_actions(machine)
     elseif isa(actions, AbstractDict{Symbol,Expr})
@@ -477,7 +477,7 @@ function cleanup(ex::Expr)
     return Expr(ex.head, args...)
 end
 
-function debug_actions(machine::Machine)
+function action_names(machine::Machine)
     actions = Set{Symbol}()
     for s in traverse(machine.start)
         for (e, t) in s.edges
@@ -487,6 +487,11 @@ function debug_actions(machine::Machine)
     for as in values(machine.eof_actions)
         union!(actions, a.name for a in as)
     end
+    return actions
+end
+
+function debug_actions(machine::Machine)
+    actions = action_names(machine)
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))
     end
