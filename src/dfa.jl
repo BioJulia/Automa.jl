@@ -143,6 +143,7 @@ end
 function get_epsilon_paths(tops::Set{NFANode})
     paths = Tuple{Union{Nothing, Edge}, Vector{Symbol}}[]
     heads = [(node, Symbol[]) for node in tops]
+    visited = Set{NFANode}()
     while !isempty(heads)
         node, actions = pop!(heads)
         if iszero(length(node.edges))
@@ -150,11 +151,14 @@ function get_epsilon_paths(tops::Set{NFANode})
         end
         for (edge, child) in node.edges
             if iseps(edge)
-                push!(heads, (child, append!(copy(actions), [a.name for a in edge.actions])))
+                if !in(node, visited)
+                    push!(heads, (child, append!(copy(actions), [a.name for a in edge.actions])))
+                end
             else
                 push!(paths, (edge, actions))
             end
         end
+        push!(visited, node)
     end
     return paths
 end
