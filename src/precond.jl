@@ -34,9 +34,13 @@ function Precondition()
     return Precondition(Symbol[], Value[])
 end
 
+function Base.:(==)(p1::Precondition, p2::Precondition)
+    return p1.names == p2.names && p1.values == p2.values
+end
+
 function Base.getindex(precond::Precondition, name::Symbol)
     i = findfirst(n -> n == name, precond.names)
-    if i == 0
+    if i === nothing
         return BOTH
     else
         return precond.values[i]
@@ -46,7 +50,7 @@ end
 function Base.push!(precond::Precondition, kv::Pair{Symbol,Value})
     name, value = kv
     i = findfirst(n -> n == name, precond.names)
-    if i == nothing
+    if i === nothing
         push!(precond.names, name)
         push!(precond.values, value)
     else
