@@ -32,6 +32,52 @@ using Test
     @test_throws BoundsError mem[4]
 end
 
+@testset "SIMD" begin
+    for (vectype, flag) in [(Automa.v128, Automa.SSSE3), (Automa.v256, Automa.AVX2)]
+        flag || continue
+        # TODO: ADD SUPPORT FOR SSSE3
+        # # Just remove the next line! 
+        #
+        vectype == Automa.v128 && continue
+        #
+        #
+        #
+        function test_simd_function(f::Function, bs::Automa.ByteSet)
+            pass = true
+            for i in 0x00:0x0f
+                v = f(Automa.load_lut(vectype, collect((0x00:0x0f))) + (UInt8(i) * 0x10))
+                for j in 0x00:0x0f
+                    n = (0x10 * i) + j
+                    pass &= ((n in bs) == (v[j+1] == 0x00))
+                end
+            end
+            return pass
+        end
+
+        bs_same = Automa.ByteSet([0x07])
+        bs_not = ~bs_same
+        bs_nibble = Automa.ByteSet([0x02, 0x0a, 0x1b, 0x1c, 0x1d, 0x20, 0x7e])
+        bs_inv_nibble = ~bs_nibble
+        bs_range = Automa.ByteSet(0xa9:0xc1)
+        bs_inv_range = Automa.ByteSet([0x00:0x09; 0x4a:0xff])
+        bs_16 = Automa.ByteSet([0x45, 0x48, 0x49, 0x50, 0x55, 0x53])
+        bs_inv_ascii = Automa.ByteSet(rand(0x8a:0xf1, 50))
+        bs_ascii = Automa.ByteSet(rand(0x0a:0x61, 50))
+        bs_inv_128 = ~Automa.ByteSet(rand(0x31:0xa1, 50))
+        bs_128 = Automa.ByteSet(rand(0x31:0xa1, 50))
+        bs_8elem = Automa.ByteSet(rand(0x00:0xff, 8))
+        bs_generic = Automa.ByteSet(rand(0x00:0xff, 75))
+
+        for byteset in [bs_same, bs_not, bs_nibble, bs_inv_nibble, bs_range, bs_inv_range,
+            bs_16, bs_inv_ascii, bs_ascii, bs_inv_128, bs_128, bs_8elem, bs_generic]
+            @eval function test_byteset(x::$vectype)
+                $(Automa.gen_zero_code(vectype, :y, :x, byteset))
+            end
+            @test test_simd_function(test_byteset, byteset)
+        end
+    end
+end
+
 @testset "RegExp" begin
     @test_throws ArgumentError("invalid escape sequence: \\o") Automa.RegExp.parse("\\o")
 end

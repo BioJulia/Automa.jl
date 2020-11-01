@@ -2,6 +2,8 @@ module Automa
 
 using DataStructures: DefaultDict
 using Printf: @sprintf
+using SIMD
+using Libdl
 
 include("sdict.jl")
 include("sset.jl")
@@ -11,6 +13,7 @@ const Dict = StableDict
 const Set = StableSet
 
 include("byteset.jl")
+include("simd.jl")
 include("re.jl")
 include("precond.jl")
 include("action.jl")
