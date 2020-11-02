@@ -34,6 +34,10 @@ function Precondition()
     return Precondition(Symbol[], Value[])
 end
 
+function Base.:(==)(p1::Precondition, p2::Precondition)
+    return p1.names == p2.names && p1.values == p2.values
+end
+
 function Base.getindex(precond::Precondition, name::Symbol)
     i = findfirst(n -> n == name, precond.names)
     if i === nothing

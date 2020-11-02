@@ -26,7 +26,6 @@ end
 
 # Check if the DFA is really deterministic or not.
 function validate(dfa::DFA)
-    is_non_deterministic(e1, e2) = !(isdisjoint(e1.labels, e2.labels) || conflicts(e1.precond, e2.precond))
     for s in traverse(dfa.start)
         for i in 1:lastindex(s.edges), j in 1:i-1
             ei = s.edges[i][1]
@@ -328,7 +327,20 @@ function reduce_nodes(dfa::DFA)
             if !isvisited(T)
                 push!(unvisited, T)
             end
-            push!(s′.edges, (e, new(T)))
+
+            # Here, add the old edge to the new DFA. If an equivalent edge already
+            # exists, instead add the labels of the old edge to the existing one.
+            existing_edge = false
+            for (i, (e´, t´)) in enumerate(s′.edges)
+                if t´ == new(T) && e´.precond == e.precond && e´.actions == e.actions
+                    newlabels = union(e.labels, e´.labels)
+                    newedge = Edge(newlabels, e.precond, e.actions)
+                    s′.edges[i] = (newedge, t´)
+                    existing_edge = true
+                    break
+                end
+            end
+            existing_edge || push!(s′.edges, (e, new(T)))
         end
     end
     return DFA(start)
