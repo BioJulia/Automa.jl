@@ -389,6 +389,8 @@ function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{
     return :($(labelcode) && $(precondcode))
 end
 
+# Be careful trying to optimize this, LLVM creates insanely efficient code
+# using this. Be sure to benchmark any improvements
 function generate_membership_code(var::Symbol, set::ByteSet)
     min, max = minimum(set), maximum(set)
     @assert min isa UInt8 && max isa UInt8
@@ -399,15 +401,7 @@ function generate_membership_code(var::Symbol, set::ByteSet)
         else
             return :($(var) in $(min:max))
         end
-    elseif max - min + 1 ≤ 64 && all(b - min ≥ max for b in 0x00:0xff if b < min)
-        # storable in a 64-bit bitmap
-        bitmap = UInt64(0)
-        for x in set
-            bitmap |= UInt64(1) << (x - min)
-        end
-        return :(($(UInt64(1)) << ($(var) - $(min))) & $(bitmap) != 0)
     else
-        # fallback
         return foldr((range, cond) -> Expr(:||, :($(var) in $(range)), cond),
                      :(false),
                      sort(range_encode(set), by=length, rev=true))
