@@ -113,7 +113,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             else  # re.head == :diff
                 revoke = s -> f2 ∈ s.nfanodes
             end
-            nfa = dfa2nfa(revoke_finals(revoke, nfa2dfa(NFA(start_in, final_in))))
+            nfa = dfa2nfa(revoke_finals(revoke, nfa2dfa(NFA(start_in, final_in), false)))
             push!(start_in.edges, (Edge(eps), nfa.start))
             final_in = nfa.final
         else

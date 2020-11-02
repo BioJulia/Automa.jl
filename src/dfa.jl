@@ -38,7 +38,7 @@ function validate(dfa::DFA)
     end
 end
 
-function nfa2dfa(nfa::NFA)
+function nfa2dfa(nfa::NFA, unambiguous::Bool=true)
     newnodes = Dict{Set{NFANode},DFANode}()
     new(S) = get!(newnodes, S, DFANode(nfa.final ∈ S, S))
     isvisited(S) = haskey(newnodes, S)
@@ -97,6 +97,13 @@ function nfa2dfa(nfa::NFA)
             end
         end
     end
+    # Each key represents a set of NFANodes that collapses to one DFANode.
+    # If any set contain conflicting possible actions, raise an error.
+    if unambiguous
+        for nfaset in keys(newnodes)
+            validate_nfanodes(nfaset)
+        end
+    end
     return DFA(start)
 end
 
@@ -117,6 +124,79 @@ function epsilon_closure(nodes::Set{NFANode})
         end
     end
     return closure
+end
+
+"Find the nodes in this set where no other node in the set has an edge to it"
+function gettop(S::Set{NFANode})
+    top = copy(S)
+    for s in S
+        for (e, t) in s.edges
+            if iseps(e)
+                delete!(top, t)
+            end
+        end
+    end
+    return top
+end
+
+"Find paths from top nodes through epsilon edges, keeping track of actions taken."
+function get_epsilon_paths(tops::Set{NFANode})
+    paths = Tuple{Union{Nothing, Edge}, Vector{Symbol}}[]
+    heads = [(node, Symbol[]) for node in tops]
+    visited = Set{NFANode}()
+    while !isempty(heads)
+        node, actions = pop!(heads)
+        if iszero(length(node.edges))
+            push!(paths, (nothing, actions))
+        end
+        for (edge, child) in node.edges
+            if iseps(edge)
+                if !in(node, visited)
+                    push!(heads, (child, append!(copy(actions), [a.name for a in edge.actions])))
+                end
+            else
+                push!(paths, (edge, actions))
+            end
+        end
+        push!(visited, node)
+    end
+    return paths
+end
+
+function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, Vector{Symbol}}})
+    all(actions == paths[1][2] for (n, actions) in paths) && return nothing
+    for i in 1:length(paths) - 1
+        edge1, actions1 = paths[i]
+        for j in i+1:length(paths)
+            edge2, actions2 = paths[j]
+            # If either ends with EOF, they don't have same conditions and we can continue
+            (edge1 === nothing) ⊻ (edge2 === nothing) && continue
+            actions1 == actions2 && continue
+            eof = (edge1 === nothing) & (edge2 === nothing)
+            !(eof || overlaps(edge1, edge2)) && continue
+            byte = eof ? "EOF" : repr(first(intersect(edge1.labels, edge2.labels)))
+            a1 = isempty(actions1) ? "nothing" : actions1
+            a2 = isempty(actions2) ? "nothing" : actions2
+            error("Ambiguous DFA: Input $byte can lead to actions $a1 or $a2")
+        end
+    end
+end
+
+function validate_nfanodes(nodes::StableSet{NFANode})
+    # First get "tops", that's the starting epsilon nodes that cannot be
+    # reached by another epsilon node. All paths lead from those
+    tops = gettop(nodes)
+    
+    # Quick path: If only one path, everything is OK
+    length(tops) == 1 && all(length(node.edges) == 1 for node in nodes) && return nothing
+
+    # Now we transverse all possible epsilon-paths and keep track of the actions
+    # taken along the way
+    paths = get_epsilon_paths(tops)
+
+    # If any two paths have different actions, and can be reached with the same
+    # byte, the DFA's actions cannot be resolved, and we raise an error.
+    validate_paths(paths)
 end
 
 function disjoint_split(sets::Vector{ByteSet})
@@ -142,14 +222,7 @@ function disjoint_split(sets::Vector{ByteSet})
 end
 
 function accumulate_actions(S::Set{NFANode})
-    top = copy(S)
-    for s in S
-        for (e, t) in s.edges
-            if iseps(e)
-                delete!(top, t)
-            end
-        end
-    end
+    top = gettop(S)
     @assert !isempty(top)
     actions = Dict(s => ActionList() for s in S)
     visited = Set{NFANode}()
@@ -192,7 +265,7 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
     for name in names
         sort!(pvs)
         fnd = findfirst(pv -> bitat(pv, left), pvs)
-        k = ifelse(fnd == nothing, 0, fnd) # TODO: See if there is a more elegant way of doing this.
+        k = ifelse(fnd === nothing, 0, fnd) # TODO: See if there is a more elegant way of doing this.
         if (k - 1) * 2 == length(pvs)
             redundant = true
             for i in 1:k-1
