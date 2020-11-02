@@ -65,7 +65,8 @@ let
         T = NTuple{N, VecElement{UInt8}}
         ST = Vec{N, UInt8}
         instruction_set = N == 16 ? "ssse3" : "avx2"
-        intrinsic = "llvm.x86.$(instruction_set).pshuf.b"
+        instruction_tail = N == 16 ? ".128" : ""
+        intrinsic = "llvm.x86.$(instruction_set).pshuf.b$(instruction_tail)"
         vpcmpeqb_code = replace(vpcmpeqb_template, "<N x" => "<$(sizeof(T)) x")
 
         @eval @inline function vpcmpeqb(a::$ST, b::$ST)

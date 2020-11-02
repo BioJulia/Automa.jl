@@ -35,13 +35,7 @@ end
 @testset "SIMD" begin
     for (vectype, flag) in [(Automa.v128, Automa.SSSE3), (Automa.v256, Automa.AVX2)]
         flag || continue
-        # TODO: ADD SUPPORT FOR SSSE3
-        # # Just remove the next line! 
-        #
-        vectype == Automa.v128 && continue
-        #
-        #
-        #
+
         function test_simd_function(f::Function, bs::Automa.ByteSet)
             pass = true
             for i in 0x00:0x0f
