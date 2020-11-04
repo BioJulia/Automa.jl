@@ -299,7 +299,7 @@ function gen_zero_not(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
 end
 
 # TODO: Make something useful of this.
-function gen_zero_code(::Type{T}, ressym::Symbol, sym::Symbol, x::ByteSet) where {T <: BVec}
+function gen_zero_code(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
     if length(x) == 1
         expr = gen_zero_same(T, sym, x)
     elseif length(x) == 255
@@ -327,5 +327,5 @@ function gen_zero_code(::Type{T}, ressym::Symbol, sym::Symbol, x::ByteSet) where
     else
         expr = gen_zero_generic(T, sym, x)
     end
-    return :($ressym = $(expr))
+    return expr
 end

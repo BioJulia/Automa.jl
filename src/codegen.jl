@@ -71,6 +71,16 @@ function CodeGenContext(;
     elseif loopunroll > 0 && generator != :goto
         throw(ArgumentError("loop unrolling is not supported for $(generator)"))
     end
+    # special conditions for simd generator
+    if generator == :simd
+        if loopunroll != 0
+            throw(ArgumentError("SIMD generator does not support unrolling"))
+        elseif getbyte != Base.getindex
+            throw(ArgumentError("SIMD generator only support Base.getindex"))
+        elseif checkbounds
+            throw(ArgumentError("SIMD generator does not support boundscheck"))
+        end
+    end
     # check generator
     if generator == :table
         generator = generate_table_code
@@ -78,6 +88,8 @@ function CodeGenContext(;
         generator = generate_inline_code
     elseif generator == :goto
         generator = generate_goto_code
+    elseif generator == :simd
+        generator = generate_simd_code
     else
         throw(ArgumentError("invalid code generator: $(generator)"))
     end
@@ -299,6 +311,97 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
     end
 end
 
+function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
+    # Check for SIMD availability
+    if !(AVX2 | SSSE3)
+        throw(ArgumentError("CPU does not have SIMD (AVX2 or SSSE3+SSE2) instructions"))
+    end
+
+    ## SAME AS GOTO BEGIN
+    actions_in = Dict{Node,Set{Vector{Symbol}}}()
+    for s in traverse(machine.start), (e, t) in s.edges
+        push!(get!(actions_in, t, Set{Vector{Symbol}}()), action_names(e.actions))
+    end
+    action_label = Dict{Node,Dict{Vector{Symbol},Symbol}}()
+    for s in traverse(machine.start)
+        action_label[s] = Dict()
+        if haskey(actions_in, s)
+            for (i, names) in enumerate(actions_in[s])
+                action_label[s][names] = Symbol("state_", s.state, "_action_", i)
+            end
+        end
+    end
+
+    blocks = Expr[]
+    for s in traverse(machine.start)
+        block = Expr(:block)
+        for (names, label) in action_label[s]
+            if isempty(names)
+                continue
+            end
+            append_code!(block, quote
+                @label $(label)
+                $(rewrite_special_macros(ctx, generate_action_code(names, actions), false, s.state))
+                @goto $(Symbol("state_", s.state))
+            end)
+        end
+
+        append_code!(block, quote
+            @label $(Symbol("state_", s.state))
+            $(ctx.vars.p) += 1
+            if $(ctx.vars.p) > $(ctx.vars.p_end)
+                $(ctx.vars.cs) = $(s.state)
+                @goto exit
+            end
+        end)
+
+        ### END SAME
+        simd, non_simd = peel_simd_edge(s)
+        if simd !== nothing
+            append_code!(block, generate_simd_loop(ctx, simd))
+        end
+        
+        default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
+        dispatch_code = foldr(default, optimize_edge_order(non_simd)) do edge, els
+            e, t = edge
+            if isempty(e.actions)
+                then = :(@goto $(Symbol("state_", t.state)))
+            else
+                then = :(@goto $(action_label[t][action_names(e.actions)]))
+            end
+            return Expr(:if, generate_condition_code(ctx, e, actions), then, els)
+        end
+        # BEGIN SAME AGAIN
+        append_code!(block, quote
+            @label $(Symbol("state_case_", s.state))
+            $(generate_geybyte_code(ctx))
+            $(dispatch_code)
+        end)
+        push!(blocks, block)
+    end
+
+    enter_code = foldr(:(@goto exit), machine.states) do s, els
+        return Expr(:if, :($(ctx.vars.cs) == $(s)), :(@goto $(Symbol("state_case_", s))), els)
+    end
+
+    eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
+
+    return quote
+        if $(ctx.vars.p) > $(ctx.vars.p_end)
+            @goto exit
+        end
+        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
+        $(enter_code)
+        $(Expr(:block, blocks...))
+        @label exit
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
+            $(eof_action_code)
+            $(ctx.vars.cs) = 0
+        end
+    end
+end
+
+
 function append_code!(block::Expr, code::Expr)
     @assert block.head == :block
     @assert code.head == :block
@@ -336,6 +439,23 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
             $(body)
         end
         @goto $(Symbol("state_", t.state))
+    end
+end
+
+# Note: This function has been carefully crafted to produce (nearly) optimal
+# assembly code for AVX2-capable CPUs. Change with great care.
+function generate_simd_loop(ctx::CodeGenContext, edge::Edge)
+    bytesym, vsym = gensym(), gensym()
+    return quote
+        while true
+            $bytesym = Automa.loadvector($DEFVEC, $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1)
+            $vsym = $(gen_zero_code(DEFVEC, bytesym, edge.labels))
+            if !Automa.haszerolayout($vsym) || $(ctx.vars.p) > $(ctx.vars.p_end) - $(sizeof(DEFVEC))
+                $(ctx.vars.p) = min($(ctx.vars.p_end) + 1, $(ctx.vars.p) + Automa.leading_zero_bytes($vsym))
+                break
+            end
+            $(ctx.vars.p) += $(sizeof(DEFVEC))
+        end
     end
 end
 
@@ -491,6 +611,21 @@ function debug_actions(machine::Machine)
     end
     return Dict{Symbol,Expr}(name => log_expr(name) for name in actions)
 end
+
+"If possible, remove self-simd edge."
+function peel_simd_edge(node)
+    non_simd = Tuple{Edge, Node}[]
+    simd = nothing
+    for (e, t) in node.edges
+        if t === node && isempty(e.actions) && isempty(e.precond)
+            simd = e
+        else
+            push!(non_simd, (e, t))
+        end
+    end
+    return simd, non_simd
+end
+    
 
 # Sort edges by its size in descending order.
 function optimize_edge_order(edges)
