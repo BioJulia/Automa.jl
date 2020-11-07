@@ -357,10 +357,18 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
 
         ### END SAME
         simd, non_simd = peel_simd_edge(s)
-        if simd !== nothing
-            append_code!(block, generate_simd_loop(ctx, simd))
+        simd_code = if simd !== nothing
+            quote
+                $(generate_simd_loop(ctx, simd.labels))
+                if $(ctx.vars.p) > $(ctx.vars.p_end)
+                    $(ctx.vars.cs) = $(s.state)
+                    @goto exit
+                end
+            end
+        else
+            :()
         end
-        
+            
         default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
         dispatch_code = foldr(default, optimize_edge_order(non_simd)) do edge, els
             e, t = edge
@@ -374,6 +382,7 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         # BEGIN SAME AGAIN
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
+            $(simd_code)
             $(generate_geybyte_code(ctx))
             $(dispatch_code)
         end)
@@ -444,12 +453,12 @@ end
 
 # Note: This function has been carefully crafted to produce (nearly) optimal
 # assembly code for AVX2-capable CPUs. Change with great care.
-function generate_simd_loop(ctx::CodeGenContext, edge::Edge)
+function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
     bytesym, vsym = gensym(), gensym()
     return quote
         while true
             $bytesym = Automa.loadvector($DEFVEC, $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1)
-            $vsym = $(gen_zero_code(DEFVEC, bytesym, edge.labels))
+            $vsym = $(gen_zero_code(DEFVEC, bytesym, bs))
             if !Automa.haszerolayout($vsym) || $(ctx.vars.p) > $(ctx.vars.p_end) - $(sizeof(DEFVEC))
                 $(ctx.vars.p) = min($(ctx.vars.p_end) + 1, $(ctx.vars.p) + Automa.leading_zero_bytes($vsym))
                 break

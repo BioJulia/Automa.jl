@@ -65,7 +65,7 @@ end
         for byteset in [bs_same, bs_not, bs_nibble, bs_inv_nibble, bs_range, bs_inv_range,
             bs_16, bs_inv_ascii, bs_ascii, bs_inv_128, bs_128, bs_8elem, bs_generic]
             @eval function test_byteset(x::$vectype)
-                $(Automa.gen_zero_code(vectype, :y, :x, byteset))
+                $(Automa.gen_zero_code(vectype, :x, byteset))
             end
             @test test_simd_function(test_byteset, byteset)
         end
