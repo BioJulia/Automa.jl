@@ -174,7 +174,7 @@ machine = let
     alphanum = re"[A-Za-z0-9]+"
     alphanum.actions[:enter] = [:start_alphanum]
     alphanum.actions[:exit]  = [:end_alphanum]
-    whitespace = re"[ \t\r\n]*"
+    whitespace = re"[ \t\r\n\f]*"
     Automa.compile(whitespace * alphanum * whitespace)
 end
 actions = Dict(
