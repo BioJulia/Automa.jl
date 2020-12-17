@@ -61,6 +61,13 @@ let
     %resb = sext <N x i1> %res to <N x i8>
     ret <N x i8> %resb
     """
+
+    zero_template = """%cast = bitcast <BYTES x i8> %0 to iBITS
+    %bl = icmp eq iBITS %cast, 0
+    %res = zext i1 %bl to i8
+    ret i8 %res
+    """
+    
     for N in (16, 32)
         T = NTuple{N, VecElement{UInt8}}
         ST = Vec{N, UInt8}
@@ -68,6 +75,11 @@ let
         instruction_tail = N == 16 ? ".128" : ""
         intrinsic = "llvm.x86.$(instruction_set).pshuf.b$(instruction_tail)"
         vpcmpeqb_code = replace(vpcmpeqb_template, "<N x" => "<$(sizeof(T)) x")
+        zero_code = replace(replace(zero_template, "BYTES"=>string(N)), "BITS"=>string(8*N))
+
+        @eval @inline function haszerolayout(x::$ST)
+            Base.llvmcall($zero_code, Bool, Tuple{$T}, x.data)
+        end
 
         @eval @inline function vpcmpeqb(a::$ST, b::$ST)
             $(ST)(Base.llvmcall($vpcmpeqb_code, $T, Tuple{$T, $T}, a.data, b.data))
@@ -105,16 +117,6 @@ end
         n += 1
     end
     return n
-end
-
-@inline function haszerolayout(x::v128)
-    return iszero(unsafe_load(Ptr{UInt128}(pointer_from_objref(Ref(x)))))
-end
-
-@inline function haszerolayout(x::v256)
-    lower = iszero(unsafe_load(Ptr{UInt128}(pointer_from_objref(Ref(x))), 1))
-    upper = iszero(unsafe_load(Ptr{UInt128}(pointer_from_objref(Ref(x))), 2))
-    return lower & upper
 end
 
 @inline function loadvector(::Type{T}, p::Ptr) where {T <: BVec}
