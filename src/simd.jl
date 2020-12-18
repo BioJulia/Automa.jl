@@ -49,12 +49,6 @@ See also: [`vpcmpeqb`](@ref)
 function vec_uge end
 
 let
-    zero_template = """%cast = bitcast <BYTES x i8> %0 to iBITS
-    %bl = icmp eq iBITS %cast, 0
-    %res = zext i1 %bl to i8
-    ret i8 %res
-    """
-    
     # icmp eq instruction yields bool (i1) values. We extend with sext to 0x00/0xff.
     # since that's the native output of vcmpeqb instruction, LLVM will optimize it
     # to just that.
@@ -67,6 +61,13 @@ let
     %resb = sext <N x i1> %res to <N x i8>
     ret <N x i8> %resb
     """
+
+    zero_template = """%cast = bitcast <BYTES x i8> %0 to iBITS
+    %bl = icmp eq iBITS %cast, 0
+    %res = zext i1 %bl to i8
+    ret i8 %res
+    """
+    
     for N in (16, 32)
         T = NTuple{N, VecElement{UInt8}}
         ST = Vec{N, UInt8}
