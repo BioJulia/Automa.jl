@@ -32,7 +32,7 @@ using Test
     @test_throws BoundsError mem[4]
 end
 
-@testset "SIMD" begin
+@testset "SIMD primitives" begin
     for (vectype, flag) in [(Automa.v128, Automa.SSSE3), (Automa.v256, Automa.AVX2)]
         flag || continue
 
@@ -54,7 +54,7 @@ end
         bs_inv_nibble = ~bs_nibble
         bs_range = Automa.ByteSet(0xa9:0xc1)
         bs_inv_range = Automa.ByteSet([0x00:0x09; 0x4a:0xff])
-        bs_16 = Automa.ByteSet([0x45, 0x48, 0x49, 0x50, 0x55, 0x53])
+        bs_16 = Automa.ByteSet([0x45, 0x48, 0x49, 0x50, 0x54, 0x53])
         bs_inv_ascii = Automa.ByteSet(rand(0x8a:0xf1, 50))
         bs_ascii = Automa.ByteSet(rand(0x0a:0x61, 50))
         bs_inv_128 = ~Automa.ByteSet(rand(0x31:0xa1, 50))
@@ -69,6 +69,26 @@ end
             end
             @test test_simd_function(test_byteset, byteset)
         end
+    end
+end
+
+@testset "SIMD loop" begin
+    ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+    bytes = [0x00:0x09; 0x4a:0xff]
+    @eval function test_simd_loop(v::Vector{UInt8}, badindex::Int)
+        p_end = p_eof = lastindex(v)
+        p = 1
+        $(ctx.vars.mem) = Automa.SizedMemory(v)
+        $(Automa.generate_simd_loop(ctx, Automa.ByteSet(bytes)))
+        @test p == badindex
+    end
+
+    v = rand(bytes, 1000)
+    test_simd_loop(v, length(v) + 1)
+    for i in [2, 12, 63, 411, 998]
+        v[i] = 0x0a
+        test_simd_loop(v, i)
+        v[i] = 0x00
     end
 end
 

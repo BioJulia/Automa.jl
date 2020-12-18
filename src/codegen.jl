@@ -80,6 +80,13 @@ function CodeGenContext(;
         elseif checkbounds
             throw(ArgumentError("SIMD generator does not support boundscheck"))
         end
+
+        # Check if SIMD is supported
+        if !(SSSE | AVX2)
+            @warn "SIMD capabilities not detected, defaulting to GOTO generator"
+            return CodeGenContext(;vars=vars, generator=:goto, checkbounds=checkbounds,
+            loopunroll=loopunroll, getbyte=getbyte, clean=clean)
+        end
     end
     # check generator
     if generator == :table
