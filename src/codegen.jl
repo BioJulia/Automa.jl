@@ -82,7 +82,7 @@ function CodeGenContext(;
         end
 
         # Check if SIMD is supported
-        if !(SSSE | AVX2)
+        if !(SSSE3 | AVX2)
             @warn "SIMD capabilities not detected, defaulting to GOTO generator"
             return CodeGenContext(;vars=vars, generator=:goto, checkbounds=checkbounds,
             loopunroll=loopunroll, getbyte=getbyte, clean=clean)

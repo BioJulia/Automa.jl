@@ -160,13 +160,6 @@ end
     return vpcmpeqb(shifted, mask & shifted)
 end
 
-# Here's one where they're 16 apart at most.
-@inline function zerovec_16(x::T, lut::T, offset::UInt8) where {T <: BVec}
-    y = x - offset
-    lower = vpshufb(lut, y & 0b00001111)
-    return lower | (y & 0b11110000) 
-end
-
 # One where it's a single range. After subtracting low, all values below end
 # up above due to overflow and we can simply do a single ge check
 @inline function zerovec_range(x::BVec, low::UInt8, len::UInt8)
@@ -228,15 +221,6 @@ function elem8_luts(::Type{T}, byteset::ByteSet) where {T <: BVec}
     return load_lut(T, allowed_mask), load_lut(T, bitindices)
 end
 
-function within16_lut(::Type{T}, byteset::ByteSet) where {T <: BVec}
-    offset = minimum(byteset)
-    lut = fill(0x01, 16)
-    for byte in byteset
-        lut[(byte - offset) + 1] = 0x00
-    end
-    return load_lut(T, lut)
-end
-
 function unique_lut(::Type{T}, byteset::ByteSet, invert::Bool) where {T <: BVec}
     # The default, unset value of the vector v must be one where v[x & 0x0f + 1] ⊻ x
     # is never accidentally zero.
@@ -270,11 +254,6 @@ function gen_zero_128(::Type{T}, sym::Symbol, x::ByteSet, ascii::Bool, inverted:
     end
     lut = generic_luts(T, x, offset, invert)[1]
     return :(Automa.zerovec_128($sym, $lut, $offset, $f))
-end
-
-function gen_zero_16(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
-    lut = within16_lut(T, x)
-    return :(Automa.zerovec_16($sym, $lut, $(minimum(x))))
 end
 
 function gen_zero_range(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
@@ -319,8 +298,6 @@ function gen_zero_code(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
         expr = gen_zero_range(T, sym, x)
     elseif iscontiguous(~x)
         expr = gen_zero_inv_range(T, sym, x)
-    elseif maximum(x) - minimum(x) < 16
-        expr = gen_zero_16(T, sym, x)
     elseif minimum(x) > 127
         expr = gen_zero_128(T, sym, x, true, true)
     elseif maximum(x) < 128

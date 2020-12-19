@@ -54,7 +54,6 @@ end
         bs_inv_nibble = ~bs_nibble
         bs_range = Automa.ByteSet(0xa9:0xc1)
         bs_inv_range = Automa.ByteSet([0x00:0x09; 0x4a:0xff])
-        bs_16 = Automa.ByteSet([0x45, 0x48, 0x49, 0x50, 0x54, 0x53])
         bs_inv_ascii = Automa.ByteSet(rand(0x8a:0xf1, 50))
         bs_ascii = Automa.ByteSet(rand(0x0a:0x61, 50))
         bs_inv_128 = ~Automa.ByteSet(rand(0x31:0xa1, 50))
@@ -63,7 +62,7 @@ end
         bs_generic = Automa.ByteSet(rand(0x00:0xff, 75))
 
         for byteset in [bs_same, bs_not, bs_nibble, bs_inv_nibble, bs_range, bs_inv_range,
-            bs_16, bs_inv_ascii, bs_ascii, bs_inv_128, bs_128, bs_8elem, bs_generic]
+            bs_inv_ascii, bs_ascii, bs_inv_128, bs_128, bs_8elem, bs_generic]
             @eval function test_byteset(x::$vectype)
                 $(Automa.gen_zero_code(vectype, :x, byteset))
             end
@@ -138,6 +137,7 @@ include("test16.jl")
 include("test17.jl")
 include("test18.jl")
 include("test19.jl")
+include("simd.jl")
 
 module TestFASTA
 using Test
