@@ -32,6 +32,13 @@ using Test
     @test_throws BoundsError mem[4]
 end
 
+@testset "ByteSet" begin
+    x = Automa.ByteSet()
+    @test isempty(x)
+    @test_throws ArgumentError minimum(x)
+    @test_throws ArgumentError maximum(x)
+end
+
 @testset "SIMD primitives" begin
     for (vectype, flag) in [(Automa.v128, Automa.SSSE3), (Automa.v256, Automa.AVX2)]
         flag || continue
@@ -68,6 +75,12 @@ end
             end
             @test test_simd_function(test_byteset, byteset)
         end
+    end
+
+    # Test leading_zero_bytes
+    for m in [0, 4, 7, 16]
+        tp = ntuple(i -> VecElement{UInt8}(i > m), 16)
+        @test m == Automa.leading_zero_bytes(Automa.v128(tp))
     end
 end
 
