@@ -62,12 +62,6 @@ let
     ret <N x i8> %resb
     """
 
-    zero_template = """%cast = bitcast <BYTES x i8> %0 to iBITS
-    %bl = icmp eq iBITS %cast, 0
-    %res = zext i1 %bl to i8
-    ret i8 %res
-    """
-    
     for N in (16, 32)
         T = NTuple{N, VecElement{UInt8}}
         ST = Vec{N, UInt8}
@@ -75,11 +69,6 @@ let
         instruction_tail = N == 16 ? ".128" : ""
         intrinsic = "llvm.x86.$(instruction_set).pshuf.b$(instruction_tail)"
         vpcmpeqb_code = replace(vpcmpeqb_template, "<N x" => "<$(sizeof(T)) x")
-        zero_code = replace(replace(zero_template, "BYTES"=>string(N)), "BITS"=>string(8*N))
-
-        @eval @inline function haszerolayout(x::$ST)
-            Base.llvmcall($zero_code, Bool, Tuple{$T}, x.data)
-        end
 
         @eval @inline function vpcmpeqb(a::$ST, b::$ST)
             $(ST)(Base.llvmcall($vpcmpeqb_code, $T, Tuple{$T, $T}, a.data, b.data))
@@ -97,6 +86,22 @@ let
             $(ST)(Base.llvmcall($uge_code, $T, Tuple{$T, $T}, a.data, b.data))
         end
     end
+end
+
+# This assembly is quite roundabout, but somehow a direct icmp of a 256-bit
+# vector bitcast to i256 to 0 compiles inefficiently when put within a loop.
+# Maybe change this in the future if LLVM starts behaving itself.
+@inline @generated function haszerolayout(v::BVec)
+    W = sizeof(v)
+    str = """%integers = bitcast <$W x i8> %0 to <2 x i$(4W)>
+    %extract0 = extractelement <2 x i$(4W)> %integers, i32 0
+    %extract1 = extractelement <2 x i$(4W)> %integers, i32 1
+    %orres = or i$(4W) %extract0, %extract1
+    %comparison = icmp eq i$(4W) %orres, 0
+    %bool = zext i1 %comparison to i8
+    ret i8 %bool"""
+    Expr(:block, Expr(:meta,:inline), Expr(:call, :(Base.llvmcall), str, :Bool,
+        :(Tuple{NTuple{$W,Core.VecElement{UInt8}}}), :(v.data)))
 end
 
 @inline function leading_zero_bytes(v::v256)
