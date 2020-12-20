@@ -463,15 +463,15 @@ end
 function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
     bytesym, vsym = gensym(), gensym()
     return quote
+        local $vsym
         while true
             $bytesym = Automa.loadvector($DEFVEC, $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1)
             $vsym = $(gen_zero_code(DEFVEC, bytesym, bs))
-            if !Automa.haszerolayout($vsym) || $(ctx.vars.p) > $(ctx.vars.p_end) - $(sizeof(DEFVEC))
-                $(ctx.vars.p) = min($(ctx.vars.p_end) + 1, $(ctx.vars.p) + Automa.leading_zero_bytes($vsym))
-                break
-            end
+            Automa.haszerolayout($vsym) || break
             $(ctx.vars.p) += $(sizeof(DEFVEC))
+            $(ctx.vars.p) > $(ctx.vars.p_end) && break
         end
+        $(ctx.vars.p) = min($(ctx.vars.p_end) + 1, $(ctx.vars.p) + Automa.leading_zero_bytes($vsym))
     end
 end
 
