@@ -119,6 +119,9 @@ function Base.maximum(set::ByteSet)
     end
 end
 
+Base.:~(x::ByteSet) = ByteSet(~x.a, ~x.b, ~x.c, ~x.d)
+iscontiguous(x::ByteSet) = maximum(x) - minimum(x) == length(x) - 1
+
 function isdisjoint(s1::ByteSet, s2::ByteSet)
     return isempty(intersect(s1, s2))
 end

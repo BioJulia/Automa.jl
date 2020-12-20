@@ -1,3 +1,13 @@
+# The overall goal of the code in this file is to create code which can
+# use SIMD to find the first byte in a bytevector not contained in a ByteSet.
+# This allows Automa to quickly skip through the loop that occurs in e.g. the
+# regex "[a-z]+", where you just need to get to the end of it.
+# The code proceeds in the following steps in a loop:
+# * load 16 (SSSE3) or 32 (AVX2) bytes at a time to a SIMD vector V
+# * Use zerovec_* function to zero out all bytes which are in the byteset
+# * Use haszerolayout to check if all bytes are zero. If so, skip 16/32 bytes.
+# * Else, use leading_zero_bytes to skip that amount ahead.
+
 const v256 = Vec{32, UInt8}
 const v128 = Vec{16, UInt8}
 const BVec = Union{v128, v256}
@@ -14,9 +24,12 @@ let
     features_cstring = ccall(gethostcpufeatures, Cstring, ())
     features = split(unsafe_string(features_cstring), ',')
     Libc.free(features_cstring)
-    # Need both SSE2 and SSSE3
+
+    # Need both SSE2 and SSSE3 to process v128 vectors.
     @eval const SSSE3 = $(any(isequal("+ssse3"), features) & any(isequal("+sse2"), features))
     @eval const AVX2 = $(any(isequal("+avx2"), features))
+
+    # Prefer 32-byte vectors because larger vectors = higher speed
     @eval const DEFVEC = AVX2 ? v256 : v128
 end
 
@@ -48,6 +61,7 @@ See also: [`vpcmpeqb`](@ref)
 """
 function vec_uge end
 
+# In this statement, define some functions for either 16-byte or 32-byte vectors
 let
     # icmp eq instruction yields bool (i1) values. We extend with sext to 0x00/0xff.
     # since that's the native output of vcmpeqb instruction, LLVM will optimize it
@@ -88,6 +102,13 @@ let
     end
 end
 
+"""
+    haszerolayout(x::BVec) -> Bool
+
+Test if the vector consists of all zeros.
+"""
+function haszerolayout end
+
 # This assembly is horribly roundabout, because it's REALLY hard to get
 # LLVM to reliably emit a vptest instruction here, so I have to hardcode the
 # instrinsic in. Ideally, it could just be a Julia === check against
@@ -107,7 +128,12 @@ function haszerolayout(v::v128)
     GC.@preserve ref iszero(unsafe_load(Ptr{UInt128}(pointer_from_objref(ref))))
 end
 
+"Count the number of 0x00 bytes in a vector"
 @inline function leading_zero_bytes(v::v256)
+    # First compare to zero to get vector of 0xff where is zero, else 0x00
+    # Then use vpcmpeqb to extract top bits of each byte to a single UInt32,
+    # which is a bitvector, where the 1's were 0x00 in the original vector
+    # Then use trailing/leading ones to count the number
     eqzero = vpcmpeqb(v, _ZERO_v256).data
     packed = ccall("llvm.x86.avx2.pmovmskb", llvmcall, UInt32, (NTuple{32, VecElement{UInt8}},), eqzero)
     @static if ENDIAN_BOM == 0x04030201
@@ -131,12 +157,24 @@ end
     unsafe_load(Ptr{T}(p))
 end
 
-# We have this to keep the same constant mask in memory.
+# We have this as a separate function to keep the same constant mask in memory.
 @inline shrl4(x) = x >>> 0x04
 
-Base.:~(x::ByteSet) = ByteSet(~x.a, ~x.b, ~x.c, ~x.d)
-iscontiguous(x::ByteSet) = maximum(x) - minimum(x) == length(x) - 1
+### ---- ZEROVEC_ FUNCTIONS
+# The zerovec functions takes a single vector x of type BVec, and some more arguments
+# which are supposed to be constant folded. The constant folded arguments are computed
+# using a ByteSet. The resulting zerovec code will highly efficiently zero out the
+# bytes which are contained in the original byteset.
 
+# This is the generic fallback. For each of the 16 possible values of the lower 4
+# bytes, we use vpshufb to get a byte B. That byte encodes which of the 8 values of
+# H = bits 5-7 of the input bytes are not allowed. Let's say the byte is 0b11010011.
+# Then values 3, 4, 6 are allowed. So we compute if B & (0x01 << H), that will be
+# zero only if the byte is allowed.
+# For the highest 8th bit, we exploit the fact that if that bit is set, vpshufb
+# always returns 0x00. So either `upper` or `lower` will be 0x00, and we can or it
+# together to get a combined table.
+# See also http://0x80.pl/articles/simd-byte-lookup.html for explanation.
 @inline function zerovec_generic(x::T, topzero::T, topone::T) where {T <: BVec}
     lower = vpshufb(topzero, x)
     upper = vpshufb(topone, x ⊻ 0b10000000)
@@ -144,18 +182,20 @@ iscontiguous(x::ByteSet) = maximum(x) - minimum(x) == length(x) - 1
     return bitmap & bitshift_ones(shrl4(x))
 end
 
-# If all values are within 128 of each other. We set offset to downshift values
-# to 0x00:0x7f. If invert is set, this yields a vector of zeros if none of the inputs
-# are within the shifted 0x00:0x7f range.
-# If not inverted, all inputs with top bit will be set to 0x00, and then inv'd to 0xff.
-# This will cause all shifts to fail.
-# If inverted and ascii, we set offset to 0x80
+# Essentially like above, except in the special case of all accepted values being
+# within 128 of each other, we can shift the acceptable values down in 0x00:0x7f,
+# and then only use one table. if f == ~, and input top bit is set, the bitmap
+# will be 0xff, and it will fail no matter the shift.
+# By changing the offset and/or setting f == identity, this function can also cover
+# cases where all REJECTED values are within 128 of each other.
 @inline function zerovec_128(x::T, lut::T, offset::UInt8, f::Function) where {T <: BVec}
     y = x - offset
     bitmap = f(vpshufb(lut, y))
     return bitmap & bitshift_ones(shrl4(y))
 end
 
+# If there are only 8 accepted elements, we use a vpshufb to get the bitmask
+# of the accepted top 4 bits directly.
 @inline function zerovec_8elem(x::T, lut1::T, lut2::T) where {T <: BVec}
     # Get a 8-bit bitarray of the possible ones
     mask = vpshufb(lut1, x & 0b00001111)
@@ -163,8 +203,8 @@ end
     return vpcmpeqb(shifted, mask & shifted)
 end
 
-# One where it's a single range. After subtracting low, all values below end
-# up above due to overflow and we can simply do a single ge check
+# One where it's a single range. After subtracting low, all accepted values end
+# up in 0x00:len-1, and so a >= (aka. uge) check will zero out accepted bytes.
 @inline function zerovec_range(x::BVec, low::UInt8, len::UInt8)
     vec_uge((x - low), typeof(x)(len))
 end
@@ -184,7 +224,7 @@ end
     return x ⊻ vpshufb(lut, x & mask)
 end
 
-# Simplest of all!
+# Simplest of all - and fastest!
 @inline zerovec_not(x::BVec, y::UInt8) = vpcmpeqb(x, typeof(x)(y))
 @inline zerovec_same(x::BVec, y::UInt8) = x ⊻ y
 
@@ -193,6 +233,7 @@ function load_lut(::Type{T}, v::Vector{UInt8}) where {T <: BVec}
     return unsafe_load(Ptr{T}(pointer(v)))
 end  
 
+# Compute the table (aka. LUT) used to generate the bitmap in zerovec_generic.
 function generic_luts(::Type{T}, byteset::ByteSet, offset::UInt8, invert::Bool) where {
     T <: BVec}
     # If ascii, we set each allowed bit, but invert after vpshufb. Hence, if top bit
@@ -213,6 +254,7 @@ function generic_luts(::Type{T}, byteset::ByteSet, offset::UInt8, invert::Bool) 
     return load_lut(T, topzero), load_lut(T, topone)
 end
 
+# Compute the LUT for use in zerovec_8elem.
 function elem8_luts(::Type{T}, byteset::ByteSet) where {T <: BVec}
     allowed_mask = fill(0xff, 16)
     bitindices = fill(0x00, 16)
@@ -224,6 +266,7 @@ function elem8_luts(::Type{T}, byteset::ByteSet) where {T <: BVec}
     return load_lut(T, allowed_mask), load_lut(T, bitindices)
 end
 
+# Compute LUT for zerovec_unique_nibble.
 function unique_lut(::Type{T}, byteset::ByteSet, invert::Bool) where {T <: BVec}
     # The default, unset value of the vector v must be one where v[x & 0x0f + 1] ⊻ x
     # is never accidentally zero.
@@ -234,7 +277,11 @@ function unique_lut(::Type{T}, byteset::ByteSet, invert::Bool) where {T <: BVec}
     return load_lut(T, allowed)
 end 
 
-########## Testing code below
+### ---- GEN_ZERO_ FUNCTIONS
+# These will take a symbol sym and a byteset x. They will then compute all the
+# relevant values for use in the zerovec_* functions, and produce code that
+# will zero out the accepted bytes. Notably, the calculated values will all
+# be compile-time constants, EXCEPT the symbol, which represents the input vector.
 function gen_zero_generic(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
     lut1, lut2 = generic_luts(T, x, 0x00, true)
     return :(Automa.zerovec_generic($sym, $lut1, $lut2))
@@ -287,7 +334,11 @@ function gen_zero_not(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
     :(Automa.zerovec_not($sym, $(minimum(~x))))
 end
 
-# TODO: Make something useful of this.
+### ----- GEN ZERO CODE
+# This is the main function of this file. Given a BVec type T and a byteset B,
+# it will produce the most optimal code which will zero out all bytes in input
+# vector of type T, which are present in B. This function tests for the most
+# efficient special cases, in order, until finally defaulting to generics.
 function gen_zero_code(::Type{T}, sym::Symbol, x::ByteSet) where {T <: BVec}
     if length(x) == 1
         expr = gen_zero_same(T, sym, x)
