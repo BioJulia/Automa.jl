@@ -88,20 +88,23 @@ let
     end
 end
 
-# This assembly is quite roundabout, but somehow a direct icmp of a 256-bit
-# vector bitcast to i256 to 0 compiles inefficiently when put within a loop.
-# Maybe change this in the future if LLVM starts behaving itself.
-@inline @generated function haszerolayout(v::BVec)
-    W = sizeof(v)
-    str = """%integers = bitcast <$W x i8> %0 to <2 x i$(4W)>
-    %extract0 = extractelement <2 x i$(4W)> %integers, i32 0
-    %extract1 = extractelement <2 x i$(4W)> %integers, i32 1
-    %orres = or i$(4W) %extract0, %extract1
-    %comparison = icmp eq i$(4W) %orres, 0
-    %bool = zext i1 %comparison to i8
-    ret i8 %bool"""
-    Expr(:block, Expr(:meta,:inline), Expr(:call, :(Base.llvmcall), str, :Bool,
-        :(Tuple{NTuple{$W,Core.VecElement{UInt8}}}), :(v.data)))
+# This assembly is horribly roundabout, because it's REALLY hard to get
+# LLVM to reliably emit a vptest instruction here, so I have to hardcode the
+# instrinsic in. Ideally, it could just be a Julia === check against
+# _ZERO_v256, but no can do for LLVM.
+function haszerolayout(v::v256)
+    T64 = NTuple{4, VecElement{UInt64}}
+    T8 = NTuple{32, VecElement{UInt8}}
+    t64 = Base.llvmcall("%res = bitcast <32 x i8> %0 to <4 x i64>
+    ret <4 x i64> %res", T64, Tuple{T8}, v.data)
+    cmp = ccall("llvm.x86.avx.ptestz.256", llvmcall, UInt32,
+    (NTuple{4, VecElement{UInt64}}, NTuple{4, VecElement{UInt64}}), t64, t64)
+    return cmp == 1
+end
+
+function haszerolayout(v::v128)
+    ref = Ref(v.data)
+    GC.@preserve ref iszero(unsafe_load(Ptr{UInt128}(pointer_from_objref(ref))))
 end
 
 @inline function leading_zero_bytes(v::v256)
