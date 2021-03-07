@@ -5,9 +5,8 @@ version = "0.8.0"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
+ScanByte = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 
 [extras]

@@ -29,6 +29,8 @@ function ByteSet(bytes::Union{UInt8,AbstractVector{UInt8},Set{UInt8}})
     return ByteSet(a, b, c, d)
 end
 
+ByteSet(x::ScanByte.ByteSet) = ByteSet(x.data...)
+
 function Base.:(==)(s1::ByteSet, s2::ByteSet)
     return s1.a == s2.a && s1.b == s2.b && s1.c == s2.c && s1.d == s2.d
 end

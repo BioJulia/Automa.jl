@@ -80,13 +80,6 @@ function CodeGenContext(;
         elseif checkbounds
             throw(ArgumentError("SIMD generator does not support boundscheck"))
         end
-
-        # Check if SIMD is supported
-        if !(SSSE3 | AVX2)
-            @warn "SIMD capabilities not detected, defaulting to GOTO generator"
-            return CodeGenContext(;vars=vars, generator=:goto, checkbounds=checkbounds,
-            loopunroll=loopunroll, getbyte=getbyte, clean=clean)
-        end
     end
     # check generator
     if generator == :table
@@ -319,11 +312,6 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
 end
 
 function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
-    # Check for SIMD availability
-    if !(AVX2 | SSSE3)
-        throw(ArgumentError("CPU does not have SIMD (AVX2 or SSSE3+SSE2) instructions"))
-    end
-
     ## SAME AS GOTO BEGIN
     actions_in = Dict{Node,Set{Vector{Symbol}}}()
     for s in traverse(machine.start), (e, t) in s.edges
@@ -461,18 +449,24 @@ end
 # Note: This function has been carefully crafted to produce (nearly) optimal
 # assembly code for AVX2-capable CPUs. Change with great care.
 function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
-    bytesym, vsym = gensym(), gensym()
-    return quote
-        local $vsym
-        while true
-            $bytesym = Automa.loadvector($DEFVEC, $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1)
-            $vsym = $(gen_zero_code(DEFVEC, bytesym, bs))
-            Automa.haszerolayout($vsym) || break
-            $(ctx.vars.p) += $(sizeof(DEFVEC))
-            $(ctx.vars.p) > $(ctx.vars.p_end) && break
+    byteset = ~ScanByte.ByteSet(bs)
+    bsym = gensym()
+    quote
+        $bsym = Automa.loop_simd(
+            $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1,
+            ($(ctx.vars.p_end) - $(ctx.vars.p) + 1) % UInt,
+            Val($byteset)
+        )
+        $(ctx.vars.p) = if $bsym === nothing
+            $(ctx.vars.p_end) + 1
+        else
+            $(ctx.vars.p) + $bsym - 1
         end
-        $(ctx.vars.p) = min($(ctx.vars.p_end) + 1, $(ctx.vars.p) + Automa.leading_zero_bytes($vsym))
     end
+end
+
+@inline function loop_simd(ptr::Ptr, len::UInt, valbs::Val)
+    ScanByte.memchr(ptr, len, valbs)
 end
 
 function generate_eof_action_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
