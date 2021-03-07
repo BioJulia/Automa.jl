@@ -278,6 +278,8 @@ function unescape(str::String, s::Int)
         return '\v', s
     elseif c == 'r'
         return '\r', s
+    elseif c == 'f'
+        return '\f', s
     elseif c == '0'
         return '\0', s
     elseif c ∈ METACHAR
