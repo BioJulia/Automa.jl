@@ -24,7 +24,7 @@ function debug_machine(machine::Automa.Machine)
     )
 end
 
-function create_debug_code(machine::Automa.Machine, ascii=false,
+function create_debug_code(machine::Automa.Machine; ascii::Bool=false,
     ctx::Union{Automa.CodeGenContext, Nothing}=nothing
 )
     ctx = ctx === nothing ? Automa.CodeGenContext() : ctx
