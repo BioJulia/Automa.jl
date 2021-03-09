@@ -175,11 +175,12 @@ function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, NFANode, Vecto
             actions1 == actions2 && continue
             eof = (edge1 === nothing) & (edge2 === nothing)
             !(eof || overlaps(edge1, edge2)) && continue
-            byte = eof ? "EOF" : repr(first(intersect(edge1.labels, edge2.labels)))
+            byte = eof ? "EOF" : first(intersect(edge1.labels, edge2.labels))
+            char = repr(reinterpret(Char, (byte % UInt32) << 24))
             a1 = isempty(actions1) ? "nothing" : actions1
             a2 = isempty(actions2) ? "nothing" : actions2
             o1, o2 = order[node1], order[node2]
-            error("Ambiguous DFA: Input $byte from NFA node(s) $o1 & $o2 can lead to actions $a1 or $a2")
+            error("Ambiguous DFA: Input $char from NFA node(s) $o1 & $o2 can lead to actions $a1 or $a2")
         end
     end
 end
