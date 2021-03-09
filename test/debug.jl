@@ -24,7 +24,7 @@ function debug_machine(machine::Automa.Machine)
     )
 end
 
-function create_debug_code(machine::Automa.Machine; ascii::Bool=false,
+function create_debug_function(machine::Automa.Machine; ascii::Bool=false,
     ctx::Union{Automa.CodeGenContext, Nothing}=nothing
 )
     ctx = ctx === nothing ? Automa.CodeGenContext() : ctx
@@ -41,7 +41,7 @@ function create_debug_code(machine::Automa.Machine; ascii::Bool=false,
     end
     debugger = debug_machine(machine)
     quote
-        function execute_debug($(ctx.vars.data)::Union{String, Vector{UInt8}})
+        function debug_compile($(ctx.vars.data)::Union{String, Vector{UInt8}})
             $logsym = $(if ascii
                 quote Tuple{Char, Int, Vector{Symbol}}[] end
             else
@@ -55,3 +55,61 @@ function create_debug_code(machine::Automa.Machine; ascii::Bool=false,
     end
 end
 
+function print_error_state(s::AbstractString, p::Int, cs::Int)
+    println(s[thisind(s, max(1, p-20)):thisind(s, min(ncodeunits(s), p+20))])
+    before = Base.Unicode.textwidth(s[1:thisind(s, p-1)])
+    print(' ' ^ before)
+    println('^')
+    println(' ' ^ before, "Parser stopped at byte $p")
+    println(' ' ^ before, "at machine state $(-cs)")
+end
+
+function create_debug_display_function(machine::Automa.Machine;
+    ctx::Union{Automa.CodeGenContext, Nothing}=nothing
+)
+    ctx = ctx === nothing ? Automa.CodeGenContext() : ctx
+    quote
+        function debug_display($(ctx.vars.data)::Union{String, SubString{String}})
+            $(Automa.generate_init_code(ctx, debugger))
+            p_end = p_eof = sizeof($(ctx.vars.data))
+            $(Automa.generate_exec_code(ctx, debugger, nothing))
+            if !iszero($(ctx.vars.cs))
+                print_error_state($(ctx.vars.data), $(ctx.vars.p), $(ctx.vars.cs))
+            end
+        end
+    end
+end
+
+function debug_execute(re::Automa.RegExp.RE, data::Vector{UInt8}; ascii=false)
+    machine = Automa.compile(re, optimize=false)
+    s = machine.start
+    cs = s.state
+    result = Tuple{Union{Nothing, ascii ? Char : UInt8}, Int, Vector{Symbol}}[]
+    for d in data
+        try
+            e, s = Automa.findedge(s, d)
+            cs = s.state
+            push!(result, (d, cs, Automa.action_names(e.actions)))
+        catch ex
+            if !isa(ex, ErrorException)
+                rethrow()
+            end
+            cs = -cs
+        end
+    end
+    if cs ∈ machine.final_states && haskey(machine.eof_actions, s.state)
+        push!(result, (nothing, 0, Automa.action_names(machine.eof_actions[s.state])))
+    end
+    if cs > 0
+        if cs ∈ machine.final_states
+            cs = 0
+        else
+            cs = -cs
+        end
+    end
+    return cs, result
+end
+
+function debug_execute(re::Automa.RegExp.RE, data::String; ascii=false)
+    debug_execute(re, collect(codeunits(data)); ascii=ascii)
+end
