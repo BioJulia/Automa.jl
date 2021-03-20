@@ -18,7 +18,7 @@ function traverse(start::Union{NFANode,DFANode,Node})
 end
 
 function Base.iterate(t::Traverser{T}, state=nothing) where T
-    if state == nothing
+    if state === nothing
         state = (visited = Set{T}(), unvisited = Set([t.start]))
     end
     if isempty(state.unvisited)

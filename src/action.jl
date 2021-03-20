@@ -40,7 +40,7 @@ end
 
 function Base.push!(list::ActionList, action::Action)
     i = findfirst(a -> a.name == action.name, list.actions)
-    if i != nothing
+    if i !== nothing
         if action.order < list.actions[i].order
             list.actions[i] = action  # replace
         end

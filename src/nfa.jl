@@ -145,7 +145,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             final = final_in
         end
 
-        if re.when != nothing
+        if re.when !== nothing
             name = re.when
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
