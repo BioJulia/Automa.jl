@@ -84,7 +84,7 @@ function Base.union(set::StableSet, xs)
 end
 
 function Base.iterate(set::StableSet, s=iterate(set.dict))
-    if s == nothing
+    if s === nothing
         return nothing
     end
     return s[1][1], iterate(set.dict, s[2])

@@ -134,11 +134,11 @@ function parse(str::String)
     end
 
     cs = iterate(str)
-    if cs == nothing
+    if cs === nothing
         return RE(:cat, [])
     end
     need_cat = false
-    while cs != nothing
+    while cs !== nothing
         c, s = cs
         # @show c operands operators
         if need_cat && c ∉ ('*', '+', '?', '|', ')')
@@ -220,7 +220,7 @@ end
 function parse_class(str, s)
     chars = Tuple{Bool, Char}[]
     cs = iterate(str, s)
-    while cs != nothing
+    while cs !== nothing
         c, s = cs
         if c == ']'
             cs = iterate(str, s)

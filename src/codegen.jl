@@ -117,7 +117,7 @@ Generate machine execution code with actions.
 """
 function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # make actions
-    if actions == nothing
+    if actions === nothing
         actions = Dict{Symbol,Expr}(a => quote nothing end for a in action_names(machine))
     elseif actions == :debug
         actions = debug_actions(machine)
@@ -645,7 +645,7 @@ end
 # Generic foldr.
 function foldr(op::Function, x0, xs)
     function rec(xs, s)
-        if s == nothing
+        if s === nothing
             return x0
         else
             return op(s[1], rec(xs, iterate(xs, s[2])))

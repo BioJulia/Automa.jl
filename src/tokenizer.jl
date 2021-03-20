@@ -51,7 +51,7 @@ function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
 end
 
 function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=nothing)
-    if actions == nothing
+    if actions === nothing
         actions = Dict{Symbol,Expr}()
     elseif actions == :debug
         actions = debug_actions(tokenizer.machine)
