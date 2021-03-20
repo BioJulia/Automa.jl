@@ -32,6 +32,13 @@ using Test
     @test_throws BoundsError mem[4]
 end
 
+@testset "ByteSet" begin
+    x = Automa.ByteSet()
+    @test isempty(x)
+    @test_throws ArgumentError minimum(x)
+    @test_throws ArgumentError maximum(x)
+end
+
 @testset "RegExp" begin
     @test_throws ArgumentError("invalid escape sequence: \\o") Automa.RegExp.parse("\\o")
 end
@@ -78,6 +85,7 @@ include("test16.jl")
 include("test17.jl")
 include("test18.jl")
 include("test19.jl")
+include("simd.jl")
 
 module TestFASTA
 using Test

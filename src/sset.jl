@@ -83,16 +83,6 @@ function Base.union(set::StableSet, xs)
     return union!(copy(set), xs)
 end
 
-function Base.filter(f::Function, set::StableSet)
-    newset = Set{eltype(set)}()
-    for x in set
-        if f(x)
-            push!(newset, x)
-        end
-    end
-    return newset
-end
-
 function Base.iterate(set::StableSet, s=iterate(set.dict))
     if s == nothing
         return nothing

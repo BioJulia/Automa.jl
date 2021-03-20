@@ -2,6 +2,7 @@ module Automa
 
 using DataStructures: DefaultDict
 using Printf: @sprintf
+import ScanByte
 
 include("sdict.jl")
 include("sset.jl")
