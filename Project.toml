@@ -1,7 +1,7 @@
 name = "Automa"
 uuid = "67c07d97-cdcb-5c2c-af73-a7f9c32a568b"
-authors = ["Kenta Sato <bicycle1885@gmail.com>"]
-version = "0.8.0"
+authors = ["Kenta Sato <bicycle1885@gmail.com>", "Jakob Nybo Nissen <jakobnybonissen@gmail.com"]
+version = "0.9.0"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -10,6 +10,7 @@ ScanByte = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 
 [compat]
+julia = "1.5"
 ScanByte = "0.3"
 
 [extras]
