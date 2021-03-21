@@ -2,7 +2,6 @@ Automa.jl
 =========
 
 [![Docs Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://biojulia.github.io/Automa.jl/latest/)
-[![Build Status](https://travis-ci.org/BioJulia/Automa.jl.svg?branch=master)](https://travis-ci.org/BioJulia/Automa.jl)
 [![codecov.io](http://codecov.io/github/BioJulia/Automa.jl/coverage.svg?branch=master)](http://codecov.io/github/BioJulia/Automa.jl?branch=master)
 
 A Julia package for text validation, parsing, and tokenizing based on state machine compiler.
