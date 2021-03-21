@@ -4,7 +4,6 @@
 module RegExp
 
 import Automa: ByteSet
-import DataStructures: DefaultDict
 
 function gen_empty_names()
     return Symbol[]
@@ -13,12 +12,12 @@ end
 mutable struct RE
     head::Symbol
     args::Vector
-    actions::DefaultDict{Symbol, Vector{Symbol}, typeof(gen_empty_names)}
+    actions::Dict{Symbol, Vector{Symbol}}
     when::Union{Symbol, Nothing}
 end
 
 function RE(head::Symbol, args::Vector)
-    return RE(head, args, DefaultDict{Symbol, Vector{Symbol}}(gen_empty_names), nothing)
+    return RE(head, args, Dict{Symbol, Vector{Symbol}}(), nothing)
 end
 
 const Primitive = Union{RE, ByteSet, UInt8, UnitRange{UInt8}, Char, String, Vector{UInt8}}

@@ -1,6 +1,5 @@
 module Automa
 
-using DataStructures: DefaultDict
 using Printf: @sprintf
 import ScanByte
 
