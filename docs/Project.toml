@@ -3,5 +3,5 @@ Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Automa = "67c07d97-cdcb-5c2c-af73-a7f9c32a568b"
 
 [compat]
-Documenter = "0.24-0.26"
+Documenter = "0.24 - 0.26"
 Automa = "0.9"
