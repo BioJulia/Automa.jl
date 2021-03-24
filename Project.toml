@@ -1,7 +1,7 @@
 name = "Automa"
 uuid = "67c07d97-cdcb-5c2c-af73-a7f9c32a568b"
 authors = ["Kenta Sato <bicycle1885@gmail.com>", "Jakob Nybo Nissen <jakobnybonissen@gmail.com"]
-version = "0.9.0"
+version = "0.8.1"
 
 [deps]
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
