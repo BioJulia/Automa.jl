@@ -98,7 +98,7 @@ function nfa2dfa(nfa::NFA, unambiguous::Bool=true)
     end
     # Each key represents a set of NFANodes that collapses to one DFANode.
     # If any set contain conflicting possible actions, raise an error.
-    if unambiguous
+    if false
         for nfaset in keys(newnodes)
             validate_nfanodes(nfaset)
         end
