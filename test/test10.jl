@@ -48,6 +48,10 @@ using Test
     machine = Automa.compile(!re"foo")
     @test Automa.execute(machine, "bar")[1] == 0
     @test Automa.execute(machine, "foo")[1] < 0
+
+    machine = Automa.compile(re.rep("a"))
+    @test Automa.execute(machine, "aaa")[1] == 0
+    @test Automa.execute(machine, "aYa")[1] < 0
 end
 
 end
