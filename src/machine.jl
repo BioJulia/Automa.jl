@@ -94,6 +94,7 @@ function execute(machine::Machine, data::Vector{UInt8})
                 rethrow()
             end
             cs = -cs
+            break
         end
     end
     if cs ∈ machine.final_states && haskey(machine.eof_actions, s.state)
