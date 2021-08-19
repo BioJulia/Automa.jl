@@ -140,6 +140,7 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
     getbyte_code = generate_geybyte_code(ctx)
     set_cs_code = :(@inbounds $(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
+    final_state_code = generate_final_state_mem_code(ctx, machine)
     return quote
         $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
@@ -149,7 +150,7 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
             $(action_dispatch_code)
             $(ctx.vars.p) += 1
         end
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         elseif $(ctx.vars.cs) < 0
@@ -203,6 +204,7 @@ function generate_inline_code(ctx::CodeGenContext, machine::Machine, actions::Di
     trans_code = generate_transition_code(ctx, machine, actions)
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
     getbyte_code = generate_geybyte_code(ctx)
+    final_state_code = generate_final_state_mem_code(ctx, machine)
     return quote
         $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
@@ -210,7 +212,7 @@ function generate_inline_code(ctx::CodeGenContext, machine::Machine, actions::Di
             $(trans_code)
             $(ctx.vars.p) += 1
         end
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         elseif $(ctx.vars.cs) < 0
@@ -295,6 +297,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
     end
 
     eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
+    final_state_code = generate_final_state_mem_code(ctx, machine)
 
     return quote
         if $(ctx.vars.p) > $(ctx.vars.p_end)
@@ -304,7 +307,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         $(enter_code)
         $(Expr(:block, blocks...))
         @label exit
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         end
@@ -389,6 +392,7 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
     end
 
     eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
+    final_state_code = generate_final_state_mem_code(ctx, machine)
 
     return quote
         if $(ctx.vars.p) > $(ctx.vars.p_end)
@@ -398,7 +402,7 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         $(enter_code)
         $(Expr(:block, blocks...))
         @label exit
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(ctx.vars.cs) ∈ $(machine.final_states)
+        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         end
@@ -517,6 +521,33 @@ function generate_condition_code(ctx::CodeGenContext, edge::Edge, actions::Dict{
         return Expr(:&&, ex1, ex)
     end
     return :($(labelcode) && $(precondcode))
+end
+
+# Check whether the final state belongs to `machine.final_states`.
+# We simply unroll a bitvector and check for membership in that
+function generate_final_state_mem_code(ctx::CodeGenContext, machine::Machine)
+    # First create the bitvector, a dense vector of bits that are 1 for being
+    # an accept state, and 0 for not. It's offset by `offset` bits.
+    offset = minimum(machine.final_states)
+    NBITS = 8*sizeof(UInt)
+    len = length(offset:maximum(machine.final_states))
+    uints = zeros(UInt, cld(len, NBITS))
+    for state in machine.final_states
+        arr_off, bit_off = divrem(state - offset, 8*sizeof(UInt))
+        uints[arr_off + 1] = uints[arr_off + 1] | (1 << bit_off)
+    end
+    # For each uint in the vector, we check if CS in in the corresponding state
+    ors = foldr(:(false), enumerate(uints)) do (i, u), oldx
+        newx = quote
+            (&)(
+                $(ctx.vars.cs) < $(i * NBITS + offset),
+                isodd($u >>> (($(ctx.vars.cs) - $offset) & $(NBITS-1)))
+            )
+        end
+        Expr(:||, newx, oldx)
+    end
+    # Current state is at least minimum final state
+    return Expr(:&&, :($(ctx.vars.cs) > $(offset - 1)), ors)
 end
 
 # Be careful trying to optimize this, LLVM creates insanely efficient code
