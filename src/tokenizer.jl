@@ -6,7 +6,14 @@ struct Tokenizer
     actions_code::Vector{Tuple{Symbol,Expr}}
 end
 
+# For backwards compatibility. This function needlessly specializes
+# on the number of tokens.
+# TODO: Deprecate this
 function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
+    compile(collect(tokens), optimize=optimize)
+end
+
+function compile(tokens::AbstractVector{Pair{RegExp.RE,Expr}}; optimize::Bool=true)
     start = NFANode()
     final = NFANode()
     actions = Dict{Symbol,Action}()
@@ -64,10 +71,10 @@ function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=n
     for (i, (name, _)) in enumerate(tokenizer.actions_code)
         actions[name] = :(t = $(i); $(ctx.vars.te) = $(ctx.vars.p))
     end
-    return generate_table_code(ctx, tokenizer, actions, true)
+    return generate_table_code(ctx, tokenizer, actions)
 end
 
-function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::AbstractDict{Symbol,Expr}, check::Bool)
+function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::AbstractDict{Symbol,Expr})
     action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, tokenizer.machine, actions)
     trans_table = generate_transition_table(tokenizer.machine)
     getbyte_code = generate_geybyte_code(ctx)
