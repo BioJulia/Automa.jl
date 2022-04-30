@@ -9,6 +9,7 @@ using Test
     tokenizer = Automa.compile(
         re"a"      => :(emit(:a, ts:te)),
         re"a*b"    => :(emit(:ab, ts:te)),
+        re"cd"    => :(emit(:cd, ts:te)),
     )
     ctx = Automa.CodeGenContext()
 
