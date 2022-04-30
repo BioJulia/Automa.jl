@@ -85,35 +85,35 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
         $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         # Initialize token and token start to 0 - no token seen yet
         t = 0
-        ts = 0
+        $(ctx.vars.ts) = 0
         # In a loop: Get input byte, set action, update current state, execute action
-        while p ≤ p_end && cs > 0
+        while $(ctx.vars.p) ≤ p_end && $(ctx.vars.cs) > 0
             $(getbyte_code)
             $(set_act_code)
             $(cs_code)
             $(action_dispatch_code)
-            p += 1
+            $(ctx.vars.p) += 1
         end
-        if p > p_eof ≥ 0
+        if $(ctx.vars.p) > p_eof ≥ 0
             # If EOF and in accept state, run EOF code and set current state to 0
             # meaning accept state
             if $(generate_final_state_mem_code(ctx, tokenizer.machine))
                 $(eof_action_code)
-                cs = 0
+                $(ctx.vars.cs) = 0
             # Else, if we're not already in a failed state (cs < 0), then set cs to failed state
-            elseif cs > 0
-                cs = -cs
+            elseif $(ctx.vars.cs) > 0
+                $(ctx.vars.cs) = -$(ctx.vars.cs)
             end
         end
         # If in a failed state, reset p (why do we do this?)
-        if cs < 0
-            p -= 1
+        if $(ctx.vars.cs) < 0
+            $(ctx.vars.p) -= 1
         end
-        if t > 0 && (cs ≤ 0 || p > p_end ≥ 0)
+        if t > 0 && ($(ctx.vars.cs) ≤ 0 || $(ctx.vars.p) > p_end ≥ 0)
             $(token_exit_code)
-            p = te + 1
-            if cs != 0
-                cs = $(tokenizer.machine.start_state)
+            $(ctx.vars.p) = $(ctx.vars.te) + 1
+            if $(ctx.vars.cs) != 0
+                $(ctx.vars.cs) = $(tokenizer.machine.start_state)
             end
         end
     end
