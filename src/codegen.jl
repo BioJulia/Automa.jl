@@ -137,7 +137,7 @@ end
 function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, machine, actions)
     trans_table = generate_transition_table(machine)
-    getbyte_code = generate_geybyte_code(ctx)
+    getbyte_code = generate_getbyte_code(ctx)
     set_cs_code = :(@inbounds $(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
     final_state_code = generate_final_state_mem_code(ctx, machine)
@@ -203,7 +203,7 @@ end
 function generate_inline_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     trans_code = generate_transition_code(ctx, machine, actions)
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
-    getbyte_code = generate_geybyte_code(ctx)
+    getbyte_code = generate_getbyte_code(ctx)
     final_state_code = generate_final_state_mem_code(ctx, machine)
     return quote
         $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
@@ -286,7 +286,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         end
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
-            $(generate_geybyte_code(ctx))
+            $(generate_getbyte_code(ctx))
             $(dispatch_code)
         end)
         push!(blocks, block)
@@ -381,7 +381,7 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
             $(simd_code)
-            $(generate_geybyte_code(ctx))
+            $(generate_getbyte_code(ctx))
             $(dispatch_code)
         end)
         push!(blocks, block)
@@ -434,7 +434,7 @@ function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
         push!(
             body.args,
             quote
-                $(generate_geybyte_code(ctx, l, k))
+                $(generate_getbyte_code(ctx, l, k))
                 $(generate_membership_code(l, edge.labels)) || begin
                     $(ctx.vars.p) += $(k-1)
                     break
@@ -489,11 +489,11 @@ function generate_action_code(names::Vector{Symbol}, actions::Dict{Symbol,Expr})
     return Expr(:block, (actions[n] for n in names)...)
 end
 
-function generate_geybyte_code(ctx::CodeGenContext)
-    return generate_geybyte_code(ctx, ctx.vars.byte, 0)
+function generate_getbyte_code(ctx::CodeGenContext)
+    return generate_getbyte_code(ctx, ctx.vars.byte, 0)
 end
 
-function generate_geybyte_code(ctx::CodeGenContext, varbyte::Symbol, offset::Int)
+function generate_getbyte_code(ctx::CodeGenContext, varbyte::Symbol, offset::Int)
     code = :($(varbyte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p) + $(offset)))
     if !ctx.checkbounds
         code = :(@inbounds $(code))

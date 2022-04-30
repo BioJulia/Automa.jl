@@ -77,7 +77,7 @@ end
 function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::AbstractDict{Symbol,Expr})
     action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, tokenizer.machine, actions)
     trans_table = generate_transition_table(tokenizer.machine)
-    getbyte_code = generate_geybyte_code(ctx)
+    getbyte_code = generate_getbyte_code(ctx)
     cs_code = :($(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
     eof_action_code = generate_eof_action_code(ctx, tokenizer.machine, actions)
     token_exit_code = generate_token_exit_code(tokenizer)
