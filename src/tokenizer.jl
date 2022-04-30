@@ -76,8 +76,10 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
     token_exit_code = generate_token_exit_code(tokenizer)
     return quote
         $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
+        # Initialize token and token start to 0 - no token seen yet
         t = 0
         ts = 0
+        # In a loop: Get input byte, set action, update current state, execute action
         while p ≤ p_end && cs > 0
             $(getbyte_code)
             $(set_act_code)
@@ -85,10 +87,19 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
             $(action_dispatch_code)
             p += 1
         end
-        if p > p_eof ≥ 0 && cs ∈ $(tokenizer.machine.final_states)
-            $(eof_action_code)
-            cs = 0
-        elseif cs < 0
+        if p > p_eof ≥ 0
+            # If EOF and in accept state, run EOF code and set current state to 0
+            # meaning accept state
+            if cs ∈ $(tokenizer.machine.final_states)
+                $(eof_action_code)
+                cs = 0
+            # Else, if we're not already in a failed state (cs < 0), then set cs to failed state
+            elseif cs > 0
+                cs = -cs
+            end
+        end
+        # If in a failed state, reset p (why do we do this?)
+        if cs < 0
             p -= 1
         end
         if t > 0 && (cs ≤ 0 || p > p_end ≥ 0)
