@@ -97,7 +97,7 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
         if p > p_eof ≥ 0
             # If EOF and in accept state, run EOF code and set current state to 0
             # meaning accept state
-            if cs ∈ $(tokenizer.machine.final_states)
+            if $(generate_final_state_mem_code(ctx, tokenizer.machine))
                 $(eof_action_code)
                 cs = 0
             # Else, if we're not already in a failed state (cs < 0), then set cs to failed state
