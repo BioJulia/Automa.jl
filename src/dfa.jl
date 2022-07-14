@@ -98,12 +98,7 @@ function nfa2dfa(nfa::NFA, unambiguous::Bool=false)
     end
     # Each key represents a set of NFANodes that collapses to one DFANode.
     # If any set contain conflicting possible actions, raise an error.
-    if unambiguous
-        order = Dict(node => i for (i, node) in enumerate(traverse(nfa.start)))
-        for nfaset in keys(newnodes)
-            validate_nfanodes(nfaset, order)
-        end
-    end
+    unambiguous && validate_nfanodes(newnodes, start)
     return DFA(start)
 end
 
@@ -163,8 +158,37 @@ function get_epsilon_paths(tops::Set{NFANode})
     return paths
 end
 
-function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, NFANode, Vector{Symbol}}},
-    order::Dict{NFANode, Int})
+"Compute the shortest input to reach any given DFANode"
+function shortest_input(start::DFANode)::Dict{DFANode, String}
+    printable = Automa.ByteSet(0x21:0x78)
+    result = Dict(start => "")
+    # Breadth first search
+    current_generation = Set([start])
+    next_generation = Set{DFANode}()
+    while !isempty(current_generation)
+        for parent in current_generation
+            parent_bytes = result[parent]
+            for (edge, child) in parent.edges
+                haskey(result, child) && continue
+                # If possible, grab a printable byte
+                printable_edges = intersect(printable, edge.labels)
+                byte = first(isempty(printable_edges) ? edge.labels : printable_edges)
+                result[child] = String(push!(Vector{UInt8}(parent_bytes), byte))
+                push!(next_generation, child)
+            end
+        end
+        (current_generation, next_generation) = (next_generation, current_generation)
+        next_generation = Set{DFANode}()
+    end
+    result
+end
+
+function validate_paths(
+    paths::Vector{Tuple{Union{Nothing, Edge}, NFANode, Vector{Symbol}}},
+    dfanode::DFANode,
+    start::DFANode
+)
+    # If they have the same actions, there is no ambiguity
     all(actions == paths[1][2] for (n, actions) in paths) && return nothing
     for i in 1:length(paths) - 1
         edge1, node1, actions1 = paths[i]
@@ -175,31 +199,45 @@ function validate_paths(paths::Vector{Tuple{Union{Nothing, Edge}, NFANode, Vecto
             actions1 == actions2 && continue
             eof = (edge1 === nothing) & (edge2 === nothing)
             !(eof || overlaps(edge1, edge2)) && continue
-            byte = eof ? "EOF" : first(intersect(edge1.labels, edge2.labels))
-            char = repr(reinterpret(Char, (byte % UInt32) << 24))
-            a1 = isempty(actions1) ? "nothing" : actions1
-            a2 = isempty(actions2) ? "nothing" : actions2
-            o1, o2 = order[node1], order[node2]
-            error("Ambiguous DFA: Input $char from NFA node(s) $o1 & $o2 can lead to actions $a1 or $a2")
+
+            # Now we know there is an ambiguity, so we just need to create
+            # an informative error
+            act1 = isempty(actions1) ? "nothing" : string(actions1)
+            act2 = isempty(actions2) ? "nothing" : string(actions2)
+            input_until_now = repr(shortest_input(start)[dfanode])
+            final_input = if eof
+                "EOF"
+            else
+                repr(Char(first(intersect(edge1.labels, edge2.labels))))
+            end
+            error(
+                "Ambiguous NFA. After inputs $input_until_now, observing $final_input " *
+                "lead to conflicting action sets $act1 and $act2"
+            )
         end
     end
 end
 
-function validate_nfanodes(nodes::StableSet{NFANode}, order::Dict{NFANode, Int})
-    # First get "tops", that's the starting epsilon nodes that cannot be
-    # reached by another epsilon node. All paths lead from those
-    tops = gettop(nodes)
-    
-    # Quick path: If only one path, everything is OK
-    length(tops) == 1 && all(length(node.edges) == 1 for node in nodes) && return nothing
+function validate_nfanodes(
+    newnodes::Dict{Set{NFANode}, DFANode},
+    start::DFANode
+)
+    for (nfanodes, dfanode) in newnodes
+        # First get "tops", that's the starting epsilon nodes that cannot be
+        # reached by another epsilon node. All paths lead from those
+        tops = gettop(nfanodes)
+        
+        # Quick path: If only one path, there can be no ambiguity
+        length(tops) == 1 && all(length(node.edges) == 1 for node in nfanodes) && continue
 
-    # Now we transverse all possible epsilon-paths and keep track of the actions
-    # taken along the way
-    paths = get_epsilon_paths(tops)
+        # Now we transverse all possible epsilon-paths and keep track of the actions
+        # taken along the way
+        paths = get_epsilon_paths(tops)
 
-    # If any two paths have different actions, and can be reached with the same
-    # byte, the DFA's actions cannot be resolved, and we raise an error.
-    validate_paths(paths, order)
+        # If any two paths have different actions, and can be reached with the same
+        # byte, the DFA's actions cannot be resolved, and we raise an error
+        validate_paths(paths, dfanode, start)
+    end
 end
 
 function disjoint_split(sets::Vector{ByteSet})
