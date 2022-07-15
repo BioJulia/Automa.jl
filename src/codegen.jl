@@ -53,7 +53,7 @@ Arguments
 ---------
 
 - `vars`: variable names used in generated code
-- `generator`: code generator (`:table`, `:inline` or `:goto`)
+- `generator`: code generator (`:table` or `:goto`)
 - `checkbounds`: flag of bounds check
 - `loopunroll`: loop unroll factor (≥ 0)
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
@@ -62,7 +62,7 @@ Arguments
 function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator::Symbol=:table,
-        checkbounds::Bool=true,
+        checkbounds::Bool=generator == :table,
         loopunroll::Integer=0,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
@@ -72,24 +72,20 @@ function CodeGenContext(;
         throw(ArgumentError("loop unrolling is not supported for $(generator)"))
     end
     # special conditions for simd generator
-    if generator == :simd
+    if generator == :goto
         if loopunroll != 0
-            throw(ArgumentError("SIMD generator does not support unrolling"))
+            throw(ArgumentError("GOTO generator does not support unrolling"))
         elseif getbyte != Base.getindex
-            throw(ArgumentError("SIMD generator only support Base.getindex"))
+            throw(ArgumentError("GOTO generator only support Base.getindex"))
         elseif checkbounds
-            throw(ArgumentError("SIMD generator does not support boundscheck"))
+            throw(ArgumentError("GOTO generator does not support boundscheck"))
         end
     end
     # check generator
     if generator == :table
         generator = generate_table_code
-    elseif generator == :inline
-        generator = generate_inline_code
     elseif generator == :goto
         generator = generate_goto_code
-    elseif generator == :simd
-        generator = generate_simd_code
     else
         throw(ArgumentError("invalid code generator: $(generator)"))
     end
@@ -174,7 +170,7 @@ function generate_transition_table(machine::Machine)
     end
     for s in traverse(machine.start), (e, t) in s.edges
         if !isempty(e.precond)
-            error("precondition is not supported in the table-based code generator; try code=:inline or :goto")
+            error("precondition is not supported in the table-based code generator; try code=:goto")
         end
         for l in e.labels
             trans_table[l+1,s.state] = t.state
@@ -210,40 +206,6 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
     return action_dispatch_code, action_code
 end
 
-function generate_inline_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
-    trans_code = generate_transition_code(ctx, machine, actions)
-    eof_action_code = generate_eof_action_code(ctx, machine, actions)
-    getbyte_code = generate_getbyte_code(ctx)
-    final_state_code = generate_final_state_mem_code(ctx, machine)
-    return quote
-        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
-        while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
-            $(getbyte_code)
-            $(trans_code)
-            $(ctx.vars.p) += 1
-        end
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
-            $(eof_action_code)
-            $(ctx.vars.cs) = 0
-        elseif $(ctx.vars.cs) < 0
-            $(ctx.vars.p) -= 1
-        end
-    end
-end
-
-function generate_transition_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
-    default = :($(ctx.vars.cs) = -$(ctx.vars.cs))
-    return foldr(default, traverse(machine.start)) do s, els
-        then = foldr(default, optimize_edge_order(s.edges)) do edge, els′
-            e, t = edge
-            action_code = rewrite_special_macros(ctx, generate_action_code(e.actions, actions), false)
-            then′ = :($(ctx.vars.cs) = $(t.state); $(action_code))
-            return Expr(:if, generate_condition_code(ctx, e, actions), then′, els′)
-        end
-        return Expr(:if, state_condition(ctx, s.state), then, els)
-    end
-end
-
 function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     actions_in = Dict{Node,Set{Vector{Symbol}}}()
     for s in traverse(machine.start), (e, t) in s.edges
@@ -272,87 +234,6 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
                 @goto $(Symbol("state_", s.state))
             end)
         end
-        append_code!(block, quote
-            @label $(Symbol("state_", s.state))
-            $(ctx.vars.p) += 1
-            if $(ctx.vars.p) > $(ctx.vars.p_end)
-                $(ctx.vars.cs) = $(s.state)
-                @goto exit
-            end
-        end)
-        default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
-        dispatch_code = foldr(default, optimize_edge_order(s.edges)) do edge, els
-            e, t = edge
-            if isempty(e.actions)
-                if ctx.loopunroll > 0 && s.state == t.state && length(e.labels) ≥ 4
-                    then = generate_unrolled_loop(ctx, e, t)
-                else
-                    then = :(@goto $(Symbol("state_", t.state)))
-                end
-            else
-                then = :(@goto $(action_label[t][action_names(e.actions)]))
-            end
-            return Expr(:if, generate_condition_code(ctx, e, actions), then, els)
-        end
-        append_code!(block, quote
-            @label $(Symbol("state_case_", s.state))
-            $(generate_getbyte_code(ctx))
-            $(dispatch_code)
-        end)
-        push!(blocks, block)
-    end
-
-    enter_code = foldr(:(@goto exit), machine.states) do s, els
-        return Expr(:if, :($(ctx.vars.cs) == $(s)), :(@goto $(Symbol("state_case_", s))), els)
-    end
-
-    eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
-    final_state_code = generate_final_state_mem_code(ctx, machine)
-
-    return quote
-        if $(ctx.vars.p) > $(ctx.vars.p_end)
-            @goto exit
-        end
-        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
-        $(enter_code)
-        $(Expr(:block, blocks...))
-        @label exit
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
-            $(eof_action_code)
-            $(ctx.vars.cs) = 0
-        end
-    end
-end
-
-function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
-    ## SAME AS GOTO BEGIN
-    actions_in = Dict{Node,Set{Vector{Symbol}}}()
-    for s in traverse(machine.start), (e, t) in s.edges
-        push!(get!(actions_in, t, Set{Vector{Symbol}}()), action_names(e.actions))
-    end
-    action_label = Dict{Node,Dict{Vector{Symbol},Symbol}}()
-    for s in traverse(machine.start)
-        action_label[s] = Dict()
-        if haskey(actions_in, s)
-            for (i, names) in enumerate(actions_in[s])
-                action_label[s][names] = Symbol("state_", s.state, "_action_", i)
-            end
-        end
-    end
-
-    blocks = Expr[]
-    for s in traverse(machine.start)
-        block = Expr(:block)
-        for (names, label) in action_label[s]
-            if isempty(names)
-                continue
-            end
-            append_code!(block, quote
-                @label $(label)
-                $(rewrite_special_macros(ctx, generate_action_code(names, actions), false, s.state))
-                @goto $(Symbol("state_", s.state))
-            end)
-        end
 
         append_code!(block, quote
             @label $(Symbol("state_", s.state))
@@ -363,7 +244,6 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
             end
         end)
 
-        ### END SAME
         simd, non_simd = peel_simd_edge(s)
         simd_code = if simd !== nothing
             quote
@@ -387,7 +267,7 @@ function generate_simd_code(ctx::CodeGenContext, machine::Machine, actions::Dict
             end
             return Expr(:if, generate_condition_code(ctx, e, actions), then, els)
         end
-        # BEGIN SAME AGAIN
+
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
             $(simd_code)
@@ -590,7 +470,7 @@ function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
     end
 end
 
-# Used by the :table and :inline code generators.
+# Used by the :table code generator.
 function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool)
     args = []
     for arg in ex.args
@@ -688,7 +568,6 @@ function peel_simd_edge(node)
     return simd, non_simd
 end
     
-
 # Sort edges by its size in descending order.
 function optimize_edge_order(edges)
     return sort!(copy(edges), by=e->length(e[1].labels), rev=true)

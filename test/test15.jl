@@ -22,7 +22,8 @@ using Test
     @test last == 0
     @test actions == [:enter, :all, :final, :exit, :enter, :all, :final, :exit]
 
-    for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
+    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
+        (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
         validate = @eval function (data)
             logger = Symbol[]
