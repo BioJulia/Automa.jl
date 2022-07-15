@@ -216,25 +216,48 @@ function prec(op::Symbol)
     end
 end
 
+# Convert this to ASCII byte.
+# Also accepts e.g. '\xff', but not a multi-byte Char
+function as_byte(c::Char)
+    u = reinterpret(UInt32, c)
+    if u & 0x00ffffff != 0
+        error("Char '$c' cannot be expressed as a single byte")
+    else
+        UInt8(u >> 24)
+    end
+end
+
+# This parses things in square brackets, like [A-Za-z]
+# When this function is entered, the initial '[' has already been
+# consumed.
 function parse_class(str, s)
+    # The bool here is whether it's escaped
     chars = Tuple{Bool, Char}[]
     cs = iterate(str, s)
+    # Main loop: Get all the characters into the `chars` variable
     while cs !== nothing
         c, s = cs
         if c == ']'
+            # We are done with the class. Skip the ] char and break out.
             cs = iterate(str, s)
             break
+        # Handle escape character
         elseif c == '\\'
+            # If \ is the final char, throw error
             if iterate(str, s) === nothing
                 error("missing ]")
             end
+            # Else get the next char as escaped
             c, s = unescape(str, s)
             push!(chars, (true, c))
         else
+            # Ordinary char: Just add it unescaped
             push!(chars, (false, c))
         end
         cs = iterate(str, s)
     end
+    # If the first char is non-escaped ^, set head as cclass, meaning
+    # inverted class, and remove the first char.
     if !isempty(chars) && !first(chars)[1] && first(chars)[2] == '^'
         head = :cclass
         popfirst!(chars)
@@ -248,12 +271,14 @@ function parse_class(str, s)
     args = []
     while !isempty(chars)
         c = popfirst!(chars)[2]
-        if !isempty(chars) && !first(chars)[1] && first(chars)[2] == '-' && length(chars) ≥ 2
-            push!(args, UInt8(c):UInt8(chars[2][2]))
+        # If the next two chars are "-X" for any X, then this is a range.
+        # Create the right range and pop out the "-X"
+        if length(chars) ≥ 2 && first(chars) == (false, '-')
+            push!(args, as_byte(c):as_byte(chars[2][2]))
             popfirst!(chars)
             popfirst!(chars)
         else
-            push!(args, UInt8(c):UInt8(c))
+            push!(args, as_byte(c):as_byte(c))
         end
     end
     return RE(head, args), cs
