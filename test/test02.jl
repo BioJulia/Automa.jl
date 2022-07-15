@@ -27,7 +27,8 @@ using Test
     @test last == 0
     @test actions == [:enter_re,:enter_a,:final_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re]
 
-    for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
+    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
+        (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
         init_code = Automa.generate_init_code(ctx, machine)
         exec_code = Automa.generate_exec_code(ctx, machine, :debug)

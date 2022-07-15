@@ -1,9 +1,9 @@
 # Test codegencontext
 @testset "CodeGenContext" begin
     @test_throws ArgumentError Automa.CodeGenContext(generator=:fdjfhkdj)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:simd)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:simd, checkbounds=false, loopunroll=2)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:simd, checkbounds=false, getbyte=identity)
+    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto)
+    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=2)
+    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, checkbounds=false, getbyte=identity)
 end
 
 import Automa
@@ -18,7 +18,7 @@ import Automa.RegExp: @re_str
         Automa.compile(re.opt(rec) * re.rep(re"\n" * rec))
     end
 
-    context = Automa.CodeGenContext(generator=:simd, checkbounds=false)
+    context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 
     @eval function is_valid_fasta(data::String)
         $(Automa.generate_init_code(context, machine))
@@ -29,7 +29,7 @@ import Automa.RegExp: @re_str
 
     s1 = ">seq\nTAGGCTA\n>hello\nAJKGMP"
     s2 = ">seq1\nTAGGC"
-    s3 = ">verylongsequencewherethesimdkicksin\nQ"
+    s3 = ">verylongsequencewherethesimdkicksinmakeitevenlongertobesure\nQ"
 
     for (seq, isvalid) in [(s1, true), (s2, false), (s3, true)]
         @test is_valid_fasta(seq) == isvalid
