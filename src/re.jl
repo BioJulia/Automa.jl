@@ -216,12 +216,14 @@ function prec(op::Symbol)
     end
 end
 
-# Convert this to ASCII byte
+# Convert this to ASCII byte.
+# Also accepts e.g. '\xff', but not a multi-byte Char
 function as_byte(c::Char)
-    if c > '\x7f'
-        error("Char '$c' cannot be expressed as an ASCII byte")
+    u = reinterpret(UInt32, c)
+    if u & 0x00ffffff != 0
+        error("Char '$c' cannot be expressed as a single byte")
     else
-        UInt8(c)
+        UInt8(u >> 24)
     end
 end
 
