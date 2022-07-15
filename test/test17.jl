@@ -11,7 +11,8 @@ using Test
     machine1 = Automa.compile(re1)
     @test occursin(r"^Automa.Machine\(<.*>\)$", repr(machine1))
 
-    for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
+    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
+        (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
         init_code = Automa.generate_init_code(ctx, machine1)
         exec_code = Automa.generate_exec_code(ctx, machine1, :debug)
@@ -33,7 +34,8 @@ using Test
     machine2 = Automa.compile(re2)
     @test occursin(r"^Automa.Machine\(<.*>\)$", repr(machine2))
 
-    for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
+    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
+        (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
         init_code = Automa.generate_init_code(ctx, machine2)
         exec_code = Automa.generate_exec_code(ctx, machine2, :debug)

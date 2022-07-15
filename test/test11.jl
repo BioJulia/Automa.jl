@@ -22,8 +22,8 @@ using Test
     ctx = Automa.CodeGenContext(generator=:table)
     @test_throws ErrorException Automa.generate_exec_code(ctx, machine, actions)
 
-    for generator in (:inline, :goto), checkbounds in (true, false), clean in (true, false)
-        ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
+    for clean in (true, false)
+        ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false, clean=clean)
         validate = @eval function (data, n)
             logger = Symbol[]
             $(Automa.generate_init_code(ctx, machine))

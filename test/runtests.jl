@@ -90,7 +90,7 @@ include("test09.jl")
 include("test10.jl")
 include("test11.jl")
 include("test12.jl")
-include("test13.jl")
+# test13 tested functionality now removed.
 include("test14.jl")
 include("test15.jl")
 include("test16.jl")
@@ -359,7 +359,7 @@ end
 loopcode = quote
     found && @goto __return__
 end
-context = Automa.CodeGenContext(generator=:goto)
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 Automa.Stream.generate_reader(
     :readrecord!,
     machine,

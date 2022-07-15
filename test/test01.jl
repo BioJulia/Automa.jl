@@ -11,7 +11,8 @@ using Test
     machine = Automa.compile(re)
     @test occursin(r"^Automa.Machine\(<.*>\)$", repr(machine))
 
-    for generator in (:table, :inline, :goto), checkbounds in (true, false), clean in (true, false)
+    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
+        (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
         init_code = Automa.generate_init_code(ctx, machine)
         exec_code = Automa.generate_exec_code(ctx, machine, :debug)
