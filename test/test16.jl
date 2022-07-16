@@ -5,9 +5,6 @@ import Automa.RegExp: @re_str
 using Test
 
 @testset "Test16" begin
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:table,  loopunroll=1)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto,   loopunroll=-1)
-
     re = re"A+(B+C)*(D|E)+"
     machine = Automa.compile(re)
     ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false)
