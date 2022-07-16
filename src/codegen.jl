@@ -36,9 +36,13 @@ struct CodeGenContext
     clean::Bool
 end
 
+# Add these here so they can be used in CodeGenContext below
+function generate_table_code end
+function generate_goto_code end
+
 """
     CodeGenContext(;
-        vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
+        vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), :byte),
         generator=:table,
         checkbounds=true,
         getbyte=Base.getindex,
@@ -57,7 +61,7 @@ Arguments
 - `clean`: flag of code cleansing
 """
 function CodeGenContext(;
-        vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
+        vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), :byte),
         generator::Symbol=:table,
         checkbounds::Bool=generator == :table,
         getbyte::Function=Base.getindex,
@@ -81,10 +85,13 @@ function CodeGenContext(;
     return CodeGenContext(vars, generator, checkbounds, getbyte, clean)
 end
 
+const DefaultCodeGenContext = CodeGenContext()
+
 """
-    generate_init_code(context::CodeGenContext, machine::Machine)::Expr
+    generate_init_code([::CodeGenContext], machine::Machine)::Expr
 
 Generate variable initialization code.
+If not passed, the context defaults to `DefaultCodeGenContext`
 """
 function generate_init_code(ctx::CodeGenContext, machine::Machine)
     return quote
@@ -94,11 +101,13 @@ function generate_init_code(ctx::CodeGenContext, machine::Machine)
         $(ctx.vars.cs)::Int = $(machine.start_state)
     end
 end
+generate_init_code(machine::Machine) = generate_init_code(DefaultCodeGenContext, machine)
 
 """
-    generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)::Expr
+    generate_exec_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
 
 Generate machine execution code with actions.
+If not passed, the context defaults to `DefaultCodeGenContext`
 """
 function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # make actions
@@ -117,6 +126,10 @@ function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothi
         code = cleanup(code)
     end
     return code
+end
+
+function generate_exec_code(machine::Machine, actions=nothing)
+    generate_exec_code(DefaultCodeGenContext, machine, actions)
 end
 
 function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
