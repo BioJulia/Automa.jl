@@ -32,7 +32,6 @@ struct CodeGenContext
     vars::Variables
     generator::Function
     checkbounds::Bool
-    loopunroll::Int
     getbyte::Function
     clean::Bool
 end
@@ -42,7 +41,6 @@ end
         vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator=:table,
         checkbounds=true,
-        loopunroll=0,
         getbyte=Base.getindex,
         clean=false
     )
@@ -55,7 +53,6 @@ Arguments
 - `vars`: variable names used in generated code
 - `generator`: code generator (`:table` or `:goto`)
 - `checkbounds`: flag of bounds check
-- `loopunroll`: loop unroll factor (≥ 0)
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
 - `clean`: flag of code cleansing
 """
@@ -63,19 +60,11 @@ function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), gensym()),
         generator::Symbol=:table,
         checkbounds::Bool=generator == :table,
-        loopunroll::Integer=0,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
-    if loopunroll < 0
-        throw(ArgumentError("loop unroll factor must be a non-negative integer"))
-    elseif loopunroll > 0 && generator != :goto
-        throw(ArgumentError("loop unrolling is not supported for $(generator)"))
-    end
     # special conditions for simd generator
     if generator == :goto
-        if loopunroll != 0
-            throw(ArgumentError("GOTO generator does not support unrolling"))
-        elseif getbyte != Base.getindex
+        if getbyte != Base.getindex
             throw(ArgumentError("GOTO generator only support Base.getindex"))
         elseif checkbounds
             throw(ArgumentError("GOTO generator does not support boundscheck"))
@@ -89,7 +78,7 @@ function CodeGenContext(;
     else
         throw(ArgumentError("invalid code generator: $(generator)"))
     end
-    return CodeGenContext(vars, generator, checkbounds, loopunroll, getbyte, clean)
+    return CodeGenContext(vars, generator, checkbounds, getbyte, clean)
 end
 
 """
@@ -305,39 +294,6 @@ function append_code!(block::Expr, code::Expr)
     @assert code.head == :block
     append!(block.args, code.args)
     return block
-end
-
-function generate_unrolled_loop(ctx::CodeGenContext, edge::Edge, t::Node)
-    # Generated code looks like this (when unroll=2):
-    #     while p + 2 ≤ p_end
-    #         l1 = $(getbyte)(data, p + 1)
-    #         !$(generate_membership_code(:l1, e.labels)) && break
-    #         l2 = $(getbyte)(data, p + 2)
-    #         !$(generate_membership_code(:l2, e.labels)) && break
-    #         p += 2
-    #     end
-    #     @goto ...
-    @assert ctx.loopunroll > 0
-    body = :(begin end)
-    for k in 1:ctx.loopunroll
-        l = Symbol(ctx.vars.byte, k)
-        push!(
-            body.args,
-            quote
-                $(generate_getbyte_code(ctx, l, k))
-                $(generate_membership_code(l, edge.labels)) || begin
-                    $(ctx.vars.p) += $(k-1)
-                    break
-                end
-            end)
-    end
-    push!(body.args, :($(ctx.vars.p) += $(ctx.loopunroll)))
-    quote
-        while $(ctx.vars.p) + $(ctx.loopunroll) ≤ $(ctx.vars.p_end)
-            $(body)
-        end
-        @goto $(Symbol("state_", t.state))
-    end
 end
 
 # Note: This function has been carefully crafted to produce (nearly) optimal

@@ -37,7 +37,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -69,7 +69,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -101,7 +101,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -133,7 +133,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=10)
+context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)

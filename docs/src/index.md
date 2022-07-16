@@ -389,5 +389,4 @@ Automa.jl has four kinds of code generators. The first and default one uses two 
 
 Note that the `:goto` generator has more requirements than the `:table` generator:
 * First, `boundscheck=false` must be set
-* Second, `loopunroll` must be the default `0` (as loops are SIMD unrolled)
-* Third, `getbyte` must be the default `Base.getindex`
+* Second, `getbyte` must be the default `Base.getindex`
