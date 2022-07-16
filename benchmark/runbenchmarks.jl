@@ -27,7 +27,7 @@ println("PCRE:                 ", @benchmark match(data))
 
 machine = Automa.compile(re"([A-z]*\r?\n)*")
 VISUALIZE && writesvg("case1", machine)
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -37,7 +37,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -45,7 +45,7 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     return cs == 0
 end
 @assert match(data)
-println("Automa.jl (unrolled): ", @benchmark match(data))
+println("Automa.jl (goto):     ", @benchmark match(data))
 
 
 # Case 2
@@ -59,7 +59,7 @@ println("PCRE:                 ", @benchmark match(data))
 
 machine = Automa.compile(re"([A-Za-z]*\r?\n)*")
 VISUALIZE && writesvg("case2", machine)
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -69,7 +69,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -77,7 +77,7 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     return cs == 0
 end
 @assert match(data)
-println("Automa.jl (unrolled): ", @benchmark match(data))
+println("Automa.jl (goto):     ", @benchmark match(data))
 
 
 # Case 3
@@ -91,7 +91,7 @@ println("PCRE:                 ", @benchmark match(data))
 
 machine = Automa.compile(re"([ACGTacgt]*\r?\n)*")
 VISUALIZE && writesvg("case3", machine)
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -101,7 +101,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -109,7 +109,7 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     return cs == 0
 end
 @assert match(data)
-println("Automa.jl (unrolled): ", @benchmark match(data))
+println("Automa.jl (goto):     ", @benchmark match(data))
 
 
 # Case 4
@@ -123,7 +123,7 @@ println("PCRE:                 ", @benchmark match(data))
 
 machine = Automa.compile(re"([A-Za-z\*-]*\r?\n)*")
 VISUALIZE && writesvg("case4", machine)
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -133,7 +133,7 @@ end
 @assert match(data)
 println("Automa.jl:            ", @benchmark match(data))
 
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
     p_end = p_eof = lastindex(data)
@@ -141,4 +141,4 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     return cs == 0
 end
 @assert match(data)
-println("Automa.jl (unrolled): ", @benchmark match(data))
+println("Automa.jl (goto):     ", @benchmark match(data))
