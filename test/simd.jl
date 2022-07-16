@@ -1,8 +1,6 @@
 # Test codegencontext
 @testset "CodeGenContext" begin
     @test_throws ArgumentError Automa.CodeGenContext(generator=:fdjfhkdj)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, checkbounds=false, loopunroll=2)
     @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, checkbounds=false, getbyte=identity)
 end
 
