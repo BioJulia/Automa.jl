@@ -29,8 +29,7 @@ machine = Automa.compile(re"([A-z]*\r?\n)*")
 VISUALIZE && writesvg("case1", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -38,8 +37,7 @@ println("Automa.jl:            ", @benchmark match(data))
 
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -59,8 +57,7 @@ machine = Automa.compile(re"([A-Za-z]*\r?\n)*")
 VISUALIZE && writesvg("case2", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -68,8 +65,7 @@ println("Automa.jl:            ", @benchmark match(data))
 
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -89,8 +85,7 @@ machine = Automa.compile(re"([ACGTacgt]*\r?\n)*")
 VISUALIZE && writesvg("case3", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -98,8 +93,7 @@ println("Automa.jl:            ", @benchmark match(data))
 
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -119,8 +113,7 @@ machine = Automa.compile(re"([A-Za-z\*-]*\r?\n)*")
 VISUALIZE && writesvg("case4", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)
@@ -128,8 +121,7 @@ println("Automa.jl:            ", @benchmark match(data))
 
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
-    $(Automa.generate_init_code(context, machine))
-    $(Automa.generate_exec_code(context, machine))
+    $(Automa.generate_code(context, machine))
     return cs == 0
 end
 @assert match(data)

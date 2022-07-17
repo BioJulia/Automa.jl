@@ -27,8 +27,7 @@ using Test
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
         validate = @eval function (data)
             logger = Symbol[]
-            $(Automa.generate_init_code(ctx, machine))
-            $(Automa.generate_exec_code(ctx, machine, :debug))
+            $(Automa.generate_code(ctx, machine, :debug))
             return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
         end
         @test validate(b"ab") == ([:enter, :all, :final, :exit, :enter, :all, :final, :exit], :ok)

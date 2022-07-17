@@ -30,12 +30,10 @@ using Test
     for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
         (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
-        init_code = Automa.generate_init_code(ctx, machine)
-        exec_code = Automa.generate_exec_code(ctx, machine, :debug)
+        code = (Automa.generate_code(ctx, machine, :debug))
         validate = @eval function (data)
             logger = Symbol[]
-            $(init_code)
-            $(exec_code)
+            $(code)
             return cs == 0, logger
         end
         @test validate(b"b") == (true, [:enter_re,:enter_a,:exit_a,:enter_b,:final_b,:final_re,:exit_b,:exit_re])

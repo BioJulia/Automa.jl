@@ -9,11 +9,9 @@ using Test
     for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
         (generator == :goto && checkbounds) && continue
         ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
-        init_code = Automa.generate_init_code(ctx, machine)
-        exec_code = Automa.generate_exec_code(ctx, machine)
+        code = Automa.generate_code(ctx, machine)
         validate = @eval function (data)
-            $(init_code)
-            $(exec_code)
+            $(code)
             return cs == 0
         end
         @test validate(b"abracadabra") == false

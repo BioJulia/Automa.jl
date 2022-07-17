@@ -19,8 +19,7 @@ import Automa.RegExp: @re_str
     context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 
     @eval function is_valid_fasta(data::String)
-        $(Automa.generate_init_code(context, machine))
-        $(Automa.generate_exec_code(context, machine, nothing))
+        $(Automa.generate_code(context, machine))
         return p == ncodeunits(data) + 1
     end
 
