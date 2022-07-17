@@ -61,11 +61,8 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     identifier = description = ""
     buffer = IOBuffer()
 
-    # Initialize variables used by the state machine.
-    $(Automa.generate_init_code(context, fasta_machine))
-
-    # This is the main loop to iterate over the input data.
-    $(Automa.generate_exec_code(context, fasta_machine, fasta_actions))
+    # Generate code for initialization and main loop
+    $(Automa.generate_code(context, fasta_machine, fasta_actions))
 
     # Check the last state the machine reached.
     if cs != 0

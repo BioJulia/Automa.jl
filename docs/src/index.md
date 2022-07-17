@@ -246,11 +246,8 @@ context = Automa.CodeGenContext()
     # initialize a result variable
     count = 0
 
-    # generate code to initialize variables used by FSM
-    $(Automa.generate_init_code(context, machine))
-
-    # generate code to execute FSM
-    $(Automa.generate_exec_code(context, machine, actions))
+    # Generate code to initialize FSM and execute main loop
+    $(Automa.generate_code(context, machine))
 
     # check if FSM properly finished
     if cs != 0

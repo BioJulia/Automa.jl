@@ -16,6 +16,7 @@ Code generator
 ```@docs
 Automa.Variables
 Automa.CodeGenContext
+Automa.generate_code
 Automa.generate_init_code
 Automa.generate_exec_code
 ```

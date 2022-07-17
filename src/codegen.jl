@@ -88,6 +88,20 @@ end
 const DefaultCodeGenContext = CodeGenContext()
 
 """
+    generate_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
+
+Generate init and exec code for `machine`.
+Shorthand for `generate_init_code(ctx, machine); generate_action_code(ctx, machine, actions)`
+"""
+function generate_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
+    return quote
+        $(generate_init_code(ctx, machine))
+        $(generate_exec_code(ctx, machine, actions))
+    end
+end
+generate_code(machine::Machine, actions=nothing) = generate_code(DefaultCodeGenContext, machine, actions)
+
+"""
     generate_init_code([::CodeGenContext], machine::Machine)::Expr
 
 Generate variable initialization code.
