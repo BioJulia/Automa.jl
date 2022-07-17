@@ -88,6 +88,32 @@ end
 const DefaultCodeGenContext = CodeGenContext()
 
 """
+    generate_validator_function(name::Symbol, machine::Machine, goto=false)
+
+Generate code that, when evaluated, defines a function named `name`, which takes a
+single argument `data`, interpreted as a sequence of bytes.
+The function returns `nothing` if `data` matches `Machine`, else the index of the first
+invalid byte. If the machine reached unexpected EOF, returns `sizeof(data) + 1`.
+If `goto`, the function uses the faster but more complicated `:goto` code.
+"""
+function generate_validator_function(name::Symbol, machine::Machine, goto::Bool=false)
+    ctx = goto ? CodeGenContext(generator=:goto) : DefaultCodeGenContext
+    return quote
+        """
+            $($(name))(data)::Union{Int, Nothing}
+
+        Checks if `data`, interpreted as a bytearray, conforms to the given `Automa.Machine`.
+        Returns `nothing` if it does, else the byte index of the first invalid byte.
+        If the machine reached unexpected EOF, returns `sizeof(data) + 1`.
+        """
+        function $(name)(data)
+            $(generate_code(ctx, machine))
+            iszero(cs) ? nothing : p
+        end
+    end
+end
+
+"""
     generate_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
 
 Generate init and exec code for `machine`.

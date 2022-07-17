@@ -98,6 +98,7 @@ include("test17.jl")
 include("test18.jl")
 include("simd.jl")
 include("unicode.jl")
+include("validator.jl")
 
 module TestFASTA
 using Test
