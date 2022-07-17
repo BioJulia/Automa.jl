@@ -12,7 +12,6 @@ using Test
     ctx = Automa.CodeGenContext(generator=:table)
     @eval function validate_table(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = sizeof(data)
         $(Automa.generate_exec_code(ctx, machine))
         return p, cs
     end
@@ -20,7 +19,6 @@ using Test
     ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false)
     @eval function validate_goto(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = sizeof(data)
         $(Automa.generate_exec_code(ctx, machine))
         return p, cs
     end

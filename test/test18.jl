@@ -13,7 +13,6 @@ using Test
         exec_code = Automa.generate_exec_code(ctx, machine)
         validate = @eval function (data)
             $(init_code)
-            p_end = p_eof = lastindex(data)
             $(exec_code)
             return cs == 0
         end

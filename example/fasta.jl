@@ -63,7 +63,6 @@ context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 
     # Initialize variables used by the state machine.
     $(Automa.generate_init_code(context, fasta_machine))
-    p_end = p_eof = lastindex(data)
 
     # This is the main loop to iterate over the input data.
     $(Automa.generate_exec_code(context, fasta_machine, fasta_actions))

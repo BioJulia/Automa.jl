@@ -26,7 +26,6 @@ using Test
         end
         validate = @eval function (data)
             $(init_code)
-            p_end = p_eof = lastindex(data)
             $(exec_code)
             return cs == 0
         end

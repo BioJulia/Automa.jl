@@ -20,7 +20,6 @@ import Automa.RegExp: @re_str
 
     @eval function is_valid_fasta(data::String)
         $(Automa.generate_init_code(context, machine))
-        p_end = p_eof = ncodeunits(data)
         $(Automa.generate_exec_code(context, machine, nothing))
         return p == ncodeunits(data) + 1
     end
