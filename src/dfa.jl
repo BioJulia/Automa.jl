@@ -201,8 +201,7 @@ end
 function disjoint_split(sets::Vector{ByteSet})
     # TODO: maybe too slow when length(sets) is large
     cut(s1, s2) = (intersect(s1, s2), setdiff(s1, s2))
-    m = typemax(UInt64)
-    disjsets = [ByteSet(m, m, m, m)]
+    disjsets = [ByteSet(0x00:0xff)]
     disjsets′ = ByteSet[]
     for x in sets
         for y in disjsets
