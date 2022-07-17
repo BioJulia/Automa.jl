@@ -52,7 +52,6 @@ context = Automa.CodeGenContext()
     tokens = Tuple{Symbol,String}[]
     mark = 0
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     emit(kind) = push!(tokens, (kind, data[mark:p-1]))
     $(Automa.generate_exec_code(context, machine, actions))
     return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
@@ -250,9 +249,6 @@ context = Automa.CodeGenContext()
     # generate code to initialize variables used by FSM
     $(Automa.generate_init_code(context, machine))
 
-    # set end and EOF positions of data buffer
-    p_end = p_eof = lastindex(data)
-
     # generate code to execute FSM
     $(Automa.generate_exec_code(context, machine, actions))
 
@@ -297,8 +293,8 @@ generates variable declatarions used by the finite state machine (FSM).
 julia> Automa.generate_init_code(context, machine)
 quote  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 67:
     p::Int = 1 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 68:
-    p_end::Int = 0 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 69:
-    p_eof::Int = -1 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 70:
+    p_end::Int = sizeof(data) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 69:
+    p_eof::Int = p_end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 70:
     cs::Int = 1
 end
 

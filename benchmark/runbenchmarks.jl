@@ -30,7 +30,6 @@ VISUALIZE && writesvg("case1", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -40,7 +39,6 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -62,7 +60,6 @@ VISUALIZE && writesvg("case2", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -72,7 +69,6 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -94,7 +90,6 @@ VISUALIZE && writesvg("case3", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -104,7 +99,6 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -126,7 +120,6 @@ VISUALIZE && writesvg("case4", machine)
 context = Automa.CodeGenContext()
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end
@@ -136,7 +129,6 @@ println("Automa.jl:            ", @benchmark match(data))
 context = Automa.CodeGenContext(generator=:goto)
 @eval function match(data)
     $(Automa.generate_init_code(context, machine))
-    p_end = p_eof = lastindex(data)
     $(Automa.generate_exec_code(context, machine))
     return cs == 0
 end

@@ -110,6 +110,10 @@ function generate_reader(
         buffer = stream.state.buffer1
         data = buffer.data
         $(Automa.generate_init_code(context, machine))
+        # Overwrite these for Stream, since we don't know EOF or end,
+        # as this is set in the __exec__ part depending on the stream state.
+        $(context.vars.p_end) = 0
+        $(context.vars.p_eof) = -1
         $(initcode)
 
         @label __exec__

@@ -10,7 +10,6 @@ using Test
     ctx = Automa.CodeGenContext()
     @eval function ismatch1(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = lastindex(data)
         $(Automa.generate_exec_code(ctx, machine))
         return cs == 0
     end
@@ -25,7 +24,6 @@ using Test
     ctx = Automa.CodeGenContext()
     @eval function ismatch2(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = lastindex(data)
         $(Automa.generate_exec_code(ctx, machine))
         return cs == 0
     end
@@ -41,7 +39,6 @@ using Test
     ctx = Automa.CodeGenContext()
     @eval function ismatch3(data)
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = lastindex(data)
         $(Automa.generate_exec_code(ctx, machine))
         return cs == 0
     end

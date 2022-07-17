@@ -50,7 +50,6 @@ run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
 context = Automa.CodeGenContext()
 @eval function tokenize(data)
     $(Automa.generate_init_code(context, minijulia))
-    p_end = p_eof = sizeof(data)
     tokens = Tuple{Symbol,String}[]
     emit(kind) = push!(tokens, (kind, data[ts:te]))
     while p ≤ p_eof && cs > 0
