@@ -8,11 +8,9 @@ using Test
     re = re"A+(B+C)*(D|E)+"
     machine = Automa.compile(re)
     ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false)
-    init_code = Automa.generate_init_code(ctx, machine)
-    exec_code = Automa.generate_exec_code(ctx, machine)
+    code = Automa.generate_code(ctx, machine)
     validate = @eval function (data)
-        $(init_code)
-        $(exec_code)
+        $(code)
         return cs == 0
     end
     @test validate(b"ABCD")
