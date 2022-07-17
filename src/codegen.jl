@@ -94,11 +94,12 @@ Generate variable initialization code.
 If not passed, the context defaults to `DefaultCodeGenContext`
 """
 function generate_init_code(ctx::CodeGenContext, machine::Machine)
+    vars = ctx.vars
     return quote
-        $(ctx.vars.p)::Int = 1
-        $(ctx.vars.p_end)::Int = 0
-        $(ctx.vars.p_eof)::Int = -1
-        $(ctx.vars.cs)::Int = $(machine.start_state)
+        $(vars.p)::Int = 1
+        $(vars.p_end)::Int = sizeof($(vars.data))
+        $(vars.p_eof)::Int = $(vars.p_end)
+        $(vars.cs)::Int = $(machine.start_state)
     end
 end
 generate_init_code(machine::Machine) = generate_init_code(DefaultCodeGenContext, machine)

@@ -49,8 +49,8 @@ end
 function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
     quote
         $(ctx.vars.p)::Int = 1
-        $(ctx.vars.p_end)::Int = 0
-        $(ctx.vars.p_eof)::Int = -1
+        $(ctx.vars.p_end)::Int = sizeof($(ctx.vars.data))
+        $(ctx.vars.p_eof)::Int = $(ctx.vars.p_end)
         $(ctx.vars.ts)::Int = 0
         $(ctx.vars.te)::Int = 0
         $(ctx.vars.cs)::Int = $(tokenizer.machine.start_state)

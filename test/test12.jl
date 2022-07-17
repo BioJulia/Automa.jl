@@ -14,7 +14,6 @@ using Test
     @eval function validate(data)
         logger = Symbol[]
         $(Automa.generate_init_code(ctx, machine))
-        p_end = p_eof = sizeof(data)
         $(Automa.generate_exec_code(ctx, machine, :debug))
         return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end

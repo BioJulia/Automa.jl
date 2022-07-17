@@ -24,7 +24,6 @@ using Test
         validate = @eval function (data)
             logger = Symbol[]
             $(init_code)
-            p_end = p_eof = lastindex(data)
             $(exec_code)
             return cs == 0, logger
         end
