@@ -138,7 +138,7 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
     action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, machine, actions)
     trans_table = generate_transition_table(machine)
     getbyte_code = generate_getbyte_code(ctx)
-    set_cs_code = :(@inbounds $(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
+    set_cs_code = :(@inbounds $(ctx.vars.cs) = Int($(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1]))
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
     final_state_code = generate_final_state_mem_code(ctx, machine)
     return quote
@@ -159,8 +159,16 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
     end
 end
 
+function smallest_int(n::Integer)
+    for T in [Int8, Int16, Int32, Int64]
+        n <= typemax(T) && return T
+    end
+    @assert false
+end
+
 function generate_transition_table(machine::Machine)
-    trans_table = Matrix{Int}(undef, 256, length(machine.states))
+    nstates = length(machine.states)
+    trans_table = Matrix{smallest_int(nstates)}(undef, 256, nstates)
     for j in 1:size(trans_table, 2)
         trans_table[:,j] .= -j
     end
@@ -176,8 +184,10 @@ function generate_transition_table(machine::Machine)
 end
 
 function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
-    action_table = fill(0, (256, length(machine.states)))
-    action_ids = Dict{Vector{Symbol},Int}()
+    nactions = length(actions)
+    T = smallest_int(nactions)
+    action_table = fill(zero(T), (256, length(machine.states)))
+    action_ids = Dict{Vector{Symbol},T}()
     for s in traverse(machine.start)
         for (e, t) in s.edges
             if isempty(e.actions)
@@ -196,7 +206,7 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
         action_code = rewrite_special_macros(ctx, generate_action_code(names, actions), false)
         return Expr(:if, :($(act) == $(id)), action_code, els)
     end
-    action_code = :(@inbounds $(act) = $(action_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
+    action_code = :(@inbounds $(act) = Int($(action_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1]))
     return action_dispatch_code, action_code
 end
 
