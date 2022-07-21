@@ -96,7 +96,8 @@ function generate_reader(
         actions::Dict{Symbol,Expr}=Dict{Symbol,Expr}(),
         initcode::Expr=:(),
         loopcode::Expr=:(),
-        returncode::Expr=:(return cs))
+        returncode::Expr=:(return $(context.vars.cs))
+)
     if returncode.head != :return
         returncode = Expr(:return, returncode)
     end
@@ -104,6 +105,7 @@ function generate_reader(
     for arg in arguments
         push!(functioncode.args[1].args, arg)
     end
+    vars = context.vars
     functioncode.args[2] = quote
         buffer = stream.state.buffer1
         data = buffer.data
@@ -111,17 +113,17 @@ function generate_reader(
         $(initcode)
 
         @label __exec__
-        if p_eof ≥ 0 || eof(stream)
-            p_eof = buffer.marginpos - 1
+        if $(vars.p_eof) ≥ 0 || eof(stream)
+            $(vars.p_eof) = buffer.marginpos - 1
         end
-        p = buffer.bufferpos
-        p_end = buffer.marginpos - 1
+        $(vars.p) = buffer.bufferpos
+        $(vars.p_end) = buffer.marginpos - 1
         $(Automa.generate_exec_code(context, machine, actions))
-        Base.skip(stream, p - buffer.bufferpos)
+        Base.skip(stream, $(vars.p) - buffer.bufferpos)
 
         $(loopcode)
 
-        if cs ≤ 0 || p > p_eof ≥ 0
+        if $(vars.cs) ≤ 0 || $(vars.p) > $(vars.p_eof) ≥ 0
             @label __return__
             $(returncode)
         end

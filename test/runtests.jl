@@ -244,26 +244,33 @@ returncode = quote
     end
 end
 Automa.Stream.generate_reader(:readrecord!, machine, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
+ctx = Automa.CodeGenContext(
+    vars=Automa.Variables(:pointerindex, :p_ending, :p_fileend, :ts, :te, :current_state, :buffer, gensym(), gensym()),
+    generator=:goto,
+)
+Automa.Stream.generate_reader(:readrecord2!, machine, context=ctx, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
 
 @testset "Three-column BED (stateful)" begin
-    stream = NoopStream(IOBuffer("""chr1\t10\t200\n"""))
-    state = machine.start_state
-    val, state = readrecord!(stream, state)
-    @test val == ("chr1", 10, 200)
-    val, state = readrecord!(stream, state)
-    @test val == ("", -1, 0)
-    @test state == 0
-    stream = NoopStream(IOBuffer("""1\t10\t200000\nchr12\t0\t21000\r\nchrM\t123\t12345\n"""))
-    state = machine.start_state
-    val, state = readrecord!(stream, state)
-    @test val == ("1", 10, 200000)
-    val, state = readrecord!(stream, state)
-    @test val == ("chr12", 0, 21000)
-    val, state = readrecord!(stream, state)
-    @test val == ("chrM", 123, 12345)
-    val, state = readrecord!(stream, state)
-    @test val == ("", -1, 0)
-    @test state == 0
+    for reader in (readrecord!, readrecord2!)
+        stream = NoopStream(IOBuffer("""chr1\t10\t200\n"""))
+        state = machine.start_state
+        val, state = readrecord!(stream, state)
+        @test val == ("chr1", 10, 200)
+        val, state = readrecord!(stream, state)
+        @test val == ("", -1, 0)
+        @test state == 0
+        stream = NoopStream(IOBuffer("""1\t10\t200000\nchr12\t0\t21000\r\nchrM\t123\t12345\n"""))
+        state = machine.start_state
+        val, state = readrecord!(stream, state)
+        @test val == ("1", 10, 200000)
+        val, state = readrecord!(stream, state)
+        @test val == ("chr12", 0, 21000)
+        val, state = readrecord!(stream, state)
+        @test val == ("chrM", 123, 12345)
+        val, state = readrecord!(stream, state)
+        @test val == ("", -1, 0)
+        @test state == 0
+    end
 end
 
 # FASTA
