@@ -113,3 +113,48 @@ end
 function execute(machine::Machine, data::String)
     return execute(machine, convert(Vector{UInt8}, codeunits(data)))
 end
+
+function throw_input_error(
+    machine::Machine,
+    state::Integer,
+    byte::Union{UInt8, Nothing}, # nothing if input is unexpected EOF
+    memory, # SizedMemory
+    index::Integer
+)
+    buf = IOBuffer()
+    @assert index <= lastindex(memory) + 1
+    # Print position in memory
+    is_eof = index == lastindex(memory) + 1
+    @assert byte isa (is_eof ? Nothing : UInt8)
+    slice = max(1,index-100):index - is_eof
+    bytes = repr(String([memory[i] for i in slice]))
+    write(
+        buf,
+        "Error during FSM execution at buffer position ",
+        string(index),
+        ".\nLast ",
+        string(length(slice)),
+        " bytes were:\n\n"
+    )
+    write(buf, bytes, "\n\n")
+
+    # Print header
+    input = byte isa UInt8 ? repr(first(String([byte]))) : "EOF"
+    write(buf, "Observed input: $input at state $state. Outgoing edges:\n")
+
+    # Print edges
+    nodes = collect(traverse(machine.start))
+    node = nodes[findfirst(n -> n.state == state, nodes)::Int]
+    for (edge, _) in node.edges
+        print(buf, " * ", replace(edge2str(edge), "\\\\"=>"\\"), '\n')
+    end
+    if state in machine.final_states
+        print(buf, " * ", eof_label(machine.eof_actions[state]), '\n')
+    end
+
+    # Print footer
+    write(buf, "\nInput is not in any outgoing edge, and machine therefore errored.")
+
+    str = String(take!(buf))
+    error(str)
+end

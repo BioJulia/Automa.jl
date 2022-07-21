@@ -579,6 +579,17 @@ function generate_membership_code(var::Symbol, set::ByteSet)
     end
 end
 
+function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
+    byte_symbol = gensym()
+    vars = ctx.vars
+    return quote
+        if $(vars.cs) < 0
+            $byte_symbol = ($(vars.p_eof > -1) && $(vars.p) > $(vars.p_eof)) ? nothing : $(vars.byte)
+            Automa.throw_input_error($(machine), -$(vars.cs), $byte_symbol, $(vars.mem), $(vars.p))
+        end
+    end
+end
+
 # Used by the :table and :inline code generators.
 function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool)
     args = []
