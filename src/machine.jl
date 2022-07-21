@@ -94,7 +94,7 @@ machine let
 end
 ```
 """
-function compile(re::RegExp.RE; optimize::Bool=true, unambiguous::Bool=false)
+function compile(re::RegExp.RE; optimize::Bool=true, unambiguous::Bool=true)
     dfa = nfa2dfa(remove_dead_nodes(re2nfa(re)), unambiguous)
     if optimize
         dfa = remove_dead_nodes(reduce_nodes(dfa))
