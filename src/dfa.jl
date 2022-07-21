@@ -37,7 +37,7 @@ function validate(dfa::DFA)
     end
 end
 
-function nfa2dfa(nfa::NFA, unambiguous::Bool=true)
+function nfa2dfa(nfa::NFA, unambiguous::Bool=false)
     newnodes = Dict{Set{NFANode},DFANode}()
     new(S) = get!(newnodes, S, DFANode(nfa.final ∈ S, S))
     isvisited(S) = haskey(newnodes, S)
