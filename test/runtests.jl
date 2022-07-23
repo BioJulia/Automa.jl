@@ -220,6 +220,38 @@ Automa.Stream.generate_reader(:stripwhitespace, machine, actions=actions, initco
     end
 end
 
+@testset "Incorrect action names" begin
+    machine = let
+        a = re"abc"
+        a.actions[:enter] = [:foo, :bar]
+        b = re"bcd"
+        b.actions[:all] = [:qux]
+        b.when = :froom
+        c = re"x*"
+        c.actions[:exit] = []
+        Automa.compile(Automa.RegExp.cat(c, a | b))
+    end
+    ctx = Automa.CodeGenContext(generator=:goto)
+    actions = Dict(
+        :foo => quote nothing end,
+        :bar => quote nothing end,
+        :qux => quote nothing end,
+        :froom => quote 1 == 1.0 end
+    )
+
+    # Just test whether it throws or not
+    @test Automa.generate_exec_code(ctx, machine, nothing) isa Any
+    @test Automa.generate_exec_code(ctx, machine, :debug) isa Any
+    @test Automa.generate_exec_code(ctx, machine, actions) isa Any
+    @test_throws Exception Automa.generate_exec_code(ctx, machine, Dict{Symbol, Expr}())
+    delete!(actions, :froom)
+    @test_throws Exception Automa.generate_exec_code(ctx, machine, actions)
+    actions[:froom] = quote nothing end
+    actions[:missing_symbol] = quote nothing end
+    @test_throws Exception Automa.generate_exec_code(ctx, machine, actions)
+    @test Automa.generate_exec_code(ctx, machine, :debug) isa Any
+end
+
 # Three-column BED file format.
 cat = Automa.RegExp.cat
 rep = Automa.RegExp.rep
