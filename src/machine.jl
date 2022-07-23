@@ -31,6 +31,27 @@ struct Machine
     eof_actions::Dict{Int,ActionList}
 end
 
+function action_names(machine::Machine)
+    actions = Set{Symbol}()
+    for s in traverse(machine.start)
+        for (e, t) in s.edges
+            union!(actions, a.name for a in e.actions)
+        end
+    end
+    for as in values(machine.eof_actions)
+        union!(actions, a.name for a in as)
+    end
+    return actions
+end
+
+function machine_names(machine::Machine)
+    actions = action_names(machine)
+    for node in traverse(machine.start), (e, _) in node.edges
+        union!(actions, e.precond.names)
+    end
+    return actions
+end
+
 function Base.show(io::IO, machine::Machine)
     print(io, summary(machine), "(<states=", machine.states, ",start_state=", machine.start_state, ",final_states=", machine.final_states, ">)")
 end
