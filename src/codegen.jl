@@ -152,17 +152,33 @@ If not passed, the context defaults to `DefaultCodeGenContext`
 """
 function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # make actions
-    if actions === nothing
-        actions = Dict{Symbol,Expr}(a => quote nothing end for a in action_names(machine))
+    actions_dict::Dict{Symbol, Expr} = if actions === nothing
+        Dict{Symbol,Expr}(a => quote nothing end for a in machine_names(machine))
     elseif actions == :debug
-        actions = debug_actions(machine)
+        debug_actions(machine)
     elseif isa(actions, AbstractDict{Symbol,Expr})
-        actions = Dict{Symbol,Expr}(collect(actions))
+        d = Dict{Symbol,Expr}(collect(actions))
+
+        # check the set of actions is same as that of machine's
+        machine_acts = machine_names(machine)
+        dict_actions = Set(k for (k,v) in d)
+        for act in machine_acts
+            if act ∈ dict_actions
+                delete!(dict_actions, act)
+            else
+                error("Action \"$act\" of machine not present in input action Dict")
+            end
+        end
+        if length(dict_actions) > 0
+            error("Action \"$(first(dict_actions))\" not present in machine")
+        end
+        d
     else
         throw(ArgumentError("invalid actions argument"))
     end
+
     # generate code
-    code = ctx.generator(ctx, machine, actions)
+    code = ctx.generator(ctx, machine, actions_dict)
     if ctx.clean
         code = cleanup(code)
     end
@@ -543,25 +559,11 @@ function cleanup(ex::Expr)
     return Expr(ex.head, args...)
 end
 
-function action_names(machine::Machine)
-    actions = Set{Symbol}()
-    for s in traverse(machine.start)
-        for (e, t) in s.edges
-            union!(actions, a.name for a in e.actions)
-        end
-    end
-    for as in values(machine.eof_actions)
-        union!(actions, a.name for a in as)
-    end
-    return actions
-end
-
 function debug_actions(machine::Machine)
-    actions = action_names(machine)
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))
     end
-    return Dict{Symbol,Expr}(name => log_expr(name) for name in actions)
+    return Dict{Symbol,Expr}(name => log_expr(name) for name in machine_names(machine))
 end
 
 "If possible, remove self-simd edge."
