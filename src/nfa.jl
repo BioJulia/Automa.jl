@@ -30,6 +30,8 @@ function iseps(e::Edge)
     return isempty(e.labels)
 end
 
+const ACCEPTED_KEYS = [:enter, :exit, :all, :final]
+
 function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
     actions = Dict{Tuple{RegExp.RE,Symbol},Action}()
     action_order = 1
@@ -53,6 +55,13 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
 
     # Thompson's construction.
     function rec!(start, re)
+        # Validate keys
+        for (k, v) in re.actions
+            if k ∉ ACCEPTED_KEYS
+                error("Bad key in RE.actions: \"$k\". Accepted keys are: $(string(ACCEPTED_KEYS))")
+            end
+        end
+
         if haskey(re.actions, :enter)
             start_in = NFANode()
             push!(start.edges, (Edge(eps, make_action_list(re, re.actions[:enter])), start_in))
