@@ -107,7 +107,8 @@ function generate_validator_function(name::Symbol, machine::Machine, goto::Bool=
         If the machine reached unexpected EOF, returns `sizeof(data) + 1`.
         """
         function $(name)(data)
-            $(generate_code(ctx, machine))
+            $(generate_init_code(ctx, machine))
+            $(generate_exec_code(ctx, machine))
             iszero(cs) ? nothing : p
         end
     end
@@ -117,12 +118,26 @@ end
     generate_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
 
 Generate init and exec code for `machine`.
-Shorthand for `generate_init_code(ctx, machine); generate_action_code(ctx, machine, actions)`
+Shorthand for:
+```
+generate_init_code(ctx, machine)
+generate_action_code(ctx, machine, actions)
+generate_input_error_code(ctx, machine) [elided if actions == :debug]
+```
 """
 function generate_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
+    # If actions are :debug, the user presumably wants to programatically
+    # check what happens to the machine, which is not made easier by
+    # throwing an error.
+    error_code = if actions != :debug
+        generate_input_error_code(ctx, machine)
+    else
+        quote nothing end
+    end
     return quote
         $(generate_init_code(ctx, machine))
         $(generate_exec_code(ctx, machine, actions))
+        $(error_code)
     end
 end
 generate_code(machine::Machine, actions=nothing) = generate_code(DefaultCodeGenContext, machine, actions)
@@ -136,6 +151,7 @@ If not passed, the context defaults to `DefaultCodeGenContext`
 function generate_init_code(ctx::CodeGenContext, machine::Machine)
     vars = ctx.vars
     return quote
+        $(vars.byte)::UInt8 = 0x00
         $(vars.p)::Int = 1
         $(vars.p_end)::Int = sizeof($(vars.data))
         $(vars.p_eof)::Int = $(vars.p_end)
@@ -490,7 +506,7 @@ function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
     vars = ctx.vars
     return quote
         if $(vars.cs) < 0
-            $byte_symbol = ($(vars.p_eof > -1) && $(vars.p) > $(vars.p_eof)) ? nothing : $(vars.byte)
+            $byte_symbol = ($(vars.p_eof) > -1 && $(vars.p) > $(vars.p_eof)) ? nothing : $(vars.byte)
             Automa.throw_input_error($(machine), -$(vars.cs), $byte_symbol, $(vars.mem), $(vars.p))
         end
     end

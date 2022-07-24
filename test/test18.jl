@@ -12,11 +12,10 @@ using Test
         code = Automa.generate_code(ctx, machine)
         validate = @eval function (data)
             $(code)
-            return cs == 0
         end
-        @test validate(b"abracadabra") == false
-        @test validate(b"\0\a\b\t\n\v\r\x00\xff\xFF\\!") == true
-        @test validate(b"\0\a\b\t\n\v\r\x00\xff\xFF\\\\") == false
+        @test_throws Exception validate(b"abracadabra")
+        @test validate(b"\0\a\b\t\n\v\r\x00\xff\xFF\\!") === nothing
+        @test validate(b"\0\a\b\t\n\v\r\x00\xff\xFF\\\\") === nothing
     end
 end
 
