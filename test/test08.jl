@@ -30,7 +30,8 @@ using Test
     @eval function tokenize(data)
         tokens = Tuple{Symbol,String}[]
         mark = 0
-        $(Automa.generate_code(ctx, machine, actions))
+        $(Automa.generate_init_code(ctx, machine))
+        $(Automa.generate_exec_code(ctx, machine, actions))
         return tokens, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
 
