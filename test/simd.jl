@@ -18,17 +18,14 @@ import Automa.RegExp: @re_str
 
     context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 
-    @eval function is_valid_fasta(data::String)
-        $(Automa.generate_code(context, machine))
-        return p == ncodeunits(data) + 1
-    end
+    eval(Automa.generate_validator_function(:is_valid_fasta, machine, true))
 
     s1 = ">seq\nTAGGCTA\n>hello\nAJKGMP"
     s2 = ">seq1\nTAGGC"
     s3 = ">verylongsequencewherethesimdkicksinmakeitevenlongertobesure\nQ"
 
     for (seq, isvalid) in [(s1, true), (s2, false), (s3, true)]
-        @test is_valid_fasta(seq) == isvalid
+        @test is_valid_fasta(seq) isa (isvalid ? Nothing : Integer)
     end
 end
     

@@ -16,14 +16,15 @@ using Test
     for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
         # Test the default CTX, if none is passed.
         # We use the otherwise invalid combinarion :goto && checkbounds to do this
-        code = if generator == :goto && checkbounds
-            Automa.generate_code(machine)
+        (init_code, exec_code) = if generator == :goto && checkbounds
+            (Automa.generate_init_code(machine), Automa.generate_exec_code(machine))
         else
             ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
-            Automa.generate_code(ctx, machine)
+            (Automa.generate_init_code(ctx, machine), Automa.generate_exec_code(ctx, machine))
         end
         validate = @eval function (data)
-            $(code)
+            $(init_code)
+            $(exec_code)
             return cs == 0
         end
         @test validate(b"") == true
