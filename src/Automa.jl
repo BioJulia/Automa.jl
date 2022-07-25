@@ -37,4 +37,24 @@ include("codegen.jl")
 include("tokenizer.jl")
 include("Stream.jl")
 
+const RE = Automa.RegExp
+using .RegExp: @re_str, opt, rep, rep1
+
+# This list of exports lists the API
+export RE,
+    @re_str,
+    CodeGenContext,
+    compile,
+
+    # user-facing generator functions
+    generate_validator_function,
+    generate_init_code,
+    generate_exec_code,
+    generate_code,
+
+    # cat and alt is not exported in favor of * and |
+    opt,
+    rep,
+    rep1
+
 end # module
