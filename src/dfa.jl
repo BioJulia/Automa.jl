@@ -195,10 +195,20 @@ function validate_paths(
         for j in i+1:length(paths)
             edge2, node2, actions2 = paths[j]
             # If either ends with EOF, they don't have same conditions and we can continue
+            # If only one is an EOF, they are distinct
             (edge1 === nothing) ⊻ (edge2 === nothing) && continue
+            # If they have same actions, there is no conflict
             actions1 == actions2 && continue
             eof = (edge1 === nothing) & (edge2 === nothing)
-            !(eof || overlaps(edge1, edge2)) && continue
+            
+            if !eof
+                # If they are real edges but do not overlap, there is no conflict
+                overlaps(edge1, edge2) || continue
+
+                # If the FSM may disambiguate the two edges based on preconditions
+                # there is no conflict (or, rather, we can't prove a conflict.
+                has_potentially_conflicting_precond(edge1, edge2) && continue
+            end
 
             # Now we know there is an ambiguity, so we just need to create
             # an informative error
