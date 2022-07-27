@@ -38,8 +38,13 @@ using Test
     B.actions[:exit] = [:exit_B]
     @test Automa.compile(A | B) isa Automa.Machine
 
-    # TODO: Also need test for whether ambiguous edges can be
-    # resolved by conflicting preconditions and allow compilation.
+    # Test that conflicting edges can be known to be distinct
+    # with different conditions.
+    A = re"XY"
+    A.when = :cond
+    B = re"XZ"
+    A.actions[:enter] = [:enter_A]
+    @test Automa.compile(A | B, unambiguous=true) isa Automa.Machine
 end
 
 end
