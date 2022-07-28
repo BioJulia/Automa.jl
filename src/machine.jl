@@ -189,7 +189,7 @@ function throw_input_error(
     buf = IOBuffer()
     @assert index <= lastindex(memory) + 1
     # Print position in memory
-    is_eof = index == lastindex(memory) + 1
+    is_eof = index > lastindex(memory)
     @assert byte isa (is_eof ? Nothing : UInt8)
     slice = max(1,index-100):index - is_eof
     bytes = repr(String([memory[i] for i in slice]))
