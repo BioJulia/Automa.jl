@@ -42,7 +42,7 @@ function generate_goto_code end
 
 """
     CodeGenContext(;
-        vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), :byte),
+        vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
         generator=:table,
         checkbounds=true,
         getbyte=Base.getindex,
@@ -61,7 +61,7 @@ Arguments
 - `clean`: flag of code cleansing
 """
 function CodeGenContext(;
-        vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, gensym(), :byte),
+        vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
         generator::Symbol=:table,
         checkbounds::Bool=generator == :table,
         getbyte::Function=Base.getindex,
@@ -213,7 +213,7 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
     final_state_code = generate_final_state_mem_code(ctx, machine)
     return quote
-        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
+        $(ctx.vars.mem)::Automa.SizedMemory = $(SizedMemory)($(ctx.vars.data))
         while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
             $(getbyte_code)
             $(set_act_code)
