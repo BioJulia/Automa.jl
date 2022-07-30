@@ -1,6 +1,7 @@
 # Precondition
 # ============
 
+# See comments on Precondition.
 primitive type Value 8 end
 
 const NONE  = reinterpret(Value, 0x00)
@@ -24,7 +25,18 @@ function Base.:&(v1::Value, v2::Value)
     return convert(Value, convert(UInt8, v1) & convert(UInt8, v2))
 end
 
-
+# A Precondition is a list of conditions. Each condition has a symbol, which is used to
+# look up in a dict for an Expr object like :(a > 1) that should evaluate to a Bool.
+# This allows Automa to add if/else statements in generated code, like
+# if (a > 1) && (b < 5) for a Precondition with two symbols.
+# The Value is whether the condition is negated.
+# Automa's optimization of the graph may negate, or manipulate the expressions using
+# boolean logic.
+# There are four options for expr E:
+# 1. E & !E  (i.e. always false. This code is never even generated, just a literal false is)
+# 2. E (i.e. the pure condition)
+# 3. !E (i.e. the negated condition)
+# 4. E | !E (i.e. always true. Like 1., this is encoded as a literal `true` in generated code).
 struct Precondition
     names::Vector{Symbol}
     values::Vector{Value}
