@@ -58,7 +58,7 @@ Arguments
 - `generator`: code generator (`:table` or `:goto`)
 - `checkbounds`: flag of bounds check
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
-- `clean`: flag of code cleansing
+- `clean`: flag of code cleansing, e.g. removing line comments
 """
 function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
@@ -109,7 +109,8 @@ function generate_validator_function(name::Symbol, machine::Machine, goto::Bool=
         function $(name)(data)
             $(generate_init_code(ctx, machine))
             $(generate_exec_code(ctx, machine))
-            iszero(cs) ? nothing : p
+            # By convention, Automa lets cs be 0 if machine executed correctly.
+            iszero($(ctx.vars.cs)) ? nothing : p
         end
     end
 end
@@ -213,23 +214,36 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
     eof_action_code = generate_eof_action_code(ctx, machine, actions)
     final_state_code = generate_final_state_mem_code(ctx, machine)
     return quote
+        # Preserve data because SizedMemory is just a pointer
+        GC.@preserve $(ctx.vars.data) begin
         $(ctx.vars.mem)::Automa.SizedMemory = $(SizedMemory)($(ctx.vars.data))
+        # For each input byte...
         while $(ctx.vars.p) ≤ $(ctx.vars.p_end) && $(ctx.vars.cs) > 0
+            # Load byte
             $(getbyte_code)
+            # Get an integer corresponding to the set of actions that will be taken
+            # for this particular input at this stage (possibly nothing)
             $(set_act_code)
+            # Update state by a simple lookup in a table based on current state and input
             $(set_cs_code)
+            # Go through an if-else list of all actions to match the action integet obtained
+            # above, and execute the matching set of actions
             $(action_dispatch_code)
             $(ctx.vars.p) += 1
         end
+        # If we're out of bytes and in an accept state, find the correct EOF action
+        # and execute it, then set cs to 0 to signify correct execution
         if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         elseif $(ctx.vars.cs) < 0
             $(ctx.vars.p) -= 1
         end
+        end # GC.@preserve block
     end
 end
 
+# Smallest int type that n fits in
 function smallest_int(n::Integer)
     for T in [Int8, Int16, Int32, Int64]
         n <= typemax(T) && return T
@@ -237,6 +251,8 @@ function smallest_int(n::Integer)
     @assert false
 end
 
+# The table is a 256xnstates byte lookup table, such that table[input,cs] will give
+# the next state.
 function generate_transition_table(machine::Machine)
     nstates = length(machine.states)
     trans_table = Matrix{smallest_int(nstates)}(undef, 256, nstates)
@@ -244,6 +260,8 @@ function generate_transition_table(machine::Machine)
         trans_table[:,j] .= -j
     end
     for s in traverse(machine.start), (e, t) in s.edges
+        # Preconditions work by inserting if/else statements into the code.
+        # It's hard to see how we could fit it into the table-based generator
         if !isempty(e.precond)
             error("precondition is not supported in the table-based code generator; try code=:goto")
         end
@@ -258,6 +276,9 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
     nactions = length(actions)
     T = smallest_int(nactions)
     action_table = fill(zero(T), (256, length(machine.states)))
+    # Each edge with actions is a Vector{Symbol} with action names.
+    # Enumerate them, by mapping the vector to an integer.
+    # This way, each set of actions is mapped to an integer (call it: action int)
     action_ids = Dict{Vector{Symbol},T}()
     for s in traverse(machine.start)
         for (e, t) in s.edges
@@ -265,6 +286,8 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
                 continue
             end
             id = get!(action_ids, action_names(e.actions), length(action_ids) + 1)
+            # In the action table, the current state as well as the input byte gives the
+            # action int (see above) to execute on this transition
             for l in e.labels
                 action_table[l+1,s.state] = id
             end
@@ -272,20 +295,28 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
     end
     act = gensym()
     default = :()
+    # This creates code of the form: If act == 1 (actions in action int == 1)
+    # else if act == 2 (... etc)
     action_dispatch_code = foldr(default, action_ids) do names_id, els
         names, id = names_id
         action_code = rewrite_special_macros(ctx, generate_action_code(names, actions), false)
         return Expr(:if, :($(act) == $(id)), action_code, els)
     end
+    # Action code is: Get the action int from the state and current input byte
+    # Action dispatch code: The thing made above
     action_code = :(@inbounds $(act) = Int($(action_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1]))
     return action_dispatch_code, action_code
 end
 
 function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
+    # All the sets of actions (each set being a vector) on edges leading to a
+    # given machine node.
     actions_in = Dict{Node,Set{Vector{Symbol}}}()
     for s in traverse(machine.start), (e, t) in s.edges
         push!(get!(actions_in, t, Set{Vector{Symbol}}()), action_names(e.actions))
     end
+    # Assign each action a unique name based on the destination node the edge is on,
+    # and an integer, e.g. state_2_action_5
     action_label = Dict{Node,Dict{Vector{Symbol},Symbol}}()
     for s in traverse(machine.start)
         action_label[s] = Dict()
@@ -296,10 +327,13 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         end
     end
 
+    # Main loop expression blocks
     blocks = Expr[]
     for s in traverse(machine.start)
         block = Expr(:block)
         for (names, label) in action_label[s]
+            # These blocks are goto'd directly, when encountering the right edge. Their content
+            # if of the form execute action, then go to the state the edge was pointing to
             if isempty(names)
                 continue
             end
@@ -310,6 +344,8 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
             end)
         end
 
+        # This is the code of each state. The pointer is incremented, you @goto the exit
+        # if EOF, else continue to the code created below
         append_code!(block, quote
             @label $(Symbol("state_", s.state))
             $(ctx.vars.p) += 1
@@ -319,6 +355,11 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
             end
         end)
 
+        # SIMD code is special: If a node has a self-edge with no preconditions or actions,
+        # then the machine can skip ahead until the input is no longer in that edge's byteset.
+        # This can be effectively SIMDd
+        # If such an edge is detected, we treat it specially with code here, and leave the
+        # non-SIMDable edges for below
         simd, non_simd = peel_simd_edge(s)
         simd_code = if simd !== nothing
             quote
@@ -331,8 +372,13 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         else
             :()
         end
-            
+        
+        # If no inputs match, then we set cs = -cs to signal error, and go to exit
         default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
+
+        # For each edge in optimized order, check if the conditions for taking that edge
+        # is met. If so, go to the edge's actions if it has any actions, else go directly
+        # to the destination state
         dispatch_code = foldr(default, optimize_edge_order(non_simd)) do edge, els
             e, t = edge
             if isempty(e.actions)
@@ -343,6 +389,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
             return Expr(:if, generate_condition_code(ctx, e, actions), then, els)
         end
 
+        # Here we simply add the code created above to the list of expressions
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
             $(simd_code)
@@ -352,11 +399,20 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         push!(blocks, block)
     end
 
+    # In the beginning of the code generated here, the machine may not be in start state 1.
+    # E.g. it may be resuming. So, we generate a list of if-else statements that simply check
+    # the starting state, then directly goto that state.
+    # In cases where the starting state is hardcoded as a constant, (which is quite often!)
+    # hopefully the Julia compiler will optimize this block away.
     enter_code = foldr(:(@goto exit), machine.states) do s, els
         return Expr(:if, :($(ctx.vars.cs) == $(s)), :(@goto $(Symbol("state_case_", s))), els)
     end
 
+    # When EOF, go through a list of if/else statements: If cs == 1, do this, elseif
+    # cs == 2 do that etc
     eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
+
+    # Check the final state is an accept state, in an efficient manner
     final_state_code = generate_final_state_mem_code(ctx, machine)
 
     return quote
@@ -385,9 +441,14 @@ end
 # Note: This function has been carefully crafted to produce (nearly) optimal
 # assembly code for AVX2-capable CPUs. Change with great care.
 function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
+    # ScanByte finds first byte in a byteset. We want to find first
+    # byte NOT in this byteset, as this is where we can no longer skip ahead to
     byteset = ~ScanByte.ByteSet(bs)
     bsym = gensym()
     quote
+        # We wrap this in an Automa function, because otherwise the generated code
+        # would have a reference to ScanByte, which the user may not have imported.
+        # But they surely have imported Automa.
         $bsym = Automa.loop_simd(
             $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1,
             ($(ctx.vars.p_end) - $(ctx.vars.p) + 1) % UInt,
@@ -401,10 +462,13 @@ function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
     end
 end
 
+# Necessary wrapper function, see comment in `generate_simd_loop`
 @inline function loop_simd(ptr::Ptr, len::UInt, valbs::Val)
     ScanByte.memchr(ptr, len, valbs)
 end
 
+# Make if/else statements for each state that is an acceptable end state, and execute
+# the actions attached with ending in this state.
 function generate_eof_action_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(:(), machine.eof_actions) do s_as, els
         s, as = s_as
@@ -501,6 +565,8 @@ function generate_membership_code(var::Symbol, set::ByteSet)
     end
 end
 
+# Create a user-friendly informative error if a bad input is seen.
+# Defined in machine.jl, see that file.
 function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
     byte_symbol = gensym()
     vars = ctx.vars
@@ -557,6 +623,8 @@ function isescape(arg)
     return arg isa Expr && arg.head == :macrocall && arg.args[1] == Symbol("@escape")
 end
 
+# Clean created code of e.g. Automa source code comments.
+# By default not executed, as it's handy for debugging.
 function cleanup(ex::Expr)
     args = []
     for arg in ex.args
@@ -586,8 +654,15 @@ end
 function peel_simd_edge(node)
     non_simd = Tuple{Edge, Node}[]
     simd = nothing
+    # A simd-edge has no actions or preconditions, and its source is same as destination.
+    # that means the machine can just skip ahead
     for (e, t) in node.edges
         if t === node && isempty(e.actions) && isempty(e.precond)
+            # There should only be 1 SIMD edge possible, if not, the machine
+            # was not properly optimized by Automa, since SIMD edges should be
+            # collapsable, as they have the same actions, preconditions and target node,
+            # namely none, none and self.
+            @assert simd === nothing
             simd = e
         else
             push!(non_simd, (e, t))
@@ -601,7 +676,8 @@ function optimize_edge_order(edges)
     return sort!(copy(edges), by=e->length(e[1].labels), rev=true)
 end
 
-# Generic foldr.
+# Generic foldr. We have this here because using Base's foldr requires the iterator
+# to have a reverse method, whereas this one doesn't (but is much less efficient)
 function foldr(op::Function, x0, xs)
     function rec(xs, s)
         if s === nothing

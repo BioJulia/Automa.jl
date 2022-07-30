@@ -9,6 +9,11 @@ function gen_empty_names()
     return Symbol[]
 end
 
+# Head: What kind of regex, like cat, or rep, or opt etc.
+# args: the content of the regex itself. Maybe should be type stable?
+# actions: Julia code to be executed when matching the regex. See Automa docs
+# when: a Precondition that is checked when every byte in the regex is matched.
+# See comments on Precondition struct
 mutable struct RE
     head::Symbol
     args::Vector

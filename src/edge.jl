@@ -1,6 +1,10 @@
 # Edge
 # ====
 
+# An edge connects two nodes in the FSM. The labels is a set of bytes that, if the
+# input is in that set, the edge may be taken.
+# Precond is like an if-statement, if that condition is fulfilled, take the edge
+# The actions is a list of names of Julia code to execute, if edge is taken.
 struct Edge
     labels::ByteSet
     precond::Precondition
