@@ -407,7 +407,7 @@ end
 loopcode = quote
     found && @goto __return__
 end
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext(generator=:goto)
 Automa.Stream.generate_reader(
     :readrecord!,
     machine,

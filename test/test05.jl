@@ -16,9 +16,8 @@ using Test
 
     machine = Automa.compile(token)
 
-    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
-        (generator == :goto && checkbounds) && continue
-        ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
+    for generator in (:table, :goto), clean in (true, false)
+        ctx = Automa.CodeGenContext(generator=generator, clean=clean)
         code = Automa.generate_code(ctx, machine, :debug)
         validate = @eval function (data)
             logger = Symbol[]

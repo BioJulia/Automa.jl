@@ -378,7 +378,7 @@ elseif cs < 0
 end
 ```
 
-Automa.jl has four kinds of code generators. The first and default one uses two lookup tables to pick up the next state and the actions for the current state and input. The second one expands these lookup tables into a series of if-else branches. The third one is based on `@goto` jumps. The fourth one is identitical to the third one, except uses SIMD operations where applicable. These two code generators are named as `:table`, and `:goto`, respectively. To sepcify a code generator, you can pass the `code=:table|:goto` argument to `Automa.generate_exec_code`. The generated code size and its runtime speed highly depends on the machine and actions. However, as a rule of thumb, `:table` is simpler with smaller code, but is also slower.Also, specifying `checkbounds=false` turns off bounds checking while executing and often improves the runtime performance slightly.
+Automa.jl has four kinds of code generators. The first and default one uses two lookup tables to pick up the next state and the actions for the current state and input. The second one expands these lookup tables into a series of if-else branches. The third one is based on `@goto` jumps. The fourth one is identitical to the third one, except uses SIMD operations where applicable. These two code generators are named as `:table`, and `:goto`, respectively. To sepcify a code generator, you can pass the `code=:table|:goto` argument to `Automa.generate_exec_code`. The generated code size and its runtime speed highly depends on the machine and actions. However, as a rule of thumb, `:table` is simpler with smaller code, but is also slower.
 
 Note that the `:goto` generator has more requirements than the `:table` generator:
 * First, `boundscheck=false` must be set

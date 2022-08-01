@@ -7,7 +7,7 @@ using Test
 @testset "Test16" begin
     re = re"A+(B+C)*(D|E)+"
     machine = Automa.compile(re)
-    ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+    ctx = Automa.CodeGenContext(generator=:goto)
     code = 
     validate = @eval function (data)
         $(Automa.generate_init_code(ctx, machine))

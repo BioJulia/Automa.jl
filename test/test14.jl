@@ -16,7 +16,7 @@ using Test
         return p, cs
     end
 
-    ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+    ctx = Automa.CodeGenContext(generator=:goto)
     @eval function validate_goto(data)
         $(Automa.generate_init_code(ctx, machine))
         $(Automa.generate_exec_code(ctx, machine))

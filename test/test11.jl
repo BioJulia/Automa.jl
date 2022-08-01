@@ -23,7 +23,7 @@ using Test
     @test_throws ErrorException Automa.generate_exec_code(ctx, machine, actions)
 
     for clean in (true, false)
-        ctx = Automa.CodeGenContext(generator=:goto, checkbounds=false, clean=clean)
+        ctx = Automa.CodeGenContext(generator=:goto, clean=clean)
         validate = @eval function (data, n)
             logger = Symbol[]
             $(Automa.generate_init_code(ctx, machine))
