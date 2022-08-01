@@ -29,6 +29,20 @@ struct Variables
     byte::Symbol
 end
 
+function Variables(
+    ;p=:p,
+    p_end=:p_end,
+    p_eof=:p_eof,
+    ts=:ts,
+    te=:te,
+    cs=:cs,
+    data=:data,
+    mem=:mem,
+    byte=:byte
+)
+    Variables(p, p_end, p_eof, ts, te, cs, data, mem, byte)
+end
+
 struct CodeGenContext
     vars::Variables
     generator::Function
