@@ -130,11 +130,13 @@ function generate_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     else
         quote nothing end
     end
-    return quote
+    code = quote
         $(generate_init_code(ctx, machine))
         $(generate_exec_code(ctx, machine, actions))
         $(error_code)
     end
+    ctx.clean && Base.remove_linenums!(code)
+    return code
 end
 generate_code(machine::Machine, actions=nothing) = generate_code(DefaultCodeGenContext, machine, actions)
 
@@ -146,13 +148,15 @@ If not passed, the context defaults to `DefaultCodeGenContext`
 """
 function generate_init_code(ctx::CodeGenContext, machine::Machine)
     vars = ctx.vars
-    return quote
+    code = quote
         $(vars.byte)::UInt8 = 0x00
         $(vars.p)::Int = 1
         $(vars.p_end)::Int = sizeof($(vars.data))
         $(vars.p_eof)::Int = $(vars.p_end)
         $(vars.cs)::Int = $(machine.start_state)
     end
+    ctx.clean && Base.remove_linenums!(code)
+    return code
 end
 generate_init_code(machine::Machine) = generate_init_code(DefaultCodeGenContext, machine)
 
@@ -191,9 +195,7 @@ function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothi
 
     # generate code
     code = ctx.generator(ctx, machine, actions_dict)
-    if ctx.clean
-        code = cleanup(code)
-    end
+    ctx.clean && Base.remove_linenums!(code)
     return code
 end
 
@@ -613,26 +615,6 @@ end
 
 function isescape(arg)
     return arg isa Expr && arg.head == :macrocall && arg.args[1] == Symbol("@escape")
-end
-
-# Clean created code of e.g. Automa source code comments.
-# By default not executed, as it's handy for debugging.
-function cleanup(ex::Expr)
-    args = []
-    for arg in ex.args
-        if isa(arg, Expr)
-            if arg.head == :line
-                # pass
-            elseif ex.head == :block && arg.head == :block
-                append!(args, cleanup(arg).args)
-            else
-                push!(args, cleanup(arg))
-            end
-        else
-            push!(args, arg)
-        end
-    end
-    return Expr(ex.head, args...)
 end
 
 function debug_actions(machine::Machine)
