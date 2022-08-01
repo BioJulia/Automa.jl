@@ -6,16 +6,20 @@ using Test
 
 @testset "Test18" begin
     machine = Automa.compile(re"\0\a\b\t\n\v\r\x00\xff\xFF[\\][^\\]")
-    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
-        (generator == :goto && checkbounds) && continue
-        ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
-        code = Automa.generate_code(ctx, machine)
-        validate = @eval function (data)
-            $(code)
-        end
-        @test_throws Exception validate(b"abracadabra")
+    for goto in (false, true)
+        println(goto)
+        @eval $(Automa.generate_validator_function(:validate, machine, goto))
+
+        # Bad input types
+        @test_throws Exception validate(18)
+        @test_throws Exception validate('a')
+        @test_throws Exception validate(0x01:0x02)
+
         @test validate(b"\0\a\b\t\n\v\r\x00\xff\xFF\\!") === nothing
-        @test validate(b"\0\a\b\t\n\v\r\x00\xff\xFF\\\\") === nothing
+        bad_input = b"\0\a\b\t\n\v\r\x00\xff\xFF\\\\\\"
+        @test validate(bad_input) == lastindex(bad_input)
+        bad_input = b"\0\a\b\t\n\v\r\x00\xff\xFF\\"
+        @test validate(bad_input) == lastindex(bad_input) + 1
     end
 end
 
