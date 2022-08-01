@@ -23,9 +23,8 @@ using Test
         end
     end
 
-    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
-        (generator == :goto && checkbounds) && continue
-        ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
+    for generator in (:table, :goto), clean in (true, false)
+        ctx = Automa.CodeGenContext(generator=generator, clean=clean)
         run! = @eval function (state, data)
             ret = []
             $(Automa.generate_init_code(machine))

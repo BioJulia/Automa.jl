@@ -52,7 +52,7 @@ mutable struct FASTARecord
 end
 
 # Generate a parser function from `fasta_machine` and `fasta_actions`.
-context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+context = Automa.CodeGenContext(generator=:goto)
 @eval function parse_fasta(data::Union{String,Vector{UInt8}})
     # Initialize variables you use in the action code.
     records = FASTARecord[]

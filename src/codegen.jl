@@ -1,4 +1,5 @@
 # Code Generator
+# Code Generator
 # ==============
 
 """
@@ -31,7 +32,6 @@ end
 struct CodeGenContext
     vars::Variables
     generator::Function
-    checkbounds::Bool
     getbyte::Function
     clean::Bool
 end
@@ -44,7 +44,6 @@ function generate_goto_code end
     CodeGenContext(;
         vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
         generator=:table,
-        checkbounds=true,
         getbyte=Base.getindex,
         clean=false
     )
@@ -56,22 +55,18 @@ Arguments
 
 - `vars`: variable names used in generated code
 - `generator`: code generator (`:table` or `:goto`)
-- `checkbounds`: flag of bounds check
 - `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
 - `clean`: flag of code cleansing, e.g. removing line comments
 """
 function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
         generator::Symbol=:table,
-        checkbounds::Bool=generator == :table,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
     # special conditions for simd generator
     if generator == :goto
         if getbyte != Base.getindex
             throw(ArgumentError("GOTO generator only support Base.getindex"))
-        elseif checkbounds
-            throw(ArgumentError("GOTO generator does not support boundscheck"))
         end
     end
     # check generator
@@ -82,7 +77,7 @@ function CodeGenContext(;
     else
         throw(ArgumentError("invalid code generator: $(generator)"))
     end
-    return CodeGenContext(vars, generator, checkbounds, getbyte, clean)
+    return CodeGenContext(vars, generator, getbyte, clean)
 end
 
 const DefaultCodeGenContext = CodeGenContext()
@@ -393,7 +388,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         append_code!(block, quote
             @label $(Symbol("state_case_", s.state))
             $(simd_code)
-            $(generate_getbyte_code(ctx))
+            $(ctx.vars.byte) = @inbounds getindex($(ctx.vars.mem), $(ctx.vars.p))
             $(dispatch_code)
         end)
         push!(blocks, block)
@@ -490,11 +485,7 @@ function generate_getbyte_code(ctx::CodeGenContext)
 end
 
 function generate_getbyte_code(ctx::CodeGenContext, varbyte::Symbol, offset::Int)
-    code = :($(varbyte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p) + $(offset)))
-    if !ctx.checkbounds
-        code = :(@inbounds $(code))
-    end
-    return code
+    :($(varbyte) = $(ctx.getbyte)($(ctx.vars.mem), $(ctx.vars.p) + $(offset)))
 end
 
 function state_condition(ctx::CodeGenContext, s::Int)
