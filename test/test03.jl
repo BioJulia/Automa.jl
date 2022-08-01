@@ -13,15 +13,10 @@ using Test
 
     machine = Automa.compile(fasta)
 
-    for generator in (:table, :goto), checkbounds in (true, false), clean in (true, false)
-        # Test the default CTX, if none is passed.
-        # We use the otherwise invalid combinarion :goto && checkbounds to do this
-        (init_code, exec_code) = if generator == :goto && checkbounds
-            (Automa.generate_init_code(machine), Automa.generate_exec_code(machine))
-        else
-            ctx = Automa.CodeGenContext(generator=generator, checkbounds=checkbounds, clean=clean)
-            (Automa.generate_init_code(ctx, machine), Automa.generate_exec_code(ctx, machine))
-        end
+    for generator in (:table, :goto), clean in (true, false)
+        ctx = Automa.CodeGenContext(generator=generator, clean=clean)
+        init_code = Automa.generate_init_code(ctx, machine)
+        exec_code = Automa.generate_exec_code(ctx, machine)
         validate = @eval function (data)
             $(init_code)
             $(exec_code)

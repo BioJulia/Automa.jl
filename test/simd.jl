@@ -1,7 +1,7 @@
 # Test codegencontext
 @testset "CodeGenContext" begin
     @test_throws ArgumentError Automa.CodeGenContext(generator=:fdjfhkdj)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, checkbounds=false, getbyte=identity)
+    @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, getbyte=identity)
 end
 
 import Automa
@@ -16,7 +16,7 @@ import Automa.RegExp: @re_str
         Automa.compile(re.opt(rec) * re.rep(re"\n" * rec))
     end
 
-    context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+    context = Automa.CodeGenContext(generator=:goto)
 
     eval(Automa.generate_validator_function(:is_valid_fasta, machine, true))
 
