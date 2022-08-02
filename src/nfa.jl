@@ -168,6 +168,18 @@ function remove_dead_nodes(nfa::NFA)
         push!(get!(() -> Set{NFANode}(), backrefs, t), s)
     end
 
+    # Automa could support null regex like `re"A" & re"B"`, but it's trouble,
+    # and it's useless for the user, who would probably prefer an error.
+    # We throw this error here and not on NFA construction so the user can visualise
+    # the NFA and find the error in their regex
+    if !haskey(backrefs, nfa.final)
+        error(
+            "NFA matches the empty set Ø, and therefore consists of only dead nodes. " *
+            "Automa currently does not support converting null NFAs to DFAs. " *
+            "Double check your regex, or inspect the NFA."
+        )
+    end
+
     alive = Set{NFANode}()
     unvisited = [nfa.final]
     while !isempty(unvisited)
