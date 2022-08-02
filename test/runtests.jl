@@ -90,7 +90,7 @@ include("test09.jl")
 include("test10.jl")
 include("test11.jl")
 include("test12.jl")
-# test13 tested functionality now removed.
+include("test13.jl")
 include("test14.jl")
 include("test15.jl")
 include("test16.jl")
