@@ -58,6 +58,18 @@ end
     @test occursin(r"^Automa\.Node\(.*\)$", repr(machine.start))
 end
 
+@testset "Null Regex" begin
+    re = Automa.RegExp
+    for null_regex in [
+        re"A" & re"B",
+        (re"B" | re"C") \ re"[A-D]",
+        !re.rep(re.any()),
+        !re"[\x00-\xff]*",
+    ]
+        @test_throws ErrorException Automa.compile(null_regex)
+    end
+end
+
 @testset "Determinacy" begin
     # see https://github.com/BioJulia/Automa.jl/issues/19
     notmach(re) = Automa.machine2dot(Automa.compile(re)) != Automa.machine2dot(Automa.compile(re))
