@@ -23,6 +23,16 @@ function findedge(s::Node, b::UInt8)
     error("$(b) ∈ label not found")
 end
 
+"""
+    Machine
+
+An `Automa.Machine` represents a compiled regular expression in `Automa.jl`.
+Its fields are considered internal. Its only use it to use as arguments in
+Automa's code generation functions.
+
+To visualise the DFA represented by a `Machine`, use `Automa.machine2dot`
+to construct a DOT file, then visualise it using the `graphviz` software.
+"""
 struct Machine
     start::Node
     states::UnitRange{Int}
@@ -53,7 +63,12 @@ function machine_names(machine::Machine)
 end
 
 function Base.show(io::IO, machine::Machine)
-    print(io, summary(machine), "(<states=", machine.states, ",start_state=", machine.start_state, ",final_states=", machine.final_states, ">)")
+    print(io,
+        summary(machine),
+        "(<states=", machine.states,
+        ",start_state=", machine.start_state,
+        ",final_states=[", join(map(string, collect(machine.final_states)), ','), "]>)"
+    )
 end
 
 # Reorder machine states so the states are in a completely deterministic manner.
@@ -74,19 +89,15 @@ function reorder_machine(machine::Machine)
 
     # Make new nodes complete with edges
     new_nodes = Dict(i => Node(i) for i in 1:length(old2new))
-    oldnodes = collect(traverse(machine.start))
-    @assert length(oldnodes) == length(machine.states)
     for old_node in traverse(machine.start)
         for (e, t) in old_node.edges
+            new_node = new_nodes[old2new[old_node.state]]
             push!(
-                new_nodes[old2new[old_node.state]].edges,
+                new_node.edges,
                 (e, new_nodes[old2new[t.state]])
             )
-
+            sort!(new_node.edges; by=first, lt=in_sort_order)
         end
-    end
-    for node in values(new_nodes)
-        sort!(node.edges; by=first, lt=in_sort_order)
     end
 
     # Rebuild machine and return it
@@ -100,14 +111,15 @@ function reorder_machine(machine::Machine)
 end
 
 """
-    compile(re::RegExp; optimize, unambiguous) -> Machine
+    compile(re::RegExp; optimize::Bool=true, unambiguous::Bool=true) -> Machine
 
-Compile a finite state machine (FSM) from RegExp `re`. If `optimize`, attempt to minimize the number
-of states in the FSM. If `unambiguous`, disallow creation of FSM where the actions are not deterministic.
+Compile a finite state machine (FSM) from RegExp `re`.
+If `optimize`, attempt to minimize the number of states in the FSM.
+If `unambiguous`, disallow creation of FSM where the actions are not deterministic.
 
 # Examples
 ```
-machine let
+machine = let
     name = re"[A-Z][a-z]+"
     first_last = name * re" " * name
     last_first = name * re", " * name

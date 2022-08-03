@@ -1,6 +1,9 @@
 # Action
 # ======
 
+# The name is used by the user to refer to actions in the action_dict.
+# The order is the order in which actions assigned to the same transition
+# is executed
 struct Action
     name::Symbol
     order::Int
