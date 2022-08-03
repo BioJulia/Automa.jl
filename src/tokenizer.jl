@@ -105,7 +105,8 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
                 $(ctx.vars.cs) = -$(ctx.vars.cs)
             end
         end
-        # If in a failed state, reset p (why do we do this?)
+        # If in a failed state, reset p to where it failed, since it was
+        # incremented immediately after the state transition
         if $(ctx.vars.cs) < 0
             $(ctx.vars.p) -= 1
         end

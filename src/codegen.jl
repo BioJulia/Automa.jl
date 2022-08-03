@@ -78,10 +78,8 @@ function CodeGenContext(;
         getbyte::Function=Base.getindex,
         clean::Bool=false)
     # special conditions for simd generator
-    if generator == :goto
-        if getbyte != Base.getindex
-            throw(ArgumentError("GOTO generator only support Base.getindex"))
-        end
+    if generator == :goto && getbyte != Base.getindex
+        throw(ArgumentError("GOTO generator only support Base.getindex"))
     end
     # check generator
     if generator == :table
@@ -248,6 +246,8 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         elseif $(ctx.vars.cs) < 0
+            # If cs < 0, the machine errored. The code above incremented p regardless,
+            # but on error, we want p to be where the machine errored, so we reset it.
             $(ctx.vars.p) -= 1
         end
         end # GC.@preserve block
@@ -426,11 +426,12 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
     # Check the final state is an accept state, in an efficient manner
     final_state_code = generate_final_state_mem_code(ctx, machine)
 
+    # This is an overview of the final code structure
     return quote
+        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         if $(ctx.vars.p) > $(ctx.vars.p_end)
             @goto exit
         end
-        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         $(enter_code)
         $(Expr(:block, blocks...))
         @label exit
@@ -586,6 +587,14 @@ function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
     end
 end
 
+# This is a dummy macro, not actually used in Automa.
+# In generated code, Automa may generate this macro, but Automa
+# removes it in the `rewrite_special_macros` function before Julia can expand
+# the macro.
+# I only have this here so if people grep for escape, they find this comment
+macro escape()
+end
+
 # Used by the :table code generator.
 function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool)
     args = []
@@ -631,6 +640,9 @@ function isescape(arg)
     return arg isa Expr && arg.head == :macrocall && arg.args[1] == Symbol("@escape")
 end
 
+# Debug actions just pushes the action names into a vector called "logger".
+# this exists as a convenience method to allow the user to set actions = :debug
+# in generate_exec_code
 function debug_actions(machine::Machine)
     function log_expr(name)
         return :(push!(logger, $(QuoteNode(name))))

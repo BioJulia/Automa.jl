@@ -13,6 +13,9 @@ function Base.show(io::IO, node::NFANode)
     print(io, summary(node), "(<", length(node.edges), " edges", '@', objectid(node), ">)")
 end
 
+# An NFA contains a start and final nodes, which are not the same, as per
+# the textbook definition.
+# This NFA is an nfa with epsilon transitions.
 struct NFA
     start::NFANode
     final::NFANode
@@ -171,7 +174,11 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
     return NFA(nfa_start, nfa_final)
 end
 
+# Removes both dead nodes, i.e. nodes from which there is no path to
+# the final node, and also unreachable nodes, i.e. nodes that cannot be
+# reached from the start node.
 function remove_dead_nodes(nfa::NFA)
+    # Get a dict Node => Set of nodes that point to Node.
     backrefs = Dict(nfa.start => Set{NFANode}())
     for s in traverse(nfa.start), (_, t) in s.edges
         push!(get!(() -> Set{NFANode}(), backrefs, t), s)
@@ -189,6 +196,7 @@ function remove_dead_nodes(nfa::NFA)
         )
     end
 
+    # Mark nodes as alive, if the final state can be reached from them.
     alive = Set{NFANode}()
     unvisited = [nfa.final]
     while !isempty(unvisited)
@@ -200,13 +208,20 @@ function remove_dead_nodes(nfa::NFA)
             end
         end
     end
+
+    # If this is not true, we threw the big error above.
     @assert nfa.start ∈ alive
     @assert nfa.final ∈ alive
 
+    # Map from old to new node.
     newnodes = Dict{NFANode,NFANode}()
     new(s) = get!(() -> NFANode(), newnodes, s)
     isvisited(s) = haskey(newnodes, s)
     unvisited = [nfa.start]
+
+    # Now make a new NFA that only contain nodes marked alive in the previous step.
+    # since we make this new NFA by traversing from the start node, we also skip
+    # unreachable nodes
     while !isempty(unvisited)
         s = pop!(unvisited)
         s′ = new(s)
