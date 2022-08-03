@@ -3,13 +3,6 @@ module Automa
 using Printf: @sprintf
 import ScanByte: ScanByte, ByteSet
 
-include("sdict.jl")
-include("sset.jl")
-
-# TODO: use StableDict and StableSet only where they are required
-const Dict = StableDict
-const Set = StableSet
-
 # Encode a byte set into a sequence of non-empty ranges.
 function range_encode(set::ScanByte.ByteSet)
     result = UnitRange{UInt8}[]

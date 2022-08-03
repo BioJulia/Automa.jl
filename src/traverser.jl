@@ -19,7 +19,7 @@ end
 
 function Base.iterate(t::Traverser{T}, state=nothing) where T
     if state === nothing
-        state = (visited = Set{T}(), unvisited = Set([t.start]))
+        state = (visited = Set{T}(), unvisited = [t.start])
     end
     if isempty(state.unvisited)
         return nothing
@@ -27,7 +27,7 @@ function Base.iterate(t::Traverser{T}, state=nothing) where T
     s = pop!(state.unvisited)
     push!(state.visited, s)
     for (_, t) in s.edges
-        if t ∉ state.visited
+        if t ∉ state.visited && t ∉ state.unvisited
             push!(state.unvisited, t)
         end
     end

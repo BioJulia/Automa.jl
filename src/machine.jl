@@ -35,6 +35,49 @@ function Base.show(io::IO, machine::Machine)
     print(io, summary(machine), "(<states=", machine.states, ",start_state=", machine.start_state, ",final_states=", machine.final_states, ">)")
 end
 
+# Reorder machine states so the states are in a completely deterministic manner.
+# solves #19, see issue #106.
+function reorder_machine(machine::Machine)
+    # old state index => new state index, in a deterministic manner
+    old2new = Dict(machine.start.state => 1)
+    remaining = [machine.start]
+    while !isempty(remaining)
+        node = pop!(remaining)
+        for (_, target) in sort(node.edges; lt=in_sort_order, by=first)
+            if !haskey(old2new, target.state)
+                old2new[target.state] = length(old2new) + 1
+                push!(remaining, target)
+            end
+        end
+    end
+
+    # Make new nodes complete with edges
+    new_nodes = Dict(i => Node(i) for i in 1:length(old2new))
+    oldnodes = collect(traverse(machine.start))
+    @assert length(oldnodes) == length(machine.states)
+    for old_node in traverse(machine.start)
+        for (e, t) in old_node.edges
+            push!(
+                new_nodes[old2new[old_node.state]].edges,
+                (e, new_nodes[old2new[t.state]])
+            )
+
+        end
+    end
+    for node in values(new_nodes)
+        sort!(node.edges; by=first, lt=in_sort_order)
+    end
+
+    # Rebuild machine and return it
+    Machine(
+        new_nodes[1],
+        machine.states,
+        1,
+        Set([old2new[i] for i in machine.final_states]),
+        Dict{Int, ActionList}(old2new[i] => act for (i, act) in machine.eof_actions)
+    )
+end
+
 """
     compile(re::RegExp; optimize, unambiguous) -> Machine
 
@@ -57,7 +100,8 @@ function compile(re::RegExp.RE; optimize::Bool=true, unambiguous::Bool=false)
         dfa = remove_dead_nodes(reduce_nodes(dfa))
     end
     validate(dfa)
-    return dfa2machine(dfa)
+    machine = dfa2machine(dfa)
+    return reorder_machine(machine)
 end
 
 function dfa2machine(dfa::DFA)
