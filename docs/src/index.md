@@ -217,7 +217,7 @@ the arguments list.
 
 Once a pattern is determined, the start and end positions of the token
 substring can be accessed via `ts` and `te` local variables in the action code.
-Other special variables (i.e. `p`, `p_end`, `p_eof` and `cs`) will be explained
+Other special variables (i.e. `p`, `p_end`, `is_eof` and `cs`) will be explained
 in the following section. See example/tokenizer.jl for a complete example.
 
 
@@ -291,7 +291,7 @@ julia> Automa.generate_init_code(context, machine)
 quote  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 67:
     p::Int = 1 # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 68:
     p_end::Int = sizeof(data) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 69:
-    p_eof::Int = p_end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 70:
+    is_eof::Bool = true # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 70:
     cs::Int = 1
 end
 
@@ -306,13 +306,11 @@ which depend on `Base.pointer` and `Base.sizeof` methods. So, if `data` is a
 you want to use your own type, you need to support them.
 
 The variable `p` points at the next byte position in `data`. `p_end` points at
-the end position of data available in `data`. `p_eof` is similar to `p_end` but
-it points at the *actual* end of the input sequence. In the example above,
-`p_end` and `p_eof` are soon set to `sizeof(data)` because these two values can
-be determined immediately.  `p_eof` would be undefined when `data` is too long
-to store in memory. In such a case, `p_eof` is set to a negative integer at the
-beginning and later set to a suitable position when the end of an input sequence
-is seen. The `cs` variable stores the current state of a machine.
+the end position of data available in `data`. `is_eof` marks whether `p_end`
+points at the *actual* end of the input sequence, instead of the end of a smaller
+buffer. In the example above, `p_end` is set to `sizeof(data)`, and `is_eof` is true. 
+`is_eof` would be `false` to store in memory.
+The `cs` variable stores the current state of a machine.
 
 The `generate_exec_code` generates code that emulates the FSM execution by
 updating `cs` (current state) while reading bytes from `data`. You don't need to
@@ -336,7 +334,7 @@ quote  # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 116:
         end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 122:
         p += 1
     end # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 124:
-    if p > p_eof ≥ 0 && cs ∈ Set([2, 1]) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 125:
+    if is_eof && p > p_end && cs ∈ Set([2, 1]) # /Users/kenta/.julia/v0.6/Automa/src/codegen.jl, line 125:
         if cs == 2
             count += 1
         else
@@ -370,7 +368,7 @@ while p ≤ p_end && cs > 0
     p += 1  # increment the position variable
 end
 
-if p_eof ≥ 0 && p > p_eof && cs ∈ machine.final_states
+if is_eof && p > p_end && cs ∈ machine.final_states
     {{ execute EOF actions if any }}
     cs = 0
 elseif cs < 0

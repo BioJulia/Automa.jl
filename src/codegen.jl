@@ -9,7 +9,7 @@ The following variable names may be used in the code.
 
 - `p::Int`: current position of data
 - `p_end::Int`: end position of data
-- `p_eof::Int`: end position of file stream
+- `is_eof::Bool`: `p_end` marks end of total file stream
 - `ts::Int`: start position of token (tokenizer only)
 - `te::Int`: end position of token (tokenizer only)
 - `cs::Int`: current state
@@ -20,7 +20,7 @@ The following variable names may be used in the code.
 struct Variables
     p::Symbol
     p_end::Symbol
-    p_eof::Symbol
+    is_eof::Symbol
     ts::Symbol
     te::Symbol
     cs::Symbol
@@ -32,7 +32,7 @@ end
 function Variables(
     ;p=:p,
     p_end=:p_end,
-    p_eof=:p_eof,
+    is_eof=:is_eof,
     ts=:ts,
     te=:te,
     cs=:cs,
@@ -40,7 +40,7 @@ function Variables(
     mem=:mem,
     byte=:byte
 )
-    Variables(p, p_end, p_eof, ts, te, cs, data, mem, byte)
+    Variables(p, p_end, is_eof, ts, te, cs, data, mem, byte)
 end
 
 struct CodeGenContext
@@ -56,7 +56,7 @@ function generate_goto_code end
 
 """
     CodeGenContext(;
-        vars=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
+        vars=Variables(:p, :p_end, :is_eof, :ts, :te, :cs, :data, :mem, :byte),
         generator=:table,
         getbyte=Base.getindex,
         clean=false
@@ -73,7 +73,7 @@ Arguments
 - `clean`: flag of code cleansing, e.g. removing line comments
 """
 function CodeGenContext(;
-        vars::Variables=Variables(:p, :p_end, :p_eof, :ts, :te, :cs, :data, :mem, :byte),
+        vars::Variables=Variables(:p, :p_end, :is_eof, :ts, :te, :cs, :data, :mem, :byte),
         generator::Symbol=:table,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
@@ -164,7 +164,7 @@ function generate_init_code(ctx::CodeGenContext, machine::Machine)
         $(vars.byte)::UInt8 = 0x00
         $(vars.p)::Int = 1
         $(vars.p_end)::Int = sizeof($(vars.data))
-        $(vars.p_eof)::Int = $(vars.p_end)
+        $(vars.is_eof)::Bool = true
         $(vars.cs)::Int = $(machine.start_state)
     end
     ctx.clean && Base.remove_linenums!(code)
@@ -242,7 +242,7 @@ function generate_table_code(ctx::CodeGenContext, machine::Machine, actions::Dic
         end
         # If we're out of bytes and in an accept state, find the correct EOF action
         # and execute it, then set cs to 0 to signify correct execution
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
+        if is_eof && $(ctx.vars.p) > $(ctx.vars.p_end) && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         elseif $(ctx.vars.cs) < 0
@@ -435,7 +435,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         $(enter_code)
         $(Expr(:block, blocks...))
         @label exit
-        if $(ctx.vars.p) > $(ctx.vars.p_eof) ≥ 0 && $(final_state_code)
+        if is_eof && $(ctx.vars.p) > $(ctx.vars.p_end) && $(final_state_code)
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         end
@@ -581,7 +581,7 @@ function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
     return quote
         if $(vars.cs) != 0
             $(vars.cs) = -abs($(vars.cs)) 
-            $byte_symbol = ($(vars.p_eof) > -1 && $(vars.p) > $(vars.p_eof)) ? nothing : $(vars.byte)
+            $byte_symbol = $(vars.p) > $(vars.p_end) ? nothing : $(vars.byte)
             Automa.throw_input_error($(machine), -$(vars.cs), $byte_symbol, $(vars.mem), $(vars.p))
         end
     end

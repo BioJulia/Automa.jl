@@ -50,7 +50,7 @@ function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
     quote
         $(ctx.vars.p)::Int = 1
         $(ctx.vars.p_end)::Int = sizeof($(ctx.vars.data))
-        $(ctx.vars.p_eof)::Int = $(ctx.vars.p_end)
+        $(ctx.vars.is_eof)::Bool = true
         $(ctx.vars.ts)::Int = 0
         $(ctx.vars.te)::Int = 0
         $(ctx.vars.cs)::Int = $(tokenizer.machine.start_state)
@@ -94,7 +94,7 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
             $(action_dispatch_code)
             $(ctx.vars.p) += 1
         end
-        if $(ctx.vars.p) > p_eof ≥ 0
+        if $(ctx.vars.is_eof) && $(ctx.vars.p) > $(ctx.vars.p_end)
             # If EOF and in accept state, run EOF code and set current state to 0
             # meaning accept state
             if $(generate_final_state_mem_code(ctx, tokenizer.machine))

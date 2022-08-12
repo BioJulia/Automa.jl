@@ -17,7 +17,7 @@ using Test
         $(Automa.generate_init_code(ctx, tokenizer))
         tokens = Tuple{Symbol,String}[]
         emit(kind, range) = push!(tokens, (kind, data[range]))
-        while p ≤ p_eof && cs > 0
+        while p ≤ p_end && cs > 0
             $(Automa.generate_exec_code(ctx, tokenizer))
         end
         if cs < 0
