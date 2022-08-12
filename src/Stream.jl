@@ -80,7 +80,7 @@ function {funcname}(stream::TranscodingStream, {arguments}...)
     {set up the variables and the data buffer}
     {execute the machine}
     {loopcode}
-    if cs ≤ 0 || p > p_eof ≥ 0
+    if cs ≤ 0 || (is_eof && p > p_end)
         @label __return__
         {returncode}
     end
@@ -112,14 +112,12 @@ function generate_reader(
         $(Automa.generate_init_code(context, machine))
         # Overwrite these for Stream, since we don't know EOF or end,
         # as this is set in the __exec__ part depending on the stream state.
-        $(context.vars.p_end) = 0
-        $(context.vars.p_eof) = -1
+        $(vars.p_end) = 0
+        $(vars.is_eof) = false
         $(initcode)
 
         @label __exec__
-        if $(vars.p_eof) ≥ 0 || eof(stream)
-            $(vars.p_eof) = buffer.marginpos - 1
-        end
+        $(vars.is_eof) |= eof(stream)
         $(vars.p) = buffer.bufferpos
         $(vars.p_end) = buffer.marginpos - 1
         $(Automa.generate_exec_code(context, machine, actions))
@@ -127,7 +125,7 @@ function generate_reader(
 
         $(loopcode)
 
-        if $(vars.cs) ≤ 0 || $(vars.p) > $(vars.p_eof) ≥ 0
+        if $(vars.cs) ≤ 0 || ($(vars.is_eof) && $(vars.p) > $(vars.p_end))
             @label __return__
             $(returncode)
         end

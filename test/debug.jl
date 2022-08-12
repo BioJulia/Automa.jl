@@ -48,7 +48,8 @@ function create_debug_function(machine::Automa.Machine; ascii::Bool=false,
                 quote Tuple{UInt8, Int, Vector{Symbol}}[] end
             end)
             $(Automa.generate_init_code(ctx, debugger))
-            p_end = p_eof = sizeof($(ctx.vars.data))
+            p_end = sizeof($(ctx.vars.data))
+            is_eof = true
             $(Automa.generate_exec_code(ctx, debugger, action_dict))
             ($(ctx.vars.cs), $logsym)
         end
@@ -71,7 +72,8 @@ function create_debug_display_function(machine::Automa.Machine;
     quote
         function debug_display($(ctx.vars.data)::Union{String, SubString{String}})
             $(Automa.generate_init_code(ctx, debugger))
-            p_end = p_eof = sizeof($(ctx.vars.data))
+            p_end = sizeof($(ctx.vars.data))
+            is_eof = true
             $(Automa.generate_exec_code(ctx, debugger, nothing))
             if !iszero($(ctx.vars.cs))
                 print_error_state($(ctx.vars.data), $(ctx.vars.p), $(ctx.vars.cs))

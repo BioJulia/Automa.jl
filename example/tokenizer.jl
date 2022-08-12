@@ -52,7 +52,7 @@ context = Automa.CodeGenContext()
     $(Automa.generate_init_code(context, minijulia))
     tokens = Tuple{Symbol,String}[]
     emit(kind) = push!(tokens, (kind, data[ts:te]))
-    while p ≤ p_eof && cs > 0
+    while p ≤ p_end && cs > 0
         $(Automa.generate_exec_code(context, minijulia))
     end
     if cs < 0
