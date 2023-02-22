@@ -91,16 +91,18 @@ end
 function generate_reader(
         funcname::Symbol,
         machine::Automa.Machine;
-        arguments::Tuple=(),
-        context::Automa.CodeGenContext=Automa.CodeGenContext(),
+        arguments=(),
+        context::Automa.CodeGenContext=Automa.DefaultCodeGenContext,
         actions::Dict{Symbol,Expr}=Dict{Symbol,Expr}(),
         initcode::Expr=:(),
         loopcode::Expr=:(),
         returncode::Expr=:(return $(context.vars.cs))
 )
+    # Add a `return` to the return expression if the user forgot it
     if returncode.head != :return
         returncode = Expr(:return, returncode)
     end
+    # Create the function signature
     functioncode = :(function $(funcname)(stream::$(TranscodingStream)) end)
     for arg in arguments
         push!(functioncode.args[1].args, arg)
@@ -116,15 +118,28 @@ function generate_reader(
         $(vars.is_eof) = false
         $(initcode)
 
+        # Code between __exec__ and the bottom is repeated in a loop,
+        # in order to continuously read data, filling in new data to the buffer
+        # once it runs out.
+        # When the buffer is filled, data in the buffer may shift, which necessitates
+        # us updating `p` and `p_end`.
+        # Hence, they need to be redefined here.
         @label __exec__
+        # The eof call here is what refills the buffer, if the buffer is used up,
+        # eof will try refilling the buffer before returning true
         $(vars.is_eof) |= eof(stream)
         $(vars.p) = buffer.bufferpos
         $(vars.p_end) = buffer.marginpos - 1
         $(Automa.generate_exec_code(context, machine, actions))
+
+        # This function flushes any unused data from the buffer, if it is not marked.
+        # this way Automa can keep reading data in a smaller buffer
         Base.skip(stream, $(vars.p) - buffer.bufferpos)
 
         $(loopcode)
 
+        # If the machine errored, or we're past the end of the stream, actually return.
+        # Else, keep looping.
         if $(vars.cs) ≤ 0 || ($(vars.is_eof) && $(vars.p) > $(vars.p_end))
             @label __return__
             $(returncode)
