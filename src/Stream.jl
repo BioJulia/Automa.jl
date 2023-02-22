@@ -98,7 +98,8 @@ function generate_reader(
         actions::Dict{Symbol,Expr}=Dict{Symbol,Expr}(),
         initcode::Expr=:(),
         loopcode::Expr=:(),
-        returncode::Expr=:(return $(context.vars.cs))
+        returncode::Expr=:(return $(context.vars.cs)),
+        errorcode::Expr=Automa.generate_input_error_code(context, machine)
 )
     # Add a `return` to the return expression if the user forgot it
     if returncode.head != :return
@@ -139,9 +140,13 @@ function generate_reader(
 
         $(loopcode)
 
+        if $(vars.cs) < 0
+            $(errorcode)
+        end
+
         # If the machine errored, or we're past the end of the stream, actually return.
         # Else, keep looping.
-        if $(vars.cs) ≤ 0 || ($(vars.is_eof) && $(vars.p) > $(vars.p_end))
+        if $(vars.cs) == 0 || ($(vars.is_eof) && $(vars.p) > $(vars.p_end))
             @label __return__
             $(returncode)
         end
