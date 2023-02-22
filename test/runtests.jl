@@ -168,7 +168,7 @@ machine = let
     newline = re"\r?\n"
     Automa.compile(line * newline)
 end
-Automa.Stream.generate_reader(:readline, machine) |> eval
+Automa.Stream.generate_reader(:readline, machine; errorcode=:(return cs)) |> eval
 @testset "Scanning a line" begin
     for (data, state) in [
             ("\n",      :ok),
@@ -205,7 +205,15 @@ actions = Dict(
 )
 initcode = :(start_alphanum = end_alphanum = 0)
 returncode = :(return cs == 0 ? String(data[@abspos(start_alphanum):@abspos(end_alphanum)]) : "")
-Automa.Stream.generate_reader(:stripwhitespace, machine, actions=actions, initcode=initcode, returncode=returncode) |> eval
+Automa.Stream.generate_reader(
+    :stripwhitespace,
+    machine,
+    actions=actions,
+    initcode=initcode,
+    returncode=returncode,
+    errorcode=:(return "")
+) |> eval
+
 @testset "Stripping whitespace" begin
     for (data, value) in [
             ("x", "x"),
