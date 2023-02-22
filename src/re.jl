@@ -22,6 +22,9 @@ Regex can be combined with other regex, strings or chars with `*`, `|`, `&` and 
 * `a \\ b` matches input that mathes `a` but not `b`
 * `!a` matches all inputs that does not match `a`.
 
+Set actions to regex with [`onenter!`](@ref), [`onexit!`](@ref), [`onall!`](@ref)
+and [`onfinal!`](@ref), and preconditions with [`precond!`](@ref).
+
 # Example
 ```julia
 julia> regex = (re"a*b?" | opt('c')) * re"[a-z]+";
@@ -57,16 +60,113 @@ function actions!(re::RE)
     re.actions
 end
 
+"""
+    onenter!(re::RE, a::Union{Symbol, Vector{Symbol}}) -> re
+
+Set action(s) `a` to occur when reading the first byte of regex `re`.
+If multiple actions are set by passing a vector, execute the actions in order.
+
+See also: [`onexit!`](@ref), [`onall!`](@ref), [`onfinal!`](@ref)
+
+# Example
+```julia
+julia> regex = re"ab?c*";
+
+julia> regex2 = onenter!(regex, :entering_regex);
+
+julia> regex === regex2
+true
+```
+"""
 onenter!(re::RE, v::Vector{Symbol}) = (actions!(re)[:enter] = v; re)
 onenter!(re::RE, s::Symbol) = onenter!(re, [s])
+
+"""
+    onexit!(re::RE, a::Union{Symbol, Vector{Symbol}}) -> re
+
+Set action(s) `a` to occur when reading the first byte no longer part of regex
+`re`, or if experiencing an expected end-of-file.
+If multiple actions are set by passing a vector, execute the actions in order.
+
+See also: [`onenter!`](@ref), [`onall!`](@ref), [`onfinal!`](@ref)
+
+# Example
+```julia
+julia> regex = re"ab?c*";
+
+julia> regex2 = onexit!(regex, :exiting_regex);
+
+julia> regex === regex2
+true
+```
+"""
 onexit!(re::RE, v::Vector{Symbol}) = (actions!(re)[:exit] = v; re)
 onexit!(re::RE, s::Symbol) = onexit!(re, [s])
+
+"""
+    onfinal!(re::RE, a::Union{Symbol, Vector{Symbol}}) -> re
+
+Set action(s) `a` to occur when the last byte of regex `re`.
+If `re` does not have a definite final byte, e.g. `re"a(bc)*"`, where more "bc"
+can always be added, compiling the regex will error after setting a final action.
+If multiple actions are set by passing a vector, execute the actions in order.
+
+See also: [`onenter!`](@ref), [`onall!`](@ref), [`onexit!`](@ref)
+
+# Example
+```julia
+julia> regex = re"ab?c";
+
+julia> regex2 = onfinal!(regex, :entering_last_byte);
+
+julia> regex === regex2
+true
+
+julia> compile(onfinal!(re"ab?c*", :does_not_work))
+ERROR: [...]
+```
+"""
 onfinal!(re::RE, v::Vector{Symbol}) = (actions!(re)[:final] = v; re)
 onfinal!(re::RE, s::Symbol) = onfinal!(re, [s])
+
+"""
+    onall!(re::RE, a::Union{Symbol, Vector{Symbol}}) -> re
+
+Set action(s) `a` to occur when reading any byte part of the regex `re`.
+If multiple actions are set by passing a vector, execute the actions in order.
+
+See also: [`onenter!`](@ref), [`onexit!`](@ref), [`onfinal!`](@ref)
+
+# Example
+```julia
+julia> regex = re"ab?c*";
+
+julia> regex2 = onall!(regex, :reading_re_byte);
+
+julia> regex === regex2
+true
+```
+"""
 onall!(re::RE, v::Vector{Symbol}) = (actions!(re)[:all] = v; re)
 onall!(re::RE, s::Symbol) = onall!(re, [s])
 
-precond!(re::RE, s::Symbol) = re.when = s
+"""
+    precond!(re::RE, s::Symbol) -> re
+
+Set `re`'s precondition to `s`. Before any state transitions to `re`, or inside
+`re`, the precondition code `s` is checked before the transition is taken.
+
+# Example
+```julia
+julia> regex = re"ab?c*";
+
+julia> regex2 = precond!(regex, :some_condition);
+
+julia> regex === regex2
+true
+```
+"""
+precond!(re::RE, s::Symbol) = (re.when = s; re)
 
 const Primitive = Union{RE, ByteSet, UInt8, UnitRange{UInt8}, Char, String, Vector{UInt8}}
 
@@ -154,6 +254,20 @@ end
 
 Base.:!(re::RE) = neg(re)
 
+"""
+    @re_str -> RE
+
+Construct an Automa regex of type `RE` from a string.
+Note that due to Julia's raw string escaping rules, `re"\\\\"` means a single backslash, and so does `re"\\\\\\\\"`, while `re"\\\\\\\\\\""` means a backslash, then a quote character.
+
+Examples:
+```julia
+julia> re"ab?c*[def][^ghi]+" isa RE
+true 
+```
+
+See also: [`RE`](@ref)
+"""
 macro re_str(str::String)
     parse(str)
 end

@@ -2,18 +2,30 @@
 # ==============
 
 """
-Variable names used in generated code.
+Struct used to store variable names used in generated code.
+Contained in a `CodeGenContext`.
+Create a custom `Variables` for your `CodeGenContext` if you
+want to customize the variables used in Automa codegen, typically
+if you have conflicting variables with the same name.
 
-The following variable names may be used in the code.
-
+Automa generates code with the following variables, shown below
+with their default names:
 - `p::Int`: current position of data
 - `p_end::Int`: end position of data
 - `is_eof::Bool`: Whether `p_end` marks end file stream
 - `cs::Int`: current state
 - `data::Any`: input data
-- `mem::SizedMemory`: input data memory
-- `byte::UInt8`: current data byte
-- `buffer::TranscodingStreams.Buffer`: If reading from an IO
+- `mem::SizedMemory`: Memory wrapping `data`
+- `byte::UInt8`: current byte being read from `data`
+- `buffer::TranscodingStreams.Buffer`: (`generate_reader` only)
+
+# Example
+```julia
+julia> ctx = CodeGenContext(vars=Variables(byte=:u8));
+
+julia> ctx.vars.byte
+:u8
+```
 """
 struct Variables
     p::Symbol
@@ -58,15 +70,26 @@ function generate_goto_code end
         clean=false
     )
 
-Create a code generation context.
+Create a `CodeGenContext` (ctx), a struct that stores options for Automa code generation.
+Ctxs are used for Automa's various code generator functions.
+They currently take the following options (more may be added in future versions)
 
-Arguments
----------
+- `vars::Variables`: variable names used in generated code. See the `Variables` struct.
+- `generator::Symbol`: code generator mechanism (`:table` or `:goto`).
+  The table generator creates smaller, simpler code that uses a vector of integers to
+  determine state transitions. The goto-generator uses a maze of `@goto`-statements,
+  and create larger, more complex code, that is faster.
+- `getbyte::Function` (table generator only): function `f(data, p)` to access byte from data.
+  Default: `Base.getindex`.
+- `clean`: Whether to remove some `QuoteNode`s (line information) from the generated code
 
-- `vars`: variable names used in generated code
-- `generator`: code generator (`:table` or `:goto`)
-- `getbyte`: function of byte access (i.e. `getbyte(data, p)`)
-- `clean`: flag of code cleansing, e.g. removing line comments
+# Example
+```julia
+julia> ctx = CodeGenContext(generator=:goto, vars=Variables(buffer=:tbuffer));
+
+julia> generate_code(ctx, compile(re"a+")) isa Expr
+true
+```
 """
 function CodeGenContext(;
         vars::Variables=Variables(:p, :p_end, :is_eof, :cs, :data, :mem, :byte, :buffer),
@@ -136,12 +159,25 @@ end
     generate_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
 
 Generate init and exec code for `machine`.
-Shorthand for:
+The default code generator function for creating functions, preferentially use
+this over generating init and exec code directly, due to its convenience. 
+Shorthand for producing the concatenated code of:
+
+* `generate_init_code(ctx, machine)`
+* `generate_action_code(ctx, machine, actions)`
+* `generate_input_error_code(ctx, machine)` [elided if actions == :debug]
+
+# Examples
 ```
-generate_init_code(ctx, machine)
-generate_action_code(ctx, machine, actions)
-generate_input_error_code(ctx, machine) [elided if actions == :debug]
+@eval function foo(data)
+    # Initialize variables used in actions
+    data_buffer = UInt8[]
+    \$(generate_code(machine, actions))
+    return data_buffer
+end
 ```
+
+See also: [`generate_init_code`](@ref), [`generate_exec_code`](@ref)
 """
 function generate_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # If actions are :debug, the user presumably wants to programatically
@@ -165,8 +201,25 @@ generate_code(machine::Machine, actions=nothing) = generate_code(DefaultCodeGenC
 """
     generate_init_code([::CodeGenContext], machine::Machine)::Expr
 
-Generate variable initialization code.
+Generate variable initialization code, initializing variables such as `p`,
+and `p_end`. The names of these variables are set by the `CodeGenContext`.
 If not passed, the context defaults to `DefaultCodeGenContext`
+
+Prefer using the more generic `generate_code` over this function where possible.
+This function should be used if the initialized data should be modified before
+the execution code.
+
+# Example
+```julia
+@eval function foo(data)
+    \$(generate_init_code(machine))
+    p = 2 # maybe I want to start from position 2, not 1
+    \$(generate_exec_code(machine, actions))
+    return cs
+end
+```
+
+See also: [`generate_code`](@ref), [`generate_exec_code`](@ref)
 """
 function generate_init_code(ctx::CodeGenContext, machine::Machine)
     vars = ctx.vars
@@ -187,8 +240,25 @@ generate_init_code(machine::Machine) = generate_init_code(DefaultCodeGenContext,
 """
     generate_exec_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
 
-Generate machine execution code with actions.
+Generate machine execution code with actions. This code should be run after the
+machine has been initialized with `generate_init_code`.
 If not passed, the context defaults to `DefaultCodeGenContext`
+
+Prefer using the more generic `generate_code` over this function where possible.
+This function should be used if the initialized data should be modified before
+the execution code.
+
+# Examples
+```
+@eval function foo(data)
+    \$(generate_init_code(machine))
+    p = 2 # maybe I want to start from position 2, not 1
+    \$(generate_exec_code(machine, actions))
+    return cs
+end
+```
+
+See also: [`generate_init_code`](@ref), [`generate_exec_code`](@ref)
 """
 function generate_exec_code(ctx::CodeGenContext, machine::Machine, actions=nothing)
     # make actions
@@ -713,7 +783,7 @@ identifier_pos = @relpos(p)
 identifier = data[@abspos(identifier_pos):p]
 ```
 
-See also: [`abspos`](@ref)
+See also: [`@abspos`](@ref)
 """
 macro relpos(p)
     :($WARNING_STRING)
@@ -723,7 +793,7 @@ end
     abspos(p)
 
 Automa pseudomacro. Used to obtain the actual position of a relative position
-obtained from `@relpos`. See `@relpos` for more details.
+obtained from `@relpos`. See [`@relpos`](@ref) for more details.
 """
 macro abspos(p)
     :($WARNING_STRING)
@@ -745,7 +815,7 @@ description = sub_parser(stream)
 p = @bufferpos()
 ```
 
-See also: [`@setbuffer`](@ref)
+See also: [`@bufferpos`](@ref)
 """
 macro setbuffer()
     :($WARNING_STRING)
