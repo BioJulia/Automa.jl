@@ -5,4 +5,5 @@ docs/*.dot
 docs/build/
 docs/site/
 .Rproj.user
-/Manifest.toml
+Manifest.toml
+*.png
