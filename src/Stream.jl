@@ -18,7 +18,7 @@ Note: `mark(stream)` doesn't work as expected because the reading position is
 not updated while scanning the stream.
 """
 macro mark()
-    esc(:(buffer.markpos = p))
+    esc(:(__buffer.markpos = p))
 end
 
 """
@@ -27,7 +27,7 @@ end
 Get the markerd position.
 """
 macro markpos()
-    esc(:(buffer.markpos))
+    esc(:(__buffer.markpos))
 end
 
 """
@@ -36,7 +36,7 @@ end
 Get the relative position of the absolute position `pos`.
 """
 macro relpos(pos)
-    esc(:(@assert buffer.markpos > 0; $(pos) - buffer.markpos + 1))
+    esc(:(@assert __buffer.markpos > 0; $(pos) - __buffer.markpos + 1))
 end
 
 """
@@ -45,7 +45,7 @@ end
 Get the absolute position of the relative position `pos`.
 """
 macro abspos(pos)
-    esc(:(@assert buffer.markpos > 0; $(pos) + buffer.markpos - 1))
+    esc(:(@assert __buffer.markpos > 0; $(pos) + __buffer.markpos - 1))
 end
 
 """
@@ -72,13 +72,15 @@ need to evaluate it in a module in which the generated function is needed.
 The generated code looks like this:
 ```julia
 function {funcname}(stream::TranscodingStream, {arguments}...)
-    buffer = stream.state.buffer1
-    data = buffer.data
+    __buffer = stream.state.buffer1
+    \$(vars.data) = buffer.data
     {declare variables used by the machine}
     {initcode}
     @label __exec__
-    {set up the variables and the data buffer}
+    {fill the buffer if more data is available}
+    {update p, is_eof and p_end to match buffer}
     {execute the machine}
+    {flush used data from the buffer}
     {loopcode}
     if cs ≤ 0 || (is_eof && p > p_end)
         @label __return__
@@ -109,14 +111,13 @@ function generate_reader(
     end
     vars = context.vars
     functioncode.args[2] = quote
-        buffer = stream.state.buffer1
-        data = buffer.data
+        __buffer = stream.state.buffer1
+        $(vars.data) = __buffer.data
         $(Automa.generate_init_code(context, machine))
-        # Overwrite these for Stream, since we don't know EOF or end,
-        # as this is set in the __exec__ part depending on the stream state.
-        $(vars.p_end) = 0
-        $(vars.is_eof) = false
         $(initcode)
+        # Overwrite is_eof for Stream, since we don't know the real EOF
+        # until after we've actually seen the stream eof
+        $(vars.is_eof) = false
 
         # Code between __exec__ and the bottom is repeated in a loop,
         # in order to continuously read data, filling in new data to the buffer
@@ -127,14 +128,14 @@ function generate_reader(
         @label __exec__
         # The eof call here is what refills the buffer, if the buffer is used up,
         # eof will try refilling the buffer before returning true
-        $(vars.is_eof) |= eof(stream)
-        $(vars.p) = buffer.bufferpos
-        $(vars.p_end) = buffer.marginpos - 1
+        $(vars.is_eof) = eof(stream)
+        $(vars.p) = __buffer.bufferpos
+        $(vars.p_end) = __buffer.marginpos - 1
         $(Automa.generate_exec_code(context, machine, actions))
 
         # This function flushes any unused data from the buffer, if it is not marked.
         # this way Automa can keep reading data in a smaller buffer
-        Base.skip(stream, $(vars.p) - buffer.bufferpos)
+        $(vars.p) > __buffer.bufferpos && Base.skip(stream, $(vars.p) - __buffer.bufferpos)
 
         $(loopcode)
 
