@@ -39,6 +39,7 @@ include("Stream.jl")
 
 const RE = Automa.RegExp
 using .RegExp: @re_str, opt, rep, rep1
+using .Stream: generate_reader
 
 # This list of exports lists the API
 export RE,
@@ -51,6 +52,7 @@ export RE,
     generate_init_code,
     generate_exec_code,
     generate_code,
+    generate_reader,
 
     # cat and alt is not exported in favor of * and |
     opt,
