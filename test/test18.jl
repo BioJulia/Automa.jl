@@ -5,10 +5,10 @@ using Automa.RegExp: @re_str
 using Test
 
 @testset "Test18" begin
-    machine = Automa.compile(re"\0\a\b\t\n\v\r\x00\xff\xFF[\\][^\\]")
+    regex = re"\0\a\b\t\n\v\r\x00\xff\xFF[\\][^\\]"
     for goto in (false, true)
         println(goto)
-        @eval $(Automa.generate_validator_function(:validate, machine, goto))
+        @eval $(Automa.generate_validator_function(:validate, regex, goto))
 
         # Bad input types
         @test_throws Exception validate(18)
@@ -19,7 +19,7 @@ using Test
         bad_input = b"\0\a\b\t\n\v\r\x00\xff\xFF\\\\\\"
         @test validate(bad_input) == lastindex(bad_input)
         bad_input = b"\0\a\b\t\n\v\r\x00\xff\xFF\\"
-        @test validate(bad_input) == lastindex(bad_input) + 1
+        @test validate(bad_input) == 0
     end
 end
 
