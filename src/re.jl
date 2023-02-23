@@ -360,4 +360,39 @@ function shallow_desugar(re::RE)
     end
 end
 
+# Create a deep copy of the regex without any actions
+function strip_actions(re::RE)
+    args = [arg isa RE ? strip_actions(arg) : arg for arg in re.args]
+    RE(re.head, args, Dict{Symbol, Vector{Symbol}}(), re.when)
+end
+
+# Create a deep copy with the only actions being a :newline action
+# on the \n chars
+function set_newline_actions(re::RE)::RE
+    # Normalise the regex first to make it simpler to work with
+    if re.head ∈ (:rep1, :opt, :neg, :byte, :range, :class, :cclass, :char, :str, :bytes)
+        re = shallow_desugar(re)
+    end
+    # After desugaring, the only type of regex that can directly contain a newline is the :set type
+    # if it has that, we add a :newline action
+    if re.head == :set
+        set = only(re.args)::ByteSet
+        if UInt8('\n') ∈ set
+            re1 = RE(:set, [ByteSet(UInt8('\n'))], Dict(:enter => [:newline]), re.when)
+            if length(set) == 1
+                re1
+            else
+                re2 = RE(:set, [setdiff(set, ByteSet(UInt8('\n')))], Dict{Symbol, Vector{Symbol}}(), re.when)
+                re1 | re2
+            end
+        else
+            re
+        end
+    else
+        args = [arg isa RE ? set_newline_actions(arg) : arg for arg in re.args]
+        RE(re.head, args, Dict{Symbol, Vector{Symbol}}(), re.when)
+    end
+end
+
+
 end

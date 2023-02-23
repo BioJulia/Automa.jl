@@ -7,7 +7,7 @@ deprecations.
 module Stream
 
 import Automa
-import TranscodingStreams: TranscodingStream
+import TranscodingStreams: TranscodingStream, NoopStream
 
 """
     @relpos(pos)
@@ -47,26 +47,9 @@ need to evaluate it in a module in which the generated function is needed.
 - `initcode`: Initialization code (default: `:()`).
 - `loopcode`: Loop code (default: `:()`).
 - `returncode`: Return code (default: `:(return cs)`).
+- `errorcode`: Executed if `cs < 0` after `loopcode` (default error message)
 
-The generated code looks like this:
-```julia
-function {funcname}(stream::TranscodingStream, {arguments}...)
-    __buffer = stream.state.buffer1
-    \$(vars.data) = buffer.data
-    {declare variables used by the machine}
-    {initcode}
-    @label __exec__
-    {fill the buffer if more data is available}
-    {update p, is_eof and p_end to match buffer}
-    {execute the machine}
-    {update buffer position to value of p}
-    {loopcode}
-    if cs ≤ 0 || (is_eof && p > p_end)
-        @label __return__
-        {returncode}
-    end
-    @goto __exec__
-end
+See the source code of this function to see how the generated code looks like
 ```
 """
 function generate_reader(
@@ -131,6 +114,103 @@ function generate_reader(
         @goto __exec__
     end
     return functioncode
+end
+
+"""
+    generate_io_validator(funcname::Symbol, regex::RE; goto::Bool=false, report_col::Bool=true)
+
+Create code that, when evaluated, defines a function named `funcname`.
+This function takes an `IO`, and checks if the data in the input conforms
+to the regex, without executing any actions.
+If the input conforms, return `nothing`.
+If `report_col` is set, return `(byte, (line, col))`, else return `(byte, line)`,
+where `byte` is the first invalid byte, and `(line, col)` the 1-indexed position of that byte.
+If the invalid byte is a `\n` byte, `col` is 0 and the line number is incremented.
+If the input errors due to unexpected EOF, `byte` is `nothing`, and the line and column
+given is the last byte in the file.
+If `report_col` is set, the validator may buffer one line of the input.
+If the input has very long lines that should not be buffered, set it to `false`.
+If `goto`, the function uses the faster but more complicated `:goto` code.
+"""
+function generate_io_validator(
+    funcname::Symbol,
+    regex::RegExp.RE;
+    goto::Bool=false,
+    report_col::Bool=true
+    )
+    ctx = if goto
+        Automa.CodeGenContext(generator=:goto)
+    else
+        Automa.DefaultCodeGenContext
+    end
+    vars = ctx.vars
+    returncode = if report_col
+        quote
+            return if iszero(cs)
+                nothing
+            else
+                col = $(vars.p) - $(vars.buffer).markpos
+                # Report position of last byte before EOF
+                error_byte = if $(vars.p) > $(vars.p_end)
+                    col -= 1
+                    nothing
+                else
+                    col -= $(vars.byte) == UInt8('\n')
+                    $(vars.byte)
+                end
+                (error_byte, (line_num, col))
+            end
+        end
+    else
+        quote
+            return if iszero(cs)
+                nothing
+            else
+                error_byte = if $(vars.p) > $(vars.p_end)
+                    nothing
+                else
+                    $(vars.byte)
+                end
+                (error_byte, line_num)
+            end
+        end
+    end
+    machine = compile(RegExp.set_newline_actions(regex))
+    actions = if :newline ∈ machine_names(machine)
+        Dict{Symbol, Expr}(:newline => quote
+                line_num += 1
+                $(report_col ? :(@mark()) : :())
+            end
+        )
+    else
+        Dict{Symbol, Expr}()
+    end
+    machine_names(machine)
+    function_code = generate_reader(
+        funcname,
+        machine;
+        context=ctx,
+        initcode=:(line_num = 1; @unmark()),
+        actions=actions,
+        returncode=returncode,
+        errorcode=:(@goto __return__),
+    )
+    return quote
+        """
+            $($(funcname))(io::IO)
+
+        Checks if the data in `io` conforms to the given regex specified at function definition time.
+        If the input conforms, return `nothing`.
+        Else return `(byte, (line, col))` where `byte` is the first invalid byte,
+        and `(line, col)` the 1-indexed position of that byte.
+        If the invalid byte is a `\n` byte, `col` is 0.
+        If the input errors due to unexpected EOF, `byte` is `nothing`, and the line and column
+        given is the last byte in the file.
+        """
+        $function_code
+
+        $(funcname)(io::$(IO)) = $(funcname)($(NoopStream)(io))
+    end 
 end
 
 end  # module

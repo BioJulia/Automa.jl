@@ -9,16 +9,16 @@ const re = Automa.RegExp
 import Automa.RegExp: @re_str
 
 @testset "SIMD generator" begin
-    machine = let
+    regex = let
         seq = re"[A-Z]+"
         name = re"[a-z]+"
         rec = re">"  * name * re"\n" * seq
-        Automa.compile(re.opt(rec) * re.rep(re"\n" * rec))
+        re.opt(rec) * re.rep(re"\n" * rec)
     end
 
     context = Automa.CodeGenContext(generator=:goto)
 
-    eval(Automa.generate_validator_function(:is_valid_fasta, machine, true))
+    eval(Automa.generate_validator_function(:is_valid_fasta, regex, true))
 
     s1 = ">seq\nTAGGCTA\n>hello\nAJKGMP"
     s2 = ">seq1\nTAGGC"
