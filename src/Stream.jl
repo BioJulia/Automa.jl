@@ -10,42 +10,21 @@ import Automa
 import TranscodingStreams: TranscodingStream
 
 """
-    @mark()
-
-Mark at the current position.
-
-Note: `mark(stream)` doesn't work as expected because the reading position is
-not updated while scanning the stream.
-"""
-macro mark()
-    esc(:(__buffer.markpos = p))
-end
-
-"""
-    @markpos()
-
-Get the markerd position.
-"""
-macro markpos()
-    esc(:(__buffer.markpos))
-end
-
-"""
     @relpos(pos)
 
 Get the relative position of the absolute position `pos`.
 """
 macro relpos(pos)
-    esc(:(@assert __buffer.markpos > 0; $(pos) - __buffer.markpos + 1))
+    esc(:(@assert buffer.markpos > 0; $(pos) - buffer.markpos + 1))
 end
 
 """
     @abspos(pos)
 
 Get the absolute position of the relative position `pos`.
-"""
+""" 
 macro abspos(pos)
-    esc(:(@assert __buffer.markpos > 0; $(pos) + __buffer.markpos - 1))
+    esc(:(@assert buffer.markpos > 0; $(pos) + buffer.markpos - 1))
 end
 
 """
@@ -80,7 +59,7 @@ function {funcname}(stream::TranscodingStream, {arguments}...)
     {fill the buffer if more data is available}
     {update p, is_eof and p_end to match buffer}
     {execute the machine}
-    {flush used data from the buffer}
+    {update buffer position to value of p}
     {loopcode}
     if cs ≤ 0 || (is_eof && p > p_end)
         @label __return__
@@ -112,8 +91,8 @@ function generate_reader(
     end
     vars = context.vars
     functioncode.args[2] = quote
-        __buffer = stream.state.buffer1
-        $(vars.data) = __buffer.data
+        $(vars.buffer) = stream.state.buffer1
+        $(vars.data) = $(vars.buffer).data
         $(Automa.generate_init_code(context, machine))
         $(initcode)
         # Overwrite is_eof for Stream, since we don't know the real EOF
@@ -130,13 +109,12 @@ function generate_reader(
         # The eof call here is what refills the buffer, if the buffer is used up,
         # eof will try refilling the buffer before returning true
         $(vars.is_eof) = eof(stream)
-        $(vars.p) = __buffer.bufferpos
-        $(vars.p_end) = __buffer.marginpos - 1
+        $(vars.p) = $(vars.buffer).bufferpos
+        $(vars.p_end) = $(vars.buffer).marginpos - 1
         $(Automa.generate_exec_code(context, machine, actions))
-
-        # This function flushes any unused data from the buffer, if it is not marked.
-        # this way Automa can keep reading data in a smaller buffer
-        $(vars.p) > __buffer.bufferpos && Base.skip(stream, $(vars.p) - __buffer.bufferpos)
+        
+        # Advance the buffer, hence advancing the stream itself
+        $(vars.buffer).bufferpos = $(vars.p)
 
         $(loopcode)
 
