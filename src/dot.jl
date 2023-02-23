@@ -39,6 +39,11 @@ function dfa2dot(dfa::DFA)
     return String(take!(out))
 end
 
+"""
+    machine2dot(machine::Machine)::String
+
+Return a String with a flowchart of the machine in Graphviz (dot) format.
+"""
 function machine2dot(machine::Machine)
     out = IOBuffer()
     println(out, "digraph {")
