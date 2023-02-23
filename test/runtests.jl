@@ -313,7 +313,7 @@ returncode = quote
 end
 Automa.Stream.generate_reader(:readrecord!, machine, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
 ctx = Automa.CodeGenContext(
-    vars=Automa.Variables(:pointerindex, :p_ending, :p_fileend, :ts, :te, :current_state, :buffer, gensym(), gensym()),
+    vars=Automa.Variables(:pointerindex, :p_ending, :p_fileend, :ts, :te, :current_state, :buffer, gensym(), gensym(), :buffer),
     generator=:goto,
 )
 Automa.Stream.generate_reader(:readrecord2!, machine, context=ctx, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
