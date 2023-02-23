@@ -56,32 +56,6 @@ function create_debug_function(machine::Automa.Machine; ascii::Bool=false,
     end
 end
 
-function print_error_state(s::AbstractString, p::Int, cs::Int)
-    println(s[thisind(s, max(1, p-20)):thisind(s, min(ncodeunits(s), p+20))])
-    before = Base.Unicode.textwidth(s[1:thisind(s, p-1)])
-    print(' ' ^ before)
-    println('^')
-    println(' ' ^ before, "Parser stopped at byte $p")
-    println(' ' ^ before, "at machine state $(-cs)")
-end
-
-function create_debug_display_function(machine::Automa.Machine;
-    ctx::Union{Automa.CodeGenContext, Nothing}=nothing
-)
-    ctx = ctx === nothing ? Automa.CodeGenContext() : ctx
-    quote
-        function debug_display($(ctx.vars.data)::Union{String, SubString{String}})
-            $(Automa.generate_init_code(ctx, debugger))
-            p_end = sizeof($(ctx.vars.data))
-            is_eof = true
-            $(Automa.generate_exec_code(ctx, debugger, nothing))
-            if !iszero($(ctx.vars.cs))
-                print_error_state($(ctx.vars.data), $(ctx.vars.p), $(ctx.vars.cs))
-            end
-        end
-    end
-end
-
 function debug_execute(re::Automa.RegExp.RE, data::Vector{UInt8}; ascii=false)
     machine = Automa.compile(re, optimize=false)
     s = machine.start
@@ -97,6 +71,7 @@ function debug_execute(re::Automa.RegExp.RE, data::Vector{UInt8}; ascii=false)
                 rethrow()
             end
             cs = -cs
+            break
         end
     end
     if cs ∈ machine.final_states && haskey(machine.eof_actions, s.state)
