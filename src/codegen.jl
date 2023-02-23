@@ -16,6 +16,7 @@ The following variable names may be used in the code.
 - `data::Any`: input data
 - `mem::SizedMemory`: input data memory
 - `byte::UInt8`: current data byte
+- `buffer::TranscodingStreams.Buffer`: If reading from an IO
 """
 struct Variables
     p::Symbol
@@ -27,6 +28,7 @@ struct Variables
     data::Symbol
     mem::Symbol
     byte::Symbol
+    buffer::Symbol
 end
 
 function Variables(
@@ -38,9 +40,10 @@ function Variables(
     cs=:cs,
     data=:data,
     mem=:mem,
-    byte=:byte
+    byte=:byte,
+    buffer=:buffer
 )
-    Variables(p, p_end, is_eof, ts, te, cs, data, mem, byte)
+    Variables(p, p_end, is_eof, ts, te, cs, data, mem, byte, buffer)
 end
 
 struct CodeGenContext
@@ -73,7 +76,7 @@ Arguments
 - `clean`: flag of code cleansing, e.g. removing line comments
 """
 function CodeGenContext(;
-        vars::Variables=Variables(:p, :p_end, :is_eof, :ts, :te, :cs, :data, :mem, :byte),
+        vars::Variables=Variables(:p, :p_end, :is_eof, :ts, :te, :cs, :data, :mem, :byte, :buffer),
         generator::Symbol=:table,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
@@ -310,7 +313,7 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
     # else if act == 2 (... etc)
     action_dispatch_code = foldr(default, action_ids) do names_id, els
         names, id = names_id
-        action_code = rewrite_special_macros(ctx, generate_action_code(names, actions), false)
+        action_code = rewrite_special_macros(ctx, generate_action_code(names, actions), false, nothing)
         return Expr(:if, :($(act) == $(id)), action_code, els)
     end
     # Action code is: Get the action int from the state and current input byte
@@ -421,7 +424,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
 
     # When EOF, go through a list of if/else statements: If cs == 1, do this, elseif
     # cs == 2 do that etc
-    eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true)
+    eof_action_code = rewrite_special_macros(ctx, generate_eof_action_code(ctx, machine, actions), true, nothing)
 
     # Check the final state is an accept state, in an efficient manner
     final_state_code = generate_final_state_mem_code(ctx, machine)
@@ -484,7 +487,7 @@ end
 function generate_eof_action_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     return foldr(:(), machine.eof_actions) do s_as, els
         s, as = s_as
-        action_code = rewrite_special_macros(ctx, generate_action_code(action_names(as), actions), true)
+        action_code = rewrite_special_macros(ctx, generate_action_code(action_names(as), actions), true, nothing)
         Expr(:if, state_condition(ctx, s), action_code, els)
     end
 end
@@ -587,45 +590,49 @@ function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
     end
 end
 
-# This is a dummy macro, not actually used in Automa.
-# In generated code, Automa may generate this macro, but Automa
+# These are dummy macros
+# Users may use this macro, but Automa
 # removes it in the `rewrite_special_macros` function before Julia can expand
 # the macro.
-# I only have this here so if people grep for escape, they find this comment
-macro escape()
-end
+# I only have this here so if people grep for these macros, they find this comment
+# macro escape()
+# macro mark()
+# macro unmark()
+# macro markpos()
+# macro get_buffer_pos()
+# macro set_buffer_pos()
 
-# Used by the :table code generator.
-function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool)
+# If cs is nothing, we're in the table generator and do not need to set `cs`. Then we use break.
+# if it's an int, we set cs and escape using @goto
+function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool, cs::Union{Int, Nothing})
     args = []
     for arg in ex.args
-        if isescape(arg)
+        special_macro = special_macro_type(arg)
+        if special_macro isa Symbol
             if !eof
-                push!(args, quote
-                    $(ctx.vars.p) += 1
-                    break
-                end)
-            end
-        elseif isa(arg, Expr)
-            push!(args, rewrite_special_macros(ctx, arg, eof))
-        else
-            push!(args, arg)
-        end
-    end
-    return Expr(ex.head, args...)
-end
-
-# Used by the :goto code generator.
-function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool, cs::Int)
-    args = []
-    for arg in ex.args
-        if isescape(arg)
-            if !eof
-                push!(args, quote
-                    $(ctx.vars.cs) = $(cs)
-                    $(ctx.vars.p) += 1
-                    @goto exit
-                end)
+                expr = if special_macro == Symbol("@escape")
+                    if cs === nothing
+                        quote
+                            $(ctx.vars.p) += 1
+                            break
+                        end
+                    else
+                        quote
+                            $(ctx.vars.cs) = $(cs)
+                            $(ctx.vars.p) += 1
+                            @goto exit
+                        end
+                    end
+                elseif special_macro == Symbol("@mark")
+                    quote $(ctx.vars.buffer).markpos = $(ctx.vars.p) end
+                elseif special_macro == Symbol("@unmark")
+                    quote $(ctx.vars.buffer).markpos = 0 end
+                elseif special_macro == Symbol("@markpos")
+                    quote $(ctx.vars.buffer).markpos end
+                elseif special_macro == Symbol("@setp")
+                    quote $(ctx.vars.p) = $(ctx.vars.buffer).markpos end
+                end
+                push!(args, expr)
             end
         elseif isa(arg, Expr)
             push!(args, rewrite_special_macros(ctx, arg, eof, cs))
@@ -634,6 +641,25 @@ function rewrite_special_macros(ctx::CodeGenContext, ex::Expr, eof::Bool, cs::In
         end
     end
     return Expr(ex.head, args...)
+end
+
+function special_macro_type(arg)
+    (arg isa Expr && arg.head == :macrocall) || return nothing
+    sym = arg.args[1]
+    if sym == Symbol("@escape") ||
+        sym == Symbol("@mark") ||
+        sym == Symbol("@unmark") ||
+        sym == Symbol("@markpos") ||
+        sym == Symbol("@setp")
+
+        if any(view(arg.args, 2:lastindex(arg.args))) do a
+                !(a isa LineNumberNode)
+            end
+            error("Special Automa macro $(sym) used with arguments: Use it like this: `$(sym)()`")
+        end
+        return sym
+    end
+    return nothing
 end
 
 function isescape(arg)
