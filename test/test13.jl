@@ -11,8 +11,7 @@ using Test
         (!re"A[BC]D?E", ["ABCDE", "ABCE"], ["ABDE", "ACE", "ABE"])
     ]
         for goto in (false, true)
-            machine = Automa.compile(regex)
-            @eval $(Automa.generate_validator_function(:validate, machine, goto))
+            @eval $(Automa.generate_validator_function(:validate, regex, goto))
             for string in good_strings
                 @test validate(string) === nothing
             end

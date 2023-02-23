@@ -98,29 +98,37 @@ end
 const DefaultCodeGenContext = CodeGenContext()
 
 """
-    generate_validator_function(name::Symbol, machine::Machine, goto=false)
+    generate_validator_function(name::Symbol, regexp::RE, goto=false)
 
 Generate code that, when evaluated, defines a function named `name`, which takes a
 single argument `data`, interpreted as a sequence of bytes.
 The function returns `nothing` if `data` matches `Machine`, else the index of the first
-invalid byte. If the machine reached unexpected EOF, returns `sizeof(data) + 1`.
+invalid byte. If the machine reached unexpected EOF, returns `0`.
 If `goto`, the function uses the faster but more complicated `:goto` code.
 """
-function generate_validator_function(name::Symbol, machine::Machine, goto::Bool=false)
+function generate_validator_function(name::Symbol, regex::RegExp.RE, goto::Bool=false)
     ctx = goto ? CodeGenContext(generator=:goto) : DefaultCodeGenContext
+    machine = compile(RegExp.strip_actions(regex))
     return quote
         """
             $($(name))(data)::Union{Int, Nothing}
 
         Checks if `data`, interpreted as a bytearray, conforms to the given `Automa.Machine`.
         Returns `nothing` if it does, else the byte index of the first invalid byte.
-        If the machine reached unexpected EOF, returns `sizeof(data) + 1`.
+        If the machine reached unexpected EOF, returns `0`.
         """
         function $(name)(data)
             $(generate_init_code(ctx, machine))
             $(generate_exec_code(ctx, machine))
             # By convention, Automa lets cs be 0 if machine executed correctly.
-            iszero($(ctx.vars.cs)) ? nothing : p
+            return if iszero($(ctx.vars.cs))
+                nothing
+            # Else if EOF
+            elseif $(ctx.vars.p) > $(ctx.vars.p_end)
+                0
+            else
+                p
+            end
         end
     end
 end
@@ -174,6 +182,8 @@ function generate_init_code(ctx::CodeGenContext, machine::Machine)
     return code
 end
 generate_init_code(machine::Machine) = generate_init_code(DefaultCodeGenContext, machine)
+
+
 
 """
     generate_exec_code([::CodeGenContext], machine::Machine, actions=nothing)::Expr
