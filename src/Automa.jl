@@ -57,6 +57,9 @@ export RE,
     # cat and alt is not exported in favor of * and |
     opt,
     rep,
-    rep1
+    rep1,
+
+    # Debugging functionality
+    machine2dot
 
 end # module
