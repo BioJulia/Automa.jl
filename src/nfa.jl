@@ -235,5 +235,36 @@ function remove_dead_nodes(nfa::NFA)
         end
     end
 
+    # The following code will remove any nodes that
+    # have just a single eps edge with no actions or preconditions.
+    # TODO: Never create these nodes in the first place
+    function is_useless_eps(node::NFANode)::Bool
+        node === new(nfa.start) && return false
+        node === new(nfa.final) && return false
+        length(node.edges) == 1 || return false
+        edge = first(only(node.edges))
+        iseps(edge) || return false
+        isempty(edge.actions.actions) || return false
+        isempty(edge.precond.names) || return false
+        return true
+    end
+
+    unvisited = [new(nfa.start)]
+    visited = Set{NFANode}()
+    while !isempty(unvisited)
+        node = pop!(unvisited)
+        push!(visited, node)
+        for (i, (e, child)) in enumerate(node.edges)
+            original_child = child
+            while is_useless_eps(child)
+                child = last(only(child.edges))
+            end
+            in(child, visited) || push!(unvisited, child)
+            if child !== original_child
+                node.edges[i] = (e, child)
+            end
+        end
+    end
+
     return NFA(new(nfa.start), new(nfa.final))
 end
