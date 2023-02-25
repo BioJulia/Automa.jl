@@ -10,24 +10,6 @@ import Automa
 import TranscodingStreams: TranscodingStream, NoopStream
 
 """
-    @relpos(pos)
-
-Get the relative position of the absolute position `pos`.
-"""
-macro relpos(pos)
-    esc(:(@assert buffer.markpos > 0; $(pos) - buffer.markpos + 1))
-end
-
-"""
-    @abspos(pos)
-
-Get the absolute position of the relative position `pos`.
-""" 
-macro abspos(pos)
-    esc(:(@assert buffer.markpos > 0; $(pos) + buffer.markpos - 1))
-end
-
-"""
     generate_reader(funcname::Symbol, machine::Automa.Machine; kwargs...)
 
 Generate a streaming reader function of the name `funcname` from `machine`.
@@ -72,12 +54,23 @@ function generate_reader(
     for arg in arguments
         push!(functioncode.args[1].args, arg)
     end
+    # Expands special Automa pseudomacros. When not inside the machine execution,
+    # at_eof and cs is meaningless, and when both are set to nothing, @escape
+    # will error at parse time
+    function rewrite(ex::Expr)
+        Automa.rewrite_special_macros(;
+            ctx=context,
+            ex=ex,
+            at_eof=nothing,
+            cs=nothing
+        )
+    end
     vars = context.vars
     functioncode.args[2] = quote
         $(vars.buffer) = stream.state.buffer1
         $(vars.data) = $(vars.buffer).data
         $(Automa.generate_init_code(context, machine))
-        $(initcode)
+        $(rewrite(initcode))
         # Overwrite is_eof for Stream, since we don't know the real EOF
         # until after we've actually seen the stream eof
         $(vars.is_eof) = false
@@ -99,17 +92,17 @@ function generate_reader(
         # Advance the buffer, hence advancing the stream itself
         $(vars.buffer).bufferpos = $(vars.p)
 
-        $(loopcode)
+        $(rewrite(loopcode))
 
         if $(vars.cs) < 0
-            $(errorcode)
+            $(rewrite(errorcode))
         end
 
         # If the machine errored, or we're past the end of the stream, actually return.
         # Else, keep looping.
         if $(vars.cs) == 0 || ($(vars.is_eof) && $(vars.p) > $(vars.p_end))
             @label __return__
-            $(returncode)
+            $(rewrite(returncode))
         end
         @goto __exec__
     end
