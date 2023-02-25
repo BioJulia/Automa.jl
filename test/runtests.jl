@@ -1,4 +1,4 @@
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 
 using Test
@@ -156,7 +156,7 @@ end
 
 module TestStream
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 using TranscodingStreams
 using Test
@@ -167,7 +167,7 @@ machine = let
     newline = re"\r?\n"
     Automa.compile(line * newline)
 end
-Automa.Stream.generate_reader(:readline, machine; errorcode=:(return cs)) |> eval
+generate_reader(:readline, machine; errorcode=:(return cs)) |> eval
 @testset "Scanning a line" begin
     for (data, state) in [
             ("\n",      :ok),
@@ -204,7 +204,7 @@ actions = Dict(
 )
 initcode = :(start_alphanum = end_alphanum = 0)
 returncode = :(return cs == 0 ? String(data[@abspos(start_alphanum):@abspos(end_alphanum)]) : "")
-Automa.Stream.generate_reader(
+generate_reader(
     :stripwhitespace,
     machine,
     actions=actions,
@@ -310,12 +310,12 @@ returncode = quote
         return ("", -1, 0), cs
     end
 end
-Automa.Stream.generate_reader(:readrecord!, machine, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
+generate_reader(:readrecord!, machine, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
 ctx = Automa.CodeGenContext(
     vars=Automa.Variables(:pointerindex, :p_ending, :p_fileend, :ts, :te, :current_state, :buffer, gensym(), gensym(), :buffer),
     generator=:goto,
 )
-Automa.Stream.generate_reader(:readrecord2!, machine, context=ctx, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
+generate_reader(:readrecord2!, machine, context=ctx, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
 
 @testset "Three-column BED (stateful)" begin
     for reader in (readrecord!, readrecord2!)
@@ -415,7 +415,7 @@ loopcode = quote
     found && @goto __return__
 end
 context = Automa.CodeGenContext(generator=:goto)
-Automa.Stream.generate_reader(
+generate_reader(
     :readrecord!,
     machine,
     arguments=(:(state::Int), :(record::$(Record)),),
