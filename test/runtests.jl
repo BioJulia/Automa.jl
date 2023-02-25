@@ -158,7 +158,6 @@ module TestStream
 
 import Automa
 import Automa.RegExp: @re_str
-import Automa.Stream: @mark, @markpos, @relpos, @abspos
 using TranscodingStreams
 using Test
 
