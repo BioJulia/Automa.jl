@@ -53,7 +53,7 @@ function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
         $(ctx.vars.is_eof)::Bool = true
         $(ctx.vars.ts)::Int = 0
         $(ctx.vars.te)::Int = 0
-        $(ctx.vars.cs)::Int = $(tokenizer.machine.start_state)
+        $(ctx.vars.cs)::Int = 1
     end
 end
 
@@ -114,7 +114,7 @@ function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions:
             $(token_exit_code)
             $(ctx.vars.p) = $(ctx.vars.te) + 1
             if $(ctx.vars.cs) != 0
-                $(ctx.vars.cs) = $(tokenizer.machine.start_state)
+                $(ctx.vars.cs) = 1
             end
         end
     end
