@@ -105,17 +105,10 @@ The function returns `nothing` if `data` matches `Machine`, else the index of th
 invalid byte. If the machine reached unexpected EOF, returns `0`.
 If `goto`, the function uses the faster but more complicated `:goto` code.
 """
-function generate_validator_function(name::Symbol, regex::RegExp.RE, goto::Bool=false)
+function generate_validator_function(name::Symbol, regex::RegExp.RE, goto::Bool=false; docstring::Bool=true)
     ctx = goto ? CodeGenContext(generator=:goto) : DefaultCodeGenContext
     machine = compile(RegExp.strip_actions(regex))
-    return quote
-        """
-            $($(name))(data)::Union{Int, Nothing}
-
-        Checks if `data`, interpreted as a bytearray, conforms to the given `Automa.Machine`.
-        Returns `nothing` if it does, else the byte index of the first invalid byte.
-        If the machine reached unexpected EOF, returns `0`.
-        """
+    code = quote
         function $(name)(data)
             $(generate_init_code(ctx, machine))
             $(generate_exec_code(ctx, machine))
@@ -130,6 +123,19 @@ function generate_validator_function(name::Symbol, regex::RegExp.RE, goto::Bool=
             end
         end
     end
+    if docstring
+        code = quote
+            """
+                $($(name))(data)::Union{Int, Nothing}
+
+            Checks if `data`, interpreted as a bytearray, conforms to the given `Automa.Machine`.
+            Returns `nothing` if it does, else the byte index of the first invalid byte.
+            If the machine reached unexpected EOF, returns `0`.
+            """
+            $code
+        end
+    end
+    code
 end
 
 """
