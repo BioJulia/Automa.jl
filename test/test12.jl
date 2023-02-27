@@ -1,14 +1,14 @@
 module Test12
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
 using Test
 
 @testset "Test12" begin
     a = re"a*"
-    a.actions[:all] = [:a]
-    machine = Automa.compile(a)
+    onall!(a, :a)
+    machine = compile(a)
 
     ctx = Automa.CodeGenContext()
     @eval function validate(data)

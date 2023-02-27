@@ -1,7 +1,6 @@
 module Test02
 
-import Automa
-import Automa.RegExp: @re_str
+using Automa
 using Test
 
 @testset "Test02" begin
@@ -11,15 +10,15 @@ using Test
     b = re.cat('b', re.rep('b'))
     ab = re.cat(a, b)
 
-    a.actions[:enter] = [:enter_a]
-    a.actions[:exit] = [:exit_a]
-    a.actions[:final] = [:final_a]
-    b.actions[:enter] = [:enter_b]
-    b.actions[:exit] = [:exit_b]
-    b.actions[:final] = [:final_b]
-    ab.actions[:enter] = [:enter_re]
-    ab.actions[:exit] = [:exit_re]
-    ab.actions[:final] = [:final_re]
+    onenter!(a, :enter_a)
+    onexit!(a, :exit_a)
+    onfinal!(a, :final_a)
+    onenter!(b, :enter_b)
+    onexit!(b, :exit_b)
+    onfinal!(b, :final_b)
+    onenter!(ab, :enter_re)
+    onexit!(ab, :exit_re)
+    onfinal!(ab, :final_re)
 
     machine = Automa.compile(ab)
 

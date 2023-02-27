@@ -58,14 +58,13 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
 
     # Thompson's construction.
     function rec!(start, re)
-        # Validate keys
-        for (k, v) in re.actions
-            if k ∉ ACCEPTED_KEYS
-                error("Bad key in RE.actions: \"$k\". Accepted keys are: $(string(ACCEPTED_KEYS))")
+        if re.actions !== nothing
+            for k in keys(re.actions)
+                @assert k ∈ ACCEPTED_KEYS
             end
         end
 
-        if haskey(re.actions, :enter)
+        if !isnothing(re.actions) && haskey(re.actions, :enter)
             start_in = NFANode()
             push!(start.edges, (Edge(eps, make_action_list(re, re.actions[:enter])), start_in))
         else
@@ -132,7 +131,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             error("unsupported operation: $(head)")
         end
 
-        if haskey(re.actions, :all)
+        if !isnothing(re.actions) && haskey(re.actions, :all)
             as = make_action_list(re, re.actions[:all])
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
@@ -141,7 +140,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             end
         end
 
-        if haskey(re.actions, :final)
+        if !isnothing(re.actions) && haskey(re.actions, :final)
             as = make_action_list(re, re.actions[:final])
             for s in traverse(start), (e, t) in s.edges
                 if !iseps(e) && final_in ∈ epsilon_closure(t)
@@ -150,7 +149,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             end
         end
 
-        if haskey(re.actions, :exit)
+        if !isnothing(re.actions) && haskey(re.actions, :exit)
             final = NFANode()
             push!(final_in.edges, (Edge(eps, make_action_list(re, re.actions[:exit])), final))
         else

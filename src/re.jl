@@ -5,33 +5,46 @@ module RegExp
 
 import Automa: ByteSet
 
-function gen_empty_names()
-    return Symbol[]
-end
-
 # Head: What kind of regex, like cat, or rep, or opt etc.
 # args: the content of the regex itself. Maybe should be type stable?
 # actions: Julia code to be executed when matching the regex. See Automa docs
 # when: a Precondition that is checked when every byte in the regex is matched.
 # See comments on Precondition struct
+
 mutable struct RE
     head::Symbol
     args::Vector
-    actions::Dict{Symbol, Vector{Symbol}}
+    actions::Union{Nothing, Dict{Symbol, Vector{Symbol}}}
     when::Union{Symbol, Nothing}
 end
 
 function RE(head::Symbol, args::Vector)
-    return RE(head, args, Dict{Symbol, Vector{Symbol}}(), nothing)
+    return RE(head, args, nothing, nothing)
 end
+
+function actions!(re::RE)
+    if isnothing(re.actions)
+        re.actions = Dict{Symbol, Vector{Symbol}}()
+    end
+    re.actions
+end
+
+onenter!(re::RE, v::Vector{Symbol}) = (actions!(re)[:enter] = v; re)
+onenter!(re::RE, s::Symbol) = onenter!(re, [s])
+onexit!(re::RE, v::Vector{Symbol}) = (actions!(re)[:exit] = v; re)
+onexit!(re::RE, s::Symbol) = onexit!(re, [s])
+onfinal!(re::RE, v::Vector{Symbol}) = (actions!(re)[:final] = v; re)
+onfinal!(re::RE, s::Symbol) = onfinal!(re, [s])
+onall!(re::RE, v::Vector{Symbol}) = (actions!(re)[:all] = v; re)
+onall!(re::RE, s::Symbol) = onall!(re, [s])
+
+precond!(re::RE, s::Symbol) = re.when = s
 
 const Primitive = Union{RE, ByteSet, UInt8, UnitRange{UInt8}, Char, String, Vector{UInt8}}
 
 function primitive(re::RE)
     return re
 end
-
-const PRIMITIVE = (:set, :byte, :range, :class, :cclass, :char, :str, :bytes)
 
 function primitive(set::ByteSet)
     return RE(:set, [set])
@@ -53,8 +66,8 @@ function primitive(str::String)
     return RE(:str, [str])
 end
 
-function primitive(bs::Vector{UInt8})
-    return RE(:bytes, copy(bs))
+function primitive(bs::AbstractVector{UInt8})
+    return RE(:bytes, collect(bs))
 end
 
 function cat(xs::Primitive...)
@@ -102,6 +115,8 @@ function space()
 end
 
 Base.:*(re1::RE, re2::RE) = cat(re1, re2)
+Base.:*(x::Union{String, Char}, re::RE) = parse(string(x)) * re
+Base.:*(re::RE, x::Union{String, Char}) = re * parse(string(x))
 Base.:|(re1::RE, re2::RE) = alt(re1, re2)
 Base.:&(re1::RE, re2::RE) = isec(re1, re2)
 Base.:\(re1::RE, re2::RE) = diff(re1, re2)
@@ -327,6 +342,8 @@ function unescape(str::String, s::Int)
     end
 end
 
+# This converts from compound regex to foundational regex.
+# For example, rep1(x) is equivalent to x * rep(x).
 function shallow_desugar(re::RE)
     head = re.head
     args = re.args

@@ -1,18 +1,16 @@
-import Automa
-import Automa.RegExp: @re_str
-const re = Automa.RegExp
+using Automa
 
 keyword = re"break|const|continue|else|elseif|end|for|function|if|return|type|using|while"
 identifier = re"[A-Za-z_][0-9A-Za-z_!]*"
 operator = re"-|\+|\*|/|%|&|\||^|!|~|>|<|<<|>>|>=|<=|=>|==|==="
 macrocall = re"@" * re"[A-Za-z_][0-9A-Za-z_!]*"
 comment = re"#[^\r\n]*"
-char = re.cat('\'', re"[ -&(-~]" | re.cat('\\', re"[ -~]"), '\'')
-string = re.cat('"', re.rep(re"[ !#-~]" | re.cat("\\\"")), '"')
-triplestring = re.cat("\"\"\"", (re"[ -~]*" \ re"\"\"\""), "\"\"\"")
+char = '\'' * (re"[ -&(-~]" | ('\\' * re"[ -~]")) * '\''
+string = '"' * rep(re"[ !#-~]" | re"\\\\\"") * '"'
+triplestring = "\"\"\"" * (re"[ -~]*" \ re"\"\"\"") * "\"\"\""
 newline = re"\r?\n"
 
-const minijulia = Automa.compile(
+const minijulia = compile(
     re","          => :(emit(:comma)),
     re":"          => :(emit(:colon)),
     re";"          => :(emit(:semicolon)),
@@ -47,7 +45,7 @@ write("minijulia.dot", Automa.machine2dot(minijulia.machine))
 run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
 =#
 
-context = Automa.CodeGenContext()
+context = CodeGenContext()
 @eval function tokenize(data)
     $(Automa.generate_init_code(context, minijulia))
     tokens = Tuple{Symbol,String}[]

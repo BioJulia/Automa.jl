@@ -1,6 +1,6 @@
 module Test14
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
 using Test

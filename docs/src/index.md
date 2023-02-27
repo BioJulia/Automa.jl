@@ -121,7 +121,7 @@ pattern = re.cat(ab, c)
 ab.actions[:enter] = [:enter_ab]
 ab.actions[:exit]  = [:exit_ab]
 ab.actions[:all]   = [:all_ab]
-ab.actions[:final] = [:final_ab]
+onfinal!(ab, :final_ab)
 c.actions[:enter]  = [:enter_c]
 c.actions[:exit]   = [:exit_c]
 c.actions[:final]  = [:final_c]
@@ -233,7 +233,7 @@ const re = Automa.RegExp
 word = re"[A-Za-z]+"
 words = re.cat(re.opt(word), re.rep(re" +" * word), re" *")
 
-word.actions[:exit] = [:word]
+onexit!(word, :word)
 
 machine = Automa.compile(words)
 

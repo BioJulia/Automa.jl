@@ -1,6 +1,6 @@
 module Test05
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 using Test
 
@@ -11,8 +11,8 @@ using Test
     ident = re.diff(re"[a-z]+", keyword)
     token = re.alt(keyword, ident)
 
-    keyword.actions[:exit] = [:keyword]
-    ident.actions[:exit] = [:ident]
+    onexit!(keyword, :keyword)
+    onexit!(ident, :ident)
 
     machine = Automa.compile(token)
 
