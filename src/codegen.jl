@@ -175,7 +175,7 @@ function generate_init_code(ctx::CodeGenContext, machine::Machine)
         $(vars.p)::Int = 1
         $(vars.p_end)::Int = sizeof($(vars.data))
         $(vars.is_eof)::Bool = true
-        $(vars.cs)::Int = $(machine.start_state)
+        $(vars.cs)::Int = 1
     end
     ctx.clean && Base.remove_linenums!(code)
     return code
@@ -277,7 +277,7 @@ end
 # The table is a 256xnstates byte lookup table, such that table[input,cs] will give
 # the next state.
 function generate_transition_table(machine::Machine)
-    nstates = length(machine.states)
+    nstates = machine.n_states
     trans_table = Matrix{smallest_int(nstates)}(undef, 256, nstates)
     for j in 1:size(trans_table, 2)
         trans_table[:,j] .= -j
@@ -298,7 +298,7 @@ end
 function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, actions::Dict{Symbol,Expr})
     nactions = length(actions)
     T = smallest_int(nactions)
-    action_table = fill(zero(T), (256, length(machine.states)))
+    action_table = fill(zero(T), (256, machine.n_states))
     # Each edge with actions is a Vector{Symbol} with action names.
     # Enumerate them, by mapping the vector to an integer.
     # This way, each set of actions is mapped to an integer (call it: action int)
@@ -437,7 +437,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
     # the starting state, then directly goto that state.
     # In cases where the starting state is hardcoded as a constant, (which is quite often!)
     # hopefully the Julia compiler will optimize this block away.
-    enter_code = foldr(:(@goto exit), machine.states) do s, els
+    enter_code = foldr(:(@goto exit), 1:machine.n_states) do s, els
         return Expr(:if, :($(ctx.vars.cs) == $(s)), :(@goto $(Symbol("state_case_", s))), els)
     end
 

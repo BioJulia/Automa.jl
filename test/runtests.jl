@@ -320,14 +320,14 @@ generate_reader(:readrecord2!, machine, context=ctx, arguments=(:(state::Int),),
 @testset "Three-column BED (stateful)" begin
     for reader in (readrecord!, readrecord2!)
         stream = NoopStream(IOBuffer("""chr1\t10\t200\n"""))
-        state = machine.start_state
+        state = 1
         val, state = readrecord!(stream, state)
         @test val == ("chr1", 10, 200)
         val, state = readrecord!(stream, state)
         @test val == ("", -1, 0)
         @test state == 0
         stream = NoopStream(IOBuffer("""1\t10\t200000\nchr12\t0\t21000\r\nchrM\t123\t12345\n"""))
-        state = machine.start_state
+        state = 1
         val, state = readrecord!(stream, state)
         @test val == ("1", 10, 200000)
         val, state = readrecord!(stream, state)
@@ -427,7 +427,7 @@ generate_reader(
 
 @testset "Streaming FASTA" begin
     stream = NoopStream(IOBuffer(""))
-    state = machine.start_state
+    state = 1
     record = Record()
     @test readrecord!(stream, state, record) == 0
 
@@ -436,7 +436,7 @@ generate_reader(
     ACGT
     TGCA
     """), bufsize=10)
-    state = machine.start_state
+    state = 1
     record = Record()
     @test readrecord!(stream, state, record) == 0
     @test String(record.data[record.identifier]) == "seq1"
@@ -450,7 +450,7 @@ generate_reader(
     -----AAA
     GGGGG---
     """), bufsize=10)
-    state = machine.start_state
+    state = 1
     record = Record()
     state = readrecord!(stream, state, record)
     @test state > 0
@@ -477,7 +477,7 @@ generate_reader(
 
 
     """), bufsize=10)
-    state = machine.start_state
+    state = 1
     record = Record()
     state = readrecord!(stream, state, record)
     @test state > 0

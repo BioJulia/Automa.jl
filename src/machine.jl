@@ -35,8 +35,7 @@ to construct a DOT file, then visualise it using the `graphviz` software.
 """
 struct Machine
     start::Node
-    states::UnitRange{Int}
-    start_state::Int
+    n_states::Int
     final_states::Set{Int}
     eof_actions::Dict{Int,ActionList}
 end
@@ -65,8 +64,7 @@ end
 function Base.show(io::IO, machine::Machine)
     print(io,
         summary(machine),
-        "(<states=", machine.states,
-        ",start_state=", machine.start_state,
+        "(<n_states=", machine.n_states,
         ",final_states=[", join(map(string, collect(machine.final_states)), ','), "]>)"
     )
 end
@@ -103,8 +101,7 @@ function reorder_machine(machine::Machine)
     # Rebuild machine and return it
     Machine(
         new_nodes[1],
-        machine.states,
-        1,
+        machine.n_states,
         Set([old2new[i] for i in machine.final_states]),
         Dict{Int, ActionList}(old2new[i] => act for (i, act) in machine.eof_actions)
     )
@@ -154,7 +151,7 @@ function dfa2machine(dfa::DFA)
     end
     start = new(dfa.start)
     @assert start.state == 1
-    return Machine(start, 1:length(newnodes), 1, final_states, eof_actions)
+    return Machine(start, length(newnodes), final_states, eof_actions)
 end
 
 function execute(machine::Machine, data::Vector{UInt8})
