@@ -45,8 +45,8 @@ end
 
 @testset "DOT" begin
     re = re"[A-Za-z_][A-Za-z0-9_]*"
-    re.actions[:enter] = [:enter]
-    re.actions[:exit]  = [:exit]
+    onenter!(re, :enter)
+    onexit!(re, :exit)
     nfa = Automa.re2nfa(re)
     @test startswith(Automa.nfa2dot(nfa), "digraph")
     dfa = Automa.nfa2dfa(nfa)
@@ -193,8 +193,8 @@ end
 # Test 2
 machine = let
     alphanum = re"[A-Za-z0-9]+"
-    alphanum.actions[:enter] = [:start_alphanum]
-    alphanum.actions[:exit]  = [:end_alphanum]
+    onenter!(alphanum, :start_alphanum)
+    onexit!(alphanum, :end_alphanum)
     whitespace = re"[ \t\r\n\f]*"
     Automa.compile(whitespace * alphanum * whitespace)
 end
@@ -231,12 +231,12 @@ end
 @testset "Incorrect action names" begin
     machine = let
         a = re"abc"
-        a.actions[:enter] = [:foo, :bar]
+        onenter!(a, [:foo, :bar])
         b = re"bcd"
-        b.actions[:all] = [:qux]
-        b.when = :froom
+        onall!(b, :qux)
+        precond!(b, :froom)
         c = re"x*"
-        c.actions[:exit] = []
+        onexit!(c, Symbol[])
         Automa.compile(Automa.RegExp.cat(c, a | b))
     end
     ctx = Automa.CodeGenContext(generator=:goto)
@@ -263,13 +263,13 @@ end
 @testset "Invalid RE.actions keys" begin
     @test_throws Exception let
         a = re"abc"
-        a.actions[:badkey] = [:foo]
+        Automa.RegExp.actions!(a)[:badkey] = [:foo]
         Automa.compile(a)
     end
 
     @test let
         a = re"abc"
-        a.actions[:enter] = [:foo]
+        Automa.RegExp.actions!(a)[:enter] = [:foo]
         Automa.compile(a)
     end isa Any
 end
@@ -279,13 +279,13 @@ cat = Automa.RegExp.cat
 rep = Automa.RegExp.rep
 machine = let
     chrom = re"[^\t]+"
-    chrom.actions[:exit] = [:chrom]
+    onexit!(chrom, :chrom)
     chromstart = re"[0-9]+"
-    chromstart.actions[:exit] = [:chromstart]
+    onexit!(chromstart, :chromstart)
     chromend = re"[0-9]+"
-    chromend.actions[:exit] = [:chromend]
+    onexit!(chromend, :chromend)
     record = cat(chrom, '\t', chromstart, '\t', chromend)
-    record.actions[:enter] = [:mark]
+    onenter!(record, :mark)
     bed = rep(cat(record, re"\r?\n"))
     Automa.compile(bed)
 end
@@ -362,25 +362,25 @@ machine = let re = Automa.RegExp
     newline = re"\r?\n"
 
     identifier = re"[!-~]*"
-    identifier.actions[:enter] = [:pos]
-    identifier.actions[:exit] = [:identifier]
+    onenter!(identifier, :pos)
+    onexit!(identifier, :identifier)
 
     description = re"[!-~][ -~]*"
-    description.actions[:enter] = [:pos]
-    description.actions[:exit] = [:description]
+    onenter!(description, :pos)
+    onexit!(description, :description)
 
     header = re.cat('>', identifier, re.opt(re" " * description))
-    header.actions[:exit] = [:header]
+    onexit!(header, :header)
 
     letters = re"[A-Za-z*-]*"
-    letters.actions[:enter] = [:mark, :pos]
-    letters.actions[:exit] = [:letters]
+    onenter!(letters, [:mark, :pos])
+    onexit!(letters, :letters)
 
     sequence = re.cat(letters, re.rep(newline * letters))
 
     record = re.cat(header, newline, sequence)
-    record.actions[:enter] = [:mark]
-    record.actions[:exit] = [:record]
+    onenter!(record, :mark)
+    onexit!(record, :record)
 
     fasta = re.rep(record)
 

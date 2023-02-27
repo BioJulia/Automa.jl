@@ -1,13 +1,13 @@
 module Test17
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 using Test
 
 @testset "Test17" begin
     re1 = re"[a\-c]"
-    re1.actions[:enter] = [:enter]
-    re1.actions[:exit] = [:exit]
+    onenter!(re1, :enter)
+    onexit!(re1, :exit)
     machine1 = Automa.compile(re1)
     @test occursin(r"^Automa.Machine\(<.*>\)$", repr(machine1))
 
@@ -25,8 +25,8 @@ using Test
     end
 
     re2 = re"[a-c]"
-    re2.actions[:enter] = [:enter]
-    re2.actions[:exit] = [:exit]
+    onenter!(re2, :enter)
+    onexit!(re2, :exit)
     machine2 = Automa.compile(re2)
     @test occursin(r"^Automa.Machine\(<.*>\)$", repr(machine2))
 

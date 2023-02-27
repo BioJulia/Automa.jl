@@ -1,35 +1,32 @@
 # A simple and practical FASTA file parser
 # ========================================
 
-import Automa
-import Automa.RegExp: @re_str
-const re = Automa.RegExp
+using Automa
 
 # Create a machine of FASTA.
-fasta_machine = (function ()
+fasta_machine = let
     # First, describe FASTA patterns in regular expression.
     lf          = re"\n"
     newline     = re"\r?" * lf
     identifier  = re"[!-~]*"
     description = re"[!-~][ -~]*"
     letters     = re"[A-Za-z*-]*"
-    sequence    = re.cat(letters, re.rep(newline * letters))
-    record      = re.cat('>', identifier, re.opt(re" " * description), newline, sequence)
-    fasta       = re.rep(record)
+    sequence    = letters * rep(newline * letters)
+    record      = '>' * identifier * opt(' ' * description) * newline * sequence
+    fasta       = rep(record)
 
     # Second, bind action names to each regular expression.
-    lf.actions[:enter]          = [:count_line]
-    identifier.actions[:enter]  = [:mark]
-    identifier.actions[:exit]   = [:identifier]
-    description.actions[:enter] = [:mark]
-    description.actions[:exit]  = [:description]
-    letters.actions[:enter]     = [:mark]
-    letters.actions[:exit]      = [:letters]
-    record.actions[:exit]       = [:record]
+    onenter!(identifier,  :mark)
+    onexit!( identifier,  :identifier)
+    onenter!(description, :mark)
+    onexit!( description, :description)
+    onenter!(letters,     :mark)
+    onexit!( letters,     :letters)
+    onenter!(record,      :record)
 
     # Finally, compile the final FASTA pattern into a state machine.
-    return Automa.compile(fasta)
-end)()
+    compile(fasta)
+end
 
 # It is useful to visualize the state machine for debugging.
 # write("fasta.dot", Automa.machine2dot(fasta_machine))
@@ -52,7 +49,7 @@ mutable struct FASTARecord
 end
 
 # Generate a parser function from `fasta_machine` and `fasta_actions`.
-context = Automa.CodeGenContext(generator=:goto)
+context = CodeGenContext(generator=:goto)
 @eval function parse_fasta(data::Union{String,Vector{UInt8}})
     # Initialize variables you use in the action code.
     records = FASTARecord[]
@@ -62,7 +59,7 @@ context = Automa.CodeGenContext(generator=:goto)
     buffer = IOBuffer()
 
     # Generate code for initialization and main loop
-    $(Automa.generate_code(context, fasta_machine, fasta_actions))
+    $(generate_code(context, fasta_machine, fasta_actions))
 
     # Check the last state the machine reached.
     if cs != 0

@@ -1,6 +1,6 @@
 module Test06
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 using Test
 
@@ -9,7 +9,7 @@ using Test
 
     foo = re.cat("foo")
     foos = re.rep(re.cat(foo, re" *"))
-    foo.actions[:exit]  = [:foo]
+    onexit!(foo, :foo)
     actions = Dict(:foo => :(push!(ret, state.p:p-1); @escape))
 
     machine = Automa.compile(foos)

@@ -1,17 +1,17 @@
 module Test11
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 const re = Automa.RegExp
 using Test
 
 @testset "Test11" begin
     a = re"[a-z]+"
-    a.when = :le
-    a = re.rep1(a)
-    a.actions[:exit] = [:one]
+    precond!(a, :le)
+    a = rep1(a)
+    onexit!(a, :one)
     b = re"[a-z]+[0-9]+"
-    b.actions[:exit] = [:two]
+    onexit!(b, :two)
 
     machine = Automa.compile(re.cat(a | b, '\n'))
     actions = Dict(

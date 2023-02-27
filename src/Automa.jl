@@ -39,7 +39,7 @@ include("tokenizer.jl")
 include("stream.jl")
 
 const RE = Automa.RegExp
-using .RegExp: @re_str, opt, rep, rep1
+using .RegExp: @re_str, opt, rep, rep1, onenter!, onexit!, onall!, onfinal!, precond!
 
 # This list of exports lists the API
 export RE,
@@ -59,6 +59,11 @@ export RE,
     opt,
     rep,
     rep1,
+    onexit!,
+    onenter!,
+    onall!,
+    onfinal!,
+    precond!,
 
     # Debugging functionality
     machine2dot
