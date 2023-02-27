@@ -1,6 +1,6 @@
 module Test08
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 using Test
 
@@ -13,9 +13,9 @@ using Test
     spaces = re.rep(re.space())
     numbers = re.cat(re.opt(spaces * number), re.rep(re.space() * spaces * number), spaces)
 
-    number.actions[:enter] = [:mark]
-    int.actions[:exit]     = [:int]
-    float.actions[:exit]   = [:float]
+    onenter!(number, :mark)
+    onexit!(int, :int)
+    onexit!(float, :float)
 
     machine = Automa.compile(numbers)
 

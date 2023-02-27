@@ -1,20 +1,20 @@
 module Test15
 
-import Automa
+using Automa
 import Automa.RegExp: @re_str
 using Test
 
 @testset "Test15" begin
     a = re"a+"
-    a.actions[:enter] = [:enter]
-    a.actions[:all]   = [:all]
-    a.actions[:final] = [:final]
-    a.actions[:exit]  = [:exit]
+    onenter!(a, :enter)
+    onall!(a, :all)
+    onfinal!(a, :final)
+    onexit!(a, :exit)
     b = re"b+"
-    b.actions[:enter] = [:enter]
-    b.actions[:all]   = [:all]
-    b.actions[:final] = [:final]
-    b.actions[:exit]  = [:exit]
+    onenter!(b, :enter)
+    onall!(b, :all)
+    onfinal!(b, :final)
+    onexit!(b, :exit)
     ab = Automa.RegExp.cat(a, b)
 
     machine = Automa.compile(ab)

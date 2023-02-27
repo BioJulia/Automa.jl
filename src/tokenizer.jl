@@ -25,9 +25,9 @@ function compile(tokens::AbstractVector{Pair{RegExp.RE,Expr}}; optimize::Bool=tr
     actions_code = Tuple{Symbol,Expr}[]
     for (i, (re, code)) in enumerate(tokens)
         re′ = RegExp.shallow_desugar(re)
-        push!(get!(() -> Symbol[], re′.actions, :enter), :__token_start)
+        push!(get!(() -> Symbol[], RegExp.actions!(re′), :enter), :__token_start)
         name = Symbol(:__token, i)
-        push!(get!(() -> Symbol[], re′.actions, :final), name)
+        push!(get!(() -> Symbol[], RegExp.actions!(re′), :final), name)
         nfa = re2nfa(re′, actions)
         push!(start.edges, (Edge(eps), nfa.start))
         push!(nfa.final.edges, (Edge(eps), final))
