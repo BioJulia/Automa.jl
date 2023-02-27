@@ -1,6 +1,5 @@
 function debug_machine(machine::Automa.Machine)
-    @assert machine.start_state == 1
-    cloned_nodes = [Automa.Node(i) for i in machine.states]
+    cloned_nodes = [Automa.Node(i) for i in 1:machine.n_states]
     for node in Automa.traverse(machine.start)
         for (edge, child) in node.edges
             cloned_edge = Automa.Edge(
@@ -17,8 +16,7 @@ function debug_machine(machine::Automa.Machine)
     end
     Automa.Machine(
         cloned_nodes[1],
-        1:length(cloned_nodes),
-        1,
+        length(cloned_nodes),
         copy(machine.final_states),
         copy(machine.eof_actions)   
     )

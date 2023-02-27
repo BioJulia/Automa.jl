@@ -159,8 +159,7 @@ After finished defining a regular expression with optional actions you can compi
 ```julia
 mutable struct Machine
     start::Node
-    states::UnitRange{Int}
-    start_state::Int
+    n_states::Int
     final_states::Set{Int}
     eof_actions::Dict{Int,Set{Action}}
 end
@@ -169,7 +168,7 @@ end
 For the purpose of debugging, Automa.jl offers the `execute` function, which emulates the machine execution and returns the last state with the action log. Let's execute a machine of `re"a*b"` with actions used in the previous example.
 ```jlcon
 julia> machine = Automa.compile(ab)
-Automa.Machine(<states=1:3,start_state=1,final_states=Set([0,2])>)
+Automa.Machine(<n_states=3,final_states=Set([0,2])>)
 
 julia> Automa.execute(machine, "b")
 (2,Symbol[:enter_a,:exit_a,:enter_b,:final_b,:exit_b])
