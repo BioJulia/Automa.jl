@@ -6,14 +6,13 @@ using Automa
 # Create a machine of FASTA.
 fasta_machine = let
     # First, describe FASTA patterns in regular expression.
-    lf          = re"\n"
-    newline     = re"\r?" * lf
+    newline     = re"\r?\n"
     identifier  = re"[!-~]*"
     description = re"[!-~][ -~]*"
-    letters     = re"[A-Za-z*-]*"
+    letters     = re"[A-Za-z*-]+"
     sequence    = letters * rep(newline * letters)
     record      = '>' * identifier * opt(' ' * description) * newline * sequence
-    fasta       = rep(record)
+    fasta       = opt(record) * rep(newline * record) * rep(newline)
 
     # Second, bind action names to each regular expression.
     onenter!(identifier,  :mark)
@@ -34,45 +33,53 @@ end
 
 # Bind Julia code to each action name (see the `parse_fasta` function defined below).
 fasta_actions = Dict(
-    :count_line  => :(linenum += 1),
     :mark        => :(mark = p),
-    :identifier  => :(identifier = mark == 0 ? "" : String(data[mark:p-1]); mark = 0),
-    :description => :(description = mark == 0 ? "" : String(data[mark:p-1]); mark = 0),
-    :letters     => :(mark > 0 && unsafe_write(buffer, pointer(data, mark), p - mark); mark = 0),
-    :record      => :(push!(records, FASTARecord(identifier, description, take!(buffer)))))
+    :identifier  => :(identifier = String(data[mark:p-1]); mark = 0),
+    :description => :(description = iszero(mark) ? nothing : String(data[mark:p-1])),
+    :letters     => quote
+        linelen = p - mark
+        length(buffer) < seqlen + linelen && resize!(buffer, seqlen + linelen)
+        GC.@preserve data buffer unsafe_copyto!(pointer(buffer) + seqlen, pointer(data, mark), linelen)
+        seqlen += linelen
+    end,
+    :record      => quote
+        record_seen && push!(records, FASTARecord(identifier, description, String(buffer[1:seqlen])))
+        seqlen = 0
+        record_seen = true
+    end
+)
 
 # Define a type to store a FASTA record.
-mutable struct FASTARecord
+struct FASTARecord
     identifier::String
-    description::String
-    sequence::Vector{UInt8}
+    description::Union{Nothing, String}
+    sequence::String
 end
 
 # Generate a parser function from `fasta_machine` and `fasta_actions`.
 context = CodeGenContext(generator=:goto)
-@eval function parse_fasta(data::Union{String,Vector{UInt8}})
+@eval function parse_fasta(data::AbstractVector{UInt8})
     # Initialize variables you use in the action code.
     records = FASTARecord[]
     mark = 0
-    linenum = 1
-    identifier = description = ""
-    buffer = IOBuffer()
+    seqlen = 0
+    record_seen = false
+    identifier = ""
+    description = nothing
+    buffer = UInt8[]
 
     # Generate code for initialization and main loop
     $(generate_code(context, fasta_machine, fasta_actions))
-
-    # Check the last state the machine reached.
-    if cs != 0
-        error("failed to parse on line ", linenum)
-    end
+    record_seen && push!(records, FASTARecord(identifier, description, String(buffer[1:seqlen])))
 
     # Finally, return records accumulated in the action code.
     return records
 end
+parse_fasta(s::Union{String, SubString{String}}) = parse_fasta(codeunits(s))
+parse_fasta(io::IO) = parse_fasta(read(io))
 
 # Run the FASTA parser.
-records = parse_fasta("""
->NP_003172.1 brachyury protein isoform 1 [Homo sapiens]
+data = """>NP_003172.1 brachyury protein isoform 1 [Homo sapiens]
 MSSPGTESAGKSLQYRVDHLLSAVENELQAGSEKGDPTERELRVGLEESELWLRFKELTNEMIVTKNGRR
 MFPVLKVNVSGLDPNAMYSFLLDFVAADNHRWKYVNGEWVPGGKPEPQAPSCVYIHPDSPNFGAHWMKAP
 VSFSKVKLTNKLNGGGQIMLNSLHKYEPRIHIVRVGGPQRMITSHCFPETQFIAVTAYQNEEITALKIKY
@@ -80,4 +87,14 @@ NPFAKAFLDAKERSDHKEMMEEPGDSQQPGYSQWGWLLPGTSTLCPPANPHPQFGGALSLPSTHSCDRYP
 TLRSHRSSPYPSPYAHRNNSPTYSDNSPACLSMLQSHDNWSSLGMPAHPSMLPVSHNASPPTSSSQYPSL
 WSVSNGAVTPGSQAAAVSNGLGAQFFRGSPAHYTPLTHPVSAPSSSGSPLYEGAAAATDIVDSQYDAAAQ
 GRLIASWTPVSPPSM
-""")
+>sp|P01308|INS_HUMAN Insulin OS=Homo sapiens OX=9606 GN=INS PE=1 SV=1
+MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAED
+LQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN
+"""
+records = parse_fasta(data)
+let
+    data2 = repeat(data, 10_000)
+    seconds = (@timed parse_fasta(data2)).time
+    MBs = (sizeof(data2) / 1e6) / seconds
+    println("Parsed FASTA at $(round(MBs; digits=2)) MB/s")
+end

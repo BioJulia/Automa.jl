@@ -106,8 +106,8 @@ using Test
     include("../example/fasta.jl")
     @test records[1].identifier == "NP_003172.1"
     @test records[1].description == "brachyury protein isoform 1 [Homo sapiens]"
-    @test records[1].sequence[1:5] == b"MSSPG"
-    @test records[1].sequence[end-4:end] == b"SPPSM"
+    @test records[1].sequence[1:5] == "MSSPG"
+    @test records[1].sequence[end-4:end] == "SPPSM"
 end
 end
 
