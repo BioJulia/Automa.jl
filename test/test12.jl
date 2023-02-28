@@ -1,8 +1,6 @@
 module Test12
 
 using Automa
-import Automa.RegExp: @re_str
-const re = Automa.RegExp
 using Test
 
 @testset "Test12" begin
@@ -10,10 +8,9 @@ using Test
     onall!(a, :a)
     machine = compile(a)
 
-    ctx = Automa.CodeGenContext()
     @eval function validate(data)
         logger = Symbol[]
-        $(Automa.generate_code(ctx, machine, :debug))
+        $(generate_code(CodeGenContext(), machine, :debug))
         return logger, cs == 0 ? :ok : cs < 0 ? :error : :incomplete
     end
     @test validate(b"") == ([], :ok)

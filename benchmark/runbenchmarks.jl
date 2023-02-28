@@ -1,5 +1,4 @@
-import Automa
-import Automa.RegExp: @re_str
+using Automa
 using BenchmarkTools
 using Random: seed!
 

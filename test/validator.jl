@@ -1,7 +1,6 @@
 module Validator
 
 using Automa
-import Automa.RegExp: @re_str
 using TranscodingStreams: NoopStream
 using Test
 
