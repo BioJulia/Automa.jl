@@ -1,7 +1,6 @@
 module Test16
 
 using Automa
-import Automa.RegExp: @re_str
 using Test
 
 @testset "Test16" begin

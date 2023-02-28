@@ -4,21 +4,19 @@
     @test_throws ArgumentError Automa.CodeGenContext(generator=:goto, getbyte=identity)
 end
 
-import Automa
-const re = Automa.RegExp
-import Automa.RegExp: @re_str
+using Automa
 
 @testset "SIMD generator" begin
     regex = let
         seq = re"[A-Z]+"
         name = re"[a-z]+"
         rec = re">"  * name * re"\n" * seq
-        re.opt(rec) * re.rep(re"\n" * rec)
+        opt(rec) * rep(re"\n" * rec)
     end
 
-    context = Automa.CodeGenContext(generator=:goto)
+    context = CodeGenContext(generator=:goto)
 
-    eval(Automa.generate_validator_function(:is_valid_fasta, regex, true))
+    eval(generate_validator_function(:is_valid_fasta, regex, true))
 
     s1 = ">seq\nTAGGCTA\n>hello\nAJKGMP"
     s2 = ">seq1\nTAGGC"

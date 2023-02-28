@@ -3,7 +3,7 @@
 
 module RegExp
 
-import Automa: ByteSet
+using Automa: ByteSet
 
 # Head: What kind of regex, like cat, or rep, or opt etc.
 # args: the content of the regex itself. Maybe should be type stable?

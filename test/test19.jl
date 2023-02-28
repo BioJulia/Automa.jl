@@ -1,8 +1,6 @@
 module Test19
 
 using Automa
-import Automa.RegExp: @re_str
-const re = Automa.RegExp
 using Test
 
 @testset "Test19" begin
@@ -20,7 +18,7 @@ using Test
 
     A = re"aa"
     B = re"a+"
-    @test Automa.compile(A | B) isa Automa.Machine
+    @test compile(A | B) isa Automa.Machine
 
     onenter!(A, :enter_A)
     @test_throws ErrorException compile(A | B)

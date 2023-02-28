@@ -1,5 +1,4 @@
 using Automa
-import Automa.RegExp: @re_str
 
 using Test
 
@@ -157,7 +156,6 @@ end
 module TestStream
 
 using Automa
-import Automa.RegExp: @re_str
 using TranscodingStreams
 using Test
 
