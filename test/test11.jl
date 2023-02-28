@@ -1,8 +1,6 @@
 module Test11
 
 using Automa
-import Automa.RegExp: @re_str
-const re = Automa.RegExp
 using Test
 
 @testset "Test11" begin
@@ -13,17 +11,17 @@ using Test
     b = re"[a-z]+[0-9]+"
     onexit!(b, :two)
 
-    machine = Automa.compile(re.cat(a | b, '\n'))
+    machine = compile((a | b) * '\n')
     actions = Dict(
         :one => :(push!(logger, :one)),
         :two => :(push!(logger, :two)),
         :le  => :(p ≤ n))
 
-    ctx = Automa.CodeGenContext(generator=:table)
+    ctx = CodeGenContext(generator=:table)
     @test_throws ErrorException Automa.generate_exec_code(ctx, machine, actions)
 
     for clean in (true, false)
-        ctx = Automa.CodeGenContext(generator=:goto, clean=clean)
+        ctx = CodeGenContext(generator=:goto, clean=clean)
         validate = @eval function (data, n)
             logger = Symbol[]
             $(Automa.generate_init_code(ctx, machine))
