@@ -10,7 +10,7 @@ string = '"' * rep(re"[ !#-~]" | re"\\\\\"") * '"'
 triplestring = "\"\"\"" * (re"[ -~]*" \ re"\"\"\"") * "\"\"\""
 newline = re"\r?\n"
 
-const minijulia = compile(
+const minijulia = compile([
     re","          => :(emit(:comma)),
     re":"          => :(emit(:colon)),
     re";"          => :(emit(:semicolon)),
@@ -38,7 +38,7 @@ const minijulia = compile(
     triplestring   => :(emit(:triplestring)),
     newline        => :(emit(:newline)),
     re"[\t ]+"     => :(emit(:spaces)),
-)
+])
 
 #=
 write("minijulia.dot", Automa.machine2dot(minijulia.machine))

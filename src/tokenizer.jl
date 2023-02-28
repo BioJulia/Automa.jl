@@ -6,13 +6,6 @@ struct Tokenizer
     actions_code::Vector{Tuple{Symbol,Expr}}
 end
 
-# For backwards compatibility. This function needlessly specializes
-# on the number of tokens.
-# TODO: Deprecate this
-function compile(tokens::Pair{RegExp.RE,Expr}...; optimize::Bool=true)
-    compile(collect(tokens), optimize=optimize)
-end
-
 function compile(tokens::AbstractVector{Pair{RegExp.RE,Expr}}; optimize::Bool=true)
     start = NFANode()
     final = NFANode()

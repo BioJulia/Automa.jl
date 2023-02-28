@@ -5,9 +5,9 @@ using Test
 
 @testset "Test09" begin
     tokenizer = Automa.compile(
-        re"a"      => :(emit(:a, ts:te)),
+        [re"a"      => :(emit(:a, ts:te)),
         re"a*b"    => :(emit(:ab, ts:te)),
-        re"cd"    => :(emit(:cd, ts:te)),
+        re"cd"    => :(emit(:cd, ts:te))]
     )
     ctx = Automa.CodeGenContext()
 
