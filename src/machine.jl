@@ -125,7 +125,11 @@ end
 ```
 """
 function compile(re::RegExp.RE; optimize::Bool=true, unambiguous::Bool=true)
-    dfa = nfa2dfa(remove_dead_nodes(re2nfa(re)), unambiguous)
+    nfa2machine(re2nfa(re); optimize=optimize, unambiguous=unambiguous)
+end
+
+function nfa2machine(nfa::NFA; optimize::Bool=true, unambiguous::Bool=true)
+    dfa = nfa2dfa(remove_dead_nodes(nfa), unambiguous)
     if optimize
         dfa = remove_dead_nodes(reduce_nodes(dfa))
     end

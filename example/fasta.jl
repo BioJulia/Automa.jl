@@ -92,9 +92,11 @@ MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAED
 LQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN
 """
 records = parse_fasta(data)
-let
-    data2 = repeat(data, 10_000)
-    seconds = (@timed parse_fasta(data2)).time
-    MBs = (sizeof(data2) / 1e6) / seconds
-    println("Parsed FASTA at $(round(MBs; digits=2)) MB/s")
-end
+
+# Uncomment to benchmark
+# let
+#     data2 = repeat(data, 10_000)
+#     seconds = (@timed parse_fasta(data2)).time
+#     MBs = (sizeof(data2) / 1e6) / seconds
+#     println("Parsed FASTA at $(round(MBs; digits=2)) MB/s")
+# end

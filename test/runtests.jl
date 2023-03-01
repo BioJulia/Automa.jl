@@ -157,27 +157,27 @@ using Test
 @testset "MiniJulia" begin
     include("../example/tokenizer.jl")
     @test tokens[1:14] == [
-        (:identifier,"quicksort"),
-        (:lparen,"("),
-        (:identifier,"xs"),
-        (:rparen,")"),
-        (:spaces," "),
-        (:equal,"="),
-        (:spaces," "),
-        (:identifier,"quicksort!"),
-        (:lparen,"("),
-        (:identifier,"copy"),
-        (:lparen,"("),
-        (:identifier,"xs"),
-        (:rparen,")"),
-        (:rparen,")")]
+        ("quicksort", Tokens.identifier),
+        ("(", Tokens.lparen),
+        ("xs", Tokens.identifier),
+        (")", Tokens.rparen),
+        (" ", Tokens.spaces),
+        ("=", Tokens.equal),
+        (" ", Tokens.spaces),
+        ("quicksort!", Tokens.identifier),
+        ("(", Tokens.lparen),
+        ("copy", Tokens.identifier),
+        ("(", Tokens.lparen),
+        ("xs", Tokens.identifier),
+        (")", Tokens.rparen),
+        (")", Tokens.rparen)]
     @test tokens[end-5:end] == [
-        (:keyword,"return"),
-        (:spaces," "),
-        (:identifier,"j"),
-        (:newline,"\n"),
-        (:keyword,"end"),
-        (:newline,"\n")]
+        ("return", Tokens.keyword),
+        (" ", Tokens.spaces),
+        ("j", Tokens.identifier),
+        ("\n", Tokens.newline),
+        ("end", Tokens.keyword),
+        ("\n", Tokens.newline)]
 end
 end
 
@@ -338,7 +338,7 @@ returncode = quote
 end
 generate_reader(:readrecord!, machine, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval
 ctx = Automa.CodeGenContext(
-    vars=Automa.Variables(:pointerindex, :p_ending, :p_fileend, :ts, :te, :current_state, :buffer, gensym(), gensym(), :buffer),
+    vars=Automa.Variables(:pointerindex, :p_ending, :p_fileend, :current_state, :buffer, gensym(), gensym(), :ts_buffer),
     generator=:goto,
 )
 generate_reader(:readrecord2!, machine, context=ctx, arguments=(:(state::Int),), actions=actions, initcode=initcode, loopcode=loopcode, returncode=returncode) |> eval

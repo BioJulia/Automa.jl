@@ -1,65 +1,50 @@
 using Automa
 
-keyword = re"break|const|continue|else|elseif|end|for|function|if|return|type|using|while"
-identifier = re"[A-Za-z_][0-9A-Za-z_!]*"
-operator = re"-|\+|\*|/|%|&|\||^|!|~|>|<|<<|>>|>=|<=|=>|==|==="
-macrocall = re"@" * re"[A-Za-z_][0-9A-Za-z_!]*"
-comment = re"#[^\r\n]*"
-char = '\'' * (re"[ -&(-~]" | ('\\' * re"[ -~]")) * '\''
-string = '"' * rep(re"[ !#-~]" | re"\\\\\"") * '"'
-triplestring = "\"\"\"" * (re"[ -~]*" \ re"\"\"\"") * "\"\"\""
-newline = re"\r?\n"
-
-const minijulia = compile(
-    re","          => :(emit(:comma)),
-    re":"          => :(emit(:colon)),
-    re";"          => :(emit(:semicolon)),
-    re"\."         => :(emit(:dot)),
-    re"\?"         => :(emit(:question)),
-    re"="          => :(emit(:equal)),
-    re"\("         => :(emit(:lparen)),
-    re"\)"         => :(emit(:rparen)),
-    re"\["         => :(emit(:lbracket)),
-    re"]"          => :(emit(:rbracket)),
-    re"{"          => :(emit(:lbrace)),
-    re"}"          => :(emit(:rbrace)),
-    re"$"          => :(emit(:dollar)),
-    re"&&"         => :(emit(:and)),
-    re"\|\|"       => :(emit(:or)),
-    re"::"         => :(emit(:typeannot)),
-    keyword        => :(emit(:keyword)),
-    identifier     => :(emit(:identifier)),
-    operator       => :(emit(:operator)),
-    macrocall      => :(emit(:macrocall)),
-    re"[0-9]+"     => :(emit(:integer)),
-    comment        => :(emit(:comment)),
-    char           => :(emit(:char)),
-    string         => :(emit(:string)),
-    triplestring   => :(emit(:triplestring)),
-    newline        => :(emit(:newline)),
-    re"[\t ]+"     => :(emit(:spaces)),
-)
-
-#=
-write("minijulia.dot", Automa.machine2dot(minijulia.machine))
-run(`dot -Tsvg -o minijulia.svg minijulia.dot`)
-=#
-
-context = CodeGenContext()
-@eval function tokenize(data)
-    $(Automa.generate_init_code(context, minijulia))
-    tokens = Tuple{Symbol,String}[]
-    emit(kind) = push!(tokens, (kind, data[ts:te]))
-    while p ≤ p_end && cs > 0
-        $(Automa.generate_exec_code(context, minijulia))
-    end
-    if cs < 0
-        error("failed to tokenize")
-    end
-    return tokens
+# Create an enum to store the tokens in. I define the enum in its own module
+# in order to not clutter the Main namespace with all the variants.
+module Tokens
+    using Automa
+    minijulia = [
+        :identifier   => re"[A-Za-z_][0-9A-Za-z_!]*",
+        :comma        => re",",
+        :colon        => re":",
+        :semicolon    => re";",
+        :dot          => re"\.",
+        :question     => re"\?",
+        :equal        => re"=",
+        :lparen       => re"\(",
+        :rparen       => re"\)",
+        :lbracket     => re"\[",
+        :rbracket     => re"]",
+        :lbrace       => re"{",
+        :rbrace       => re"}",
+        :dollar       => re"$",
+        :and          => re"&&",
+        :or           => re"\|\|",
+        :typeannot    => re"::",
+        :keyword      => re"break|const|continue|else|elseif|end|for|function|if|return|type|using|while",
+        :operator     => re"-|\+|\*|/|%|&|\||^|!|~|>|<|<<|>>|>=|<=|=>|==|===",
+        :macrocall    => re"@" * re"[A-Za-z_][0-9A-Za-z_!]*",
+        :integer      => re"[0-9]+",
+        :comment      => re"#[^\r\n]*",
+        :char         => '\'' * (re"[ -&(-~]" | ('\\' * re"[ -~]")) * '\'',
+        :string       => '"' * rep(re"[ !#-~]" | re"\\\\\"") * '"',
+        :triplestring => "\"\"\"" * (re"[ -~]*" \ re"\"\"\"") * "\"\"\"",
+        :newline      => re"\r?\n",
+        :spaces       => re"[\t ]+",
+    ]
+    @eval @enum Token error $(first.(minijulia)...)
+    export Token
 end
 
-tokens = tokenize("""
+using .Tokens: Token
+
+make_tokenizer((
+    Tokens.error,
+    [Tokens.Token(i) => regex for (i, regex) in enumerate(last.(Tokens.minijulia))]
+)) |> eval
+
+code = """
 quicksort(xs) = quicksort!(copy(xs))
 quicksort!(xs) = quicksort!(xs, 1, length(xs))
 
@@ -86,4 +71,10 @@ function partition(xs, lo, hi)
     xs[j], xs[hi] = xs[hi], xs[j]
     return j
 end
-""")
+"""
+
+# For convenience, let's convert it to (string, token) tuples
+# even though it's inefficient to store them as individual strings
+tokens = map(tokenize(Token, code)) do (start, len, token)
+    (code[start:start+len-1], token)
+end
