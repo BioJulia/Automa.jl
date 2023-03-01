@@ -144,6 +144,17 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             as = make_action_list(re, re.actions[:final])
             for s in traverse(start), (e, t) in s.edges
                 if !iseps(e) && final_in ∈ epsilon_closure(t)
+                    # Ugly hack: The tokenizer ATM relies on adding actions to the final edge
+                    # of tokens. It's fine that they are repeated in that particular case.
+                    # Therefore it can't error for token actions.
+                    # It should probably be fixed in tokenizer.jl, by emitting the token on the
+                    # :exit edge, and changing the codegen for tokenizer to compensate.
+                    if any(action -> !startswith(String(action.name), "__token"), as) && any(i -> i === s, traverse(t))
+                        error(
+                            "Regex has final action(s): [", join([repr(i.name) for i in as], ", "),
+                            "], but regex is looping (e.g. `re\"a+\"`), so has no final input."
+                        )
+                    end
                     union!(e.actions, as)
                 end
             end
