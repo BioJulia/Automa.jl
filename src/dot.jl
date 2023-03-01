@@ -69,7 +69,12 @@ function edge2str(edge::Edge)
         elseif inrange && b == UInt8(']')
             print(out, "\\\\]")
         else
-            print(out, escape_string(b ≤ 0x7f ? escape_string(string(Char(b))) : @sprintf("\\x%x", b)))
+            s = if b ≤ 0x7f
+                escape_string(string(Char(b)))
+            else
+                "\\x" * string(b; base=16)
+            end
+            print(out, escape_string(s))
         end
     end
 
