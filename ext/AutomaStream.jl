@@ -1,3 +1,8 @@
+module AutomaStream
+
+using Automa: Automa
+using TranscodingStreams: TranscodingStream, NoopStream
+
 """
     generate_reader(funcname::Symbol, machine::Automa.Machine; kwargs...)
 
@@ -23,7 +28,7 @@ need to evaluate it in a module in which the generated function is needed.
 See the source code of this function to see how the generated code looks like
 ```
 """
-function generate_reader(
+function Automa.generate_reader(
         funcname::Symbol,
         machine::Automa.Machine;
         arguments=(),
@@ -114,9 +119,9 @@ If `report_col` is set, the validator may buffer one line of the input.
 If the input has very long lines that should not be buffered, set it to `false`.
 If `goto`, the function uses the faster but more complicated `:goto` code.
 """
-function generate_io_validator(
+function Automa.generate_io_validator(
     funcname::Symbol,
-    regex::RegExp.RE;
+    regex::Automa.RegExp.RE;
     goto::Bool=false,
     report_col::Bool=true
     )
@@ -157,8 +162,8 @@ function generate_io_validator(
             end
         end
     end
-    machine = compile(RegExp.set_newline_actions(regex))
-    actions = if :newline ∈ machine_names(machine)
+    machine = Automa.compile(Automa.RegExp.set_newline_actions(regex))
+    actions = if :newline ∈ Automa.machine_names(machine)
         Dict{Symbol, Expr}(:newline => quote
                 line_num += 1
                 $(report_col ? :(@mark()) : :())
@@ -167,8 +172,7 @@ function generate_io_validator(
     else
         Dict{Symbol, Expr}()
     end
-    machine_names(machine)
-    function_code = generate_reader(
+    function_code = Automa.generate_reader(
         funcname,
         machine;
         context=ctx,
@@ -194,3 +198,5 @@ function generate_io_validator(
         $(funcname)(io::$(IO)) = $(funcname)($(NoopStream)(io))
     end 
 end
+
+end # module
