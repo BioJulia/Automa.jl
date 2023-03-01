@@ -8,9 +8,7 @@ The following variable names may be used in the code.
 
 - `p::Int`: current position of data
 - `p_end::Int`: end position of data
-- `is_eof::Bool`: `p_end` marks end of total file stream
-- `ts::Int`: start position of token (tokenizer only)
-- `te::Int`: end position of token (tokenizer only)
+- `is_eof::Bool`: Whether `p_end` marks end file stream
 - `cs::Int`: current state
 - `data::Any`: input data
 - `mem::SizedMemory`: input data memory
@@ -21,8 +19,6 @@ struct Variables
     p::Symbol
     p_end::Symbol
     is_eof::Symbol
-    ts::Symbol
-    te::Symbol
     cs::Symbol
     data::Symbol
     mem::Symbol
@@ -34,15 +30,13 @@ function Variables(
     ;p=:p,
     p_end=:p_end,
     is_eof=:is_eof,
-    ts=:ts,
-    te=:te,
     cs=:cs,
     data=:data,
     mem=:mem,
     byte=:byte,
     buffer=:buffer
 )
-    Variables(p, p_end, is_eof, ts, te, cs, data, mem, byte, buffer)
+    Variables(p, p_end, is_eof, cs, data, mem, byte, buffer)
 end
 
 struct CodeGenContext
@@ -58,7 +52,7 @@ function generate_goto_code end
 
 """
     CodeGenContext(;
-        vars=Variables(:p, :p_end, :is_eof, :ts, :te, :cs, :data, :mem, :byte),
+        vars=Variables(:p, :p_end, :is_eof, :cs, :data, :mem, :byte, :buffer),
         generator=:table,
         getbyte=Base.getindex,
         clean=false
@@ -75,7 +69,7 @@ Arguments
 - `clean`: flag of code cleansing, e.g. removing line comments
 """
 function CodeGenContext(;
-        vars::Variables=Variables(:p, :p_end, :is_eof, :ts, :te, :cs, :data, :mem, :byte, :buffer),
+        vars::Variables=Variables(:p, :p_end, :is_eof, :cs, :data, :mem, :byte, :buffer),
         generator::Symbol=:table,
         getbyte::Function=Base.getindex,
         clean::Bool=false)
