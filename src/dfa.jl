@@ -150,6 +150,7 @@ function get_epsilon_paths(tops::Set{NFANode})
                     push!(heads, (child, append!(copy(actions), [a.name for a in edge.actions])))
                 end
             else
+                append!(actions, [a.name for a in edge.actions])
                 push!(paths, (edge, node, actions))
             end
         end
@@ -190,7 +191,7 @@ function validate_paths(
     strings_to::Dict{DFANode, String}
 )
     # If they have the same actions, there is no ambiguity
-    all(actions == paths[1][2] for (n, actions) in paths) && return nothing
+    all(actions == paths[1][3] for (e, n, actions) in paths) && return nothing
     for i in 1:length(paths) - 1
         edge1, node1, actions1 = paths[i]
         for j in i+1:length(paths)
