@@ -186,7 +186,8 @@ end
 function validate_paths(
     paths::Vector{Tuple{Union{Nothing, Edge}, NFANode, Vector{Symbol}}},
     dfanode::DFANode,
-    start::DFANode
+    start::DFANode,
+    strings_to::Dict{DFANode, String}
 )
     # If they have the same actions, there is no ambiguity
     all(actions == paths[1][2] for (n, actions) in paths) && return nothing
@@ -214,7 +215,7 @@ function validate_paths(
             # an informative error
             act1 = isempty(actions1) ? "nothing" : string(actions1)
             act2 = isempty(actions2) ? "nothing" : string(actions2)
-            input_until_now = repr(shortest_input(start)[dfanode])
+            input_until_now = repr(strings_to[dfanode])
             final_input = if eof
                 "EOF"
             else
@@ -232,7 +233,11 @@ function validate_nfanodes(
     newnodes::Dict{Set{NFANode}, DFANode},
     start::DFANode
 )
-    for (nfanodes, dfanode) in newnodes
+    # Sort all DFA nodes by how short a string can be used to reach it, in order
+    # to display the shortest possible conflict if any is found.
+    strings_to = shortest_input(start)
+    pairs = sort!(collect(newnodes); by=i -> ncodeunits(strings_to[i[2]]))
+    for (nfanodes, dfanode) in pairs
         # First get "tops", that's the starting epsilon nodes that cannot be
         # reached by another epsilon node. All paths lead from those
         tops = gettop(nfanodes)
@@ -246,7 +251,7 @@ function validate_nfanodes(
 
         # If any two paths have different actions, and can be reached with the same
         # byte, the DFA's actions cannot be resolved, and we raise an error
-        validate_paths(paths, dfanode, start)
+        validate_paths(paths, dfanode, start, strings_to)
     end
 end
 
