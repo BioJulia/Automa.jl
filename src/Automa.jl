@@ -1,6 +1,6 @@
 module Automa
 
-import ScanByte: ScanByte, ByteSet
+using ScanByte: ScanByte, ByteSet
 
 # Encode a byte set into a sequence of non-empty ranges.
 function range_encode(set::ScanByte.ByteSet)
