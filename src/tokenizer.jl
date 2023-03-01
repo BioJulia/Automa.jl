@@ -1,124 +1,259 @@
-# Tokenizer
-# =========
+"""
+    Tokenizer{E, D, C}
 
-struct Tokenizer
+Lazy iterator of tokens of type `E` over data of type `D`.
+
+`Tokenizer` works on any buffer-like object that defines `pointer` and `sizeof`.
+When iterated, it will return a 3-tuple of integers:
+    * The first is the 1-based starting index of the token in the buffer
+    * The second is the length of the token in bytes
+    * The third is the token kind: The index in the input list `tokens`.
+
+Un-tokenizable data will be emitted as the "error token" with index zero.
+
+The `Int` `C` parameter allows multiple tokenizers to be created with
+the otherwise same type parameters.
+
+See also: [`make_tokenizer`](@ref)
+"""
+struct Tokenizer{E, D, C}
+    data::D
+end
+
+# By default, the counter C is 1
+Tokenizer{E}(data) where E = Tokenizer{E, typeof(data), 1}(data)
+Base.IteratorSize(::Type{<:Tokenizer}) = Base.SizeUnknown()
+Base.eltype(::Type{<:Tokenizer{E}}) where E = Tuple{Int, Int32, E}
+
+"""
+    tokenize(::Type{E}, data, version=1)
+
+Create a `Tokenizer{E, typeof(data), version}`, iterating tokens of type `E`
+over `data`.
+
+See also: [`Tokenizer`](@ref), [`make_tokenizer`](@ref), [`compile`](@ref)
+"""
+tokenize(::Type{E}, data, version=1) where E = Tokenizer{E}(data)
+
+"""
+    TokenizerMachine
+
+Struct representing a `Machine` created for tokenization.
+Machines used for tokenization contain distinct actions and are not to be used for notmal Automa codegen.
+`TokenizerMachine`s contain two public fields: `machine::Machine` and `n_tokens::Int`.
+"""
+struct TokenizerMachine
     machine::Machine
-    actions_code::Vector{Tuple{Symbol,Expr}}
+    n_tokens::Int
 end
 
-function compile(tokens::AbstractVector{Pair{RegExp.RE,Expr}}; optimize::Bool=true)
-    start = NFANode()
-    final = NFANode()
-    actions = Dict{Symbol,Action}()
-    for i in 1:lastindex(tokens)
-        # HACK: place token exit actions after any other actions
-        action = Action(Symbol(:__token, i), 10000 - i)
-        actions[action.name] = action
-    end
-    actions_code = Tuple{Symbol,Expr}[]
-    for (i, (re, code)) in enumerate(tokens)
-        re′ = RegExp.shallow_desugar(re)
-        push!(get!(() -> Symbol[], RegExp.actions!(re′), :enter), :__token_start)
-        name = Symbol(:__token, i)
-        push!(get!(() -> Symbol[], RegExp.actions!(re′), :final), name)
-        nfa = re2nfa(re′, actions)
-        push!(start.edges, (Edge(eps), nfa.start))
-        push!(nfa.final.edges, (Edge(eps), final))
-        push!(actions_code, (name, code))
-    end
-    nfa = NFA(start, final)
-    dfa = nfa2dfa(remove_dead_nodes(nfa), false)
-    if optimize
-        dfa = remove_dead_nodes(reduce_nodes(dfa))
-    end
-    return Tokenizer(dfa2machine(dfa), actions_code)
-end
+# Currently, actions are added to final byte. This usually inhibits SIMD,
+# because the end position must be updated every byte.
+# It would be faster to add actions to :exit, but then the action will not actually
+# trigger when a regex is exited with an "invalid byte" - the beginning of a new regex.
+# I'm not quite sure how to handle this.
+"""
+    make_tokenizer(
+        machine::TokenizerMachine;
+        tokens::Tuple{E, AbstractVector{E}}= [ integers ],
+        goto=true, version=1
+    ) where E
 
-function generate_init_code(tokenizer::Tokenizer)
-    # TODO: deprecate this?
-    return generate_init_code(CodeGenContext(), tokenizer)
-end
+Create code which when evaluated, defines `Base.iterate(::Tokenizer{E, D, \$version})`.
+`tokens` is a tuple of a vector of non-error tokens of length `machine.n_tokens`, and the error token,
+which will be emitted for data that cannot be tokenized.
 
-function generate_init_code(ctx::CodeGenContext, tokenizer::Tokenizer)
-    quote
-        $(ctx.vars.p)::Int = 1
-        $(ctx.vars.p_end)::Int = sizeof($(ctx.vars.data))
-        $(ctx.vars.is_eof)::Bool = true
-        $(ctx.vars.ts)::Int = 0
-        $(ctx.vars.te)::Int = 0
-        $(ctx.vars.cs)::Int = 1
+# Example usage
+```
+julia> machine = compile([re"a", re"b"]);
+
+julia> make_tokenizer(machine; tokens=(0x00, [0x01, 0x02])) |> eval
+
+julia> iter = tokenize(UInt8, "abxxxba"); typeof(iter)
+Tokenizer{UInt8, String, 1}
+
+julia> collect(iter)
+5-element Vector{Tuple{Int64, Int32, UInt8}}:
+ (1, 1, 0x01)
+ (2, 1, 0x02)
+ (3, 3, 0x00)
+ (6, 1, 0x02)
+ (7, 1, 0x01)
+```
+
+Any actions inside the input regexes will be ignored.
+If `goto` (default), use the faster, but more complex goto code generator.
+The `version` number will set the last parameter of the `Tokenizer`,
+which allows you to create different tokenizers for the same element type.
+
+See also: [`Tokenizer`](@ref), [`tokenize`](@ref), [`compile`](@ref)
+"""
+function make_tokenizer(
+    machine::TokenizerMachine;
+    tokens::Tuple{E, AbstractVector{E}}=(UInt32(1):UInt32(machine.n_tokens), UInt32(0)),
+    goto::Bool=true,
+    version::Int=1
+) where E
+    (error_token, nonerror_tokens) = tokens
+    # Check that tokens are unique
+    if length(nonerror_tokens) != machine.n_tokens
+        error("Tokenizer has $(machine.n_actions) actions, but only got $(length(nonerror_tokens)) tokens")
     end
-end
-
-function generate_exec_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions=nothing)
-    if actions === nothing
-        actions = Dict{Symbol,Expr}()
-    elseif actions == :debug
-        actions = debug_actions(tokenizer.machine)
-    elseif isa(actions, AbstractDict{Symbol,Expr})
-        actions = copy(actions)
+    if !allunique(push!(Set(nonerror_tokens), error_token))
+        error("Tokens and nonerror tokens must be unique")
+    end
+    ctx = if goto
+        Automa.CodeGenContext(generator=:goto)
     else
-        throw(ArgumentError("invalid actions argument"))
+        Automa.DefaultCodeGenContext
     end
-    actions[:__token_start] = :($(ctx.vars.ts) = $(ctx.vars.p))
-    for (i, (name, _)) in enumerate(tokenizer.actions_code)
-        actions[name] = :(t = $(i); $(ctx.vars.te) = $(ctx.vars.p))
+    vars = ctx.vars
+    # In these actions, store enter token and exit token.
+    actions = Dict{Symbol, Expr}()
+    for action_name in action_names(machine.machine)
+        # The action for every token's final byte is to say: "This is where the token ends, and this is
+        # what kind it is"
+        m = match(r"^__token_(\d+)$", String(action_name))
+        m === nothing && error(
+            "Action $action_name found in Machine passed to `make_tokenizer`. ",
+            "`make_tokenizer` only supports machines generated by `compile(::Vector{RE})`."
+        )
+        actions[action_name] = quote
+            stop = $(vars.p)
+            token = $(nonerror_tokens[parse(Int, only(m.captures))])
+        end
     end
-    return generate_table_code(ctx, tokenizer, actions)
-end
-
-function generate_table_code(ctx::CodeGenContext, tokenizer::Tokenizer, actions::AbstractDict{Symbol,Expr})
-    action_dispatch_code, set_act_code = generate_action_dispatch_code(ctx, tokenizer.machine, actions)
-    trans_table = generate_transition_table(tokenizer.machine)
-    getbyte_code = generate_getbyte_code(ctx)
-    cs_code = :($(ctx.vars.cs) = $(trans_table)[($(ctx.vars.cs) - 1) << 8 + $(ctx.vars.byte) + 1])
-    eof_action_code = generate_eof_action_code(ctx, tokenizer.machine, actions)
-    token_exit_code = generate_token_exit_code(tokenizer)
     return quote
-        $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
-        # Initialize token and token start to 0 - no token seen yet
-        t = 0
-        $(ctx.vars.ts) = 0
-        # In a loop: Get input byte, set action, update current state, execute action
-        while $(ctx.vars.p) ≤ p_end && $(ctx.vars.cs) > 0
-            $(getbyte_code)
-            $(set_act_code)
-            $(cs_code)
-            $(action_dispatch_code)
-            $(ctx.vars.p) += 1
-        end
-        if $(ctx.vars.is_eof) && $(ctx.vars.p) > $(ctx.vars.p_end)
-            # If EOF and in accept state, run EOF code and set current state to 0
-            # meaning accept state
-            if $(generate_final_state_mem_code(ctx, tokenizer.machine))
-                $(eof_action_code)
-                $(ctx.vars.cs) = 0
-            # Else, if we're not already in a failed state (cs < 0), then set cs to failed state
-            elseif $(ctx.vars.cs) > 0
-                $(ctx.vars.cs) = -$(ctx.vars.cs)
+        function Base.iterate(tokenizer::$(Tokenizer){$E, D, $version}, state=(1, Int32(1), $error_token)) where D
+            data = tokenizer.data
+            (start, len, token) = state
+            start > sizeof(data) && return nothing
+            if token !== $error_token
+                return (state, (start + len, Int32(0), $error_token))
             end
-        end
-        # If in a failed state, reset p to where it failed, since it was
-        # incremented immediately after the state transition
-        if $(ctx.vars.cs) < 0
-            $(ctx.vars.p) -= 1
-        end
-        if t > 0 && ($(ctx.vars.cs) ≤ 0 || $(ctx.vars.p) > p_end ≥ 0)
-            $(token_exit_code)
-            $(ctx.vars.p) = $(ctx.vars.te) + 1
-            if $(ctx.vars.cs) != 0
-                $(ctx.vars.cs) = 1
+            $(generate_init_code(ctx, machine.machine))
+            token_start = start
+            stop = 0
+            token = $error_token
+            while true
+                $(vars.p) = token_start
+                # Every time we try to find a token, we reset the machine's state to 1, i.e. we carry
+                # no memory between each token.
+                $(vars.cs) = 1
+                $(generate_exec_code(ctx, machine.machine, actions))
+                $(vars.cs) = 1
+
+                # There are only a few possibilities for why it stopped execution, we handle
+                # each of them here.
+                # If a token was found:
+                if token !== $error_token
+                    found_token = (token_start, (stop-token_start+1)%Int32, token)
+                    # If a token was found, but there are some error data, we emit the error data first,
+                    # then set the state to be nonzero so the token is emitted next iteration
+                    if start < token_start
+                        error_state = (start, (token_start-start)%Int32, $error_token)
+                        return (error_state, found_token)
+                    # If no error data, simply emit the token with a zero state
+                    else
+                        return (found_token, (stop+1, Int32(0), $error_token))
+                    end
+                else
+                    # If no token was found and EOF, emit an error token for the rest of the data
+                    if $(vars.p) > $(vars.p_end)
+                        error_state = (start, ($(vars.p) - start)%Int32, $error_token)
+                        return (error_state, ($(vars.p_end)+1, Int32(0), $error_token))
+                    # If no token, and also not EOF, we continue, looking at next byte
+                    else
+                        token_start += 1
+                    end
+                end
             end
         end
     end
 end
 
-function generate_token_exit_code(tokenizer::Tokenizer)
-    i = 0
-    default = :()
-    return foldr(default, reverse(tokenizer.actions_code)) do name_code, els
-        _, code = name_code
-        i += 1
-        Expr(:if, :(t == $(i)), code, els)
+"""
+    make_tokenizer(
+        tokens::Union{
+            AbstractVector{RE},
+            Tuple{E, AbstractVector{Pair{E, RE}}}
+        };
+        goto::Bool=true,
+        version::Int=1,
+        unambiguous=false
+    ) where E
+
+Convenience function for both compiling a tokenizer, then running `make_tokenizer` on it.
+If `tokens` is an abstract vector, create an iterator of integer tokens with the error token being zero and the non-error tokens being the index in the vector.
+Else, `tokens` is the error token followed by `token => regex` pairs.
+See the relevant other methods of `make_tokenizer`, and `compile`.
+
+# Example
+```julia
+julia> make_tokenizer([re"abc", re"def") |> eval
+
+julia> collect(tokenize(Int, "abcxyzdef123"))
+4-element Vector{Tuple{Int64, Int32, UInt32}}:
+ (1, 3, 0x00000001)
+ (4, 3, 0x00000003)
+ (7, 3, 0x00000002)
+ (10, 3, 0x00000003)
+```
+"""
+function make_tokenizer(
+    tokens::Union{
+        <:AbstractVector{RegExp.RE},
+        <:Tuple{E, AbstractVector{Pair{E, RegExp.RE}}}
+    };
+    goto::Bool=true,
+    version::Int=1,
+    unambiguous=false
+) where E
+    (regex, _tokens) = if tokens isa Vector
+        (tokens, (UInt32(0), UInt32(1):UInt32(length(tokens))))
+    else
+        (map(last, last(tokens)), (first(tokens), map(first, last(tokens))))
     end
+    make_tokenizer(
+        compile(regex; unambiguous=unambiguous);
+        tokens=_tokens,
+        goto=goto,
+        version=version
+    )
+end
+
+"""
+    compile(tokens::Vector{RE}; unambiguous=false)::TokenizerMachine
+
+Compile the regex `tokens` to a tokenizer machine.
+The machine can be passed to `make_tokenizer`.
+
+The keyword `unambiguous` decides which of multiple matching tokens is emitted:
+If `false` (default), the longest token is emitted. If multiple tokens have the
+same length, the one with the highest index is returned.
+If `true`, `make_tokenizer` will error if any possible input text can be broken
+ambiguously down into tokens.
+
+See also: [`Tokenizer`](@ref), [`make_tokenizer`](@ref), [`tokenize`](@ref)
+"""
+function compile(
+    tokens::Vector{RegExp.RE};
+    unambiguous=false
+)::TokenizerMachine
+    tokens = map(enumerate(tokens)) do (i, regex)
+        onfinal!(RegExp.strip_actions(regex), Symbol(:__token_, i))
+    end
+    # We need the predefined actions here simply because it allows us to add priority to the actions.
+    # This is necessary to guarantee that tokens are disambiguated in the correct order.
+    predefined_actions = Dict{Symbol, Action}()
+    for i in eachindex(tokens)
+        predefined_actions[Symbol(:__token_, i)] = Action(Symbol(:__token_, i), 1000 + i)
+    end
+    # We intentionally set unambiguous=true. With the current construction of
+    # this tokenizer, this will cause the longest token to be matched, i.e. for
+    # the regex "ab" and "a", the text "ab" will emit only the "ab" regex.
+    # Here, the NFA (i.e. the final regex we match) is a giant alternation statement between each of the tokens,
+    # i.e. input is token1 or token2 or ....
+    nfa = re2nfa(RegExp.RE(:alt, tokens), predefined_actions)
+    TokenizerMachine(nfa2machine(nfa; unambiguous=unambiguous), length(tokens))
 end
