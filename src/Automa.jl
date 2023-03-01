@@ -1,6 +1,5 @@
 module Automa
 
-using TranscodingStreams: TranscodingStream, NoopStream
 using ScanByte: ScanByte, ByteSet
 
 # Encode a byte set into a sequence of non-empty ranges.
@@ -24,6 +23,9 @@ function range_encode(set::ScanByte.ByteSet)
     return result
 end
 
+function generate_reader end
+function generate_io_validator end
+
 include("re.jl")
 include("precond.jl")
 include("action.jl")
@@ -36,7 +38,10 @@ include("dot.jl")
 include("memory.jl")
 include("codegen.jl")
 include("tokenizer.jl")
-include("stream.jl")
+
+if !isdefined(Base, :get_extension)
+    include("../ext/AutomaStream.jl")
+end
 
 const RE = Automa.RegExp
 using .RegExp: @re_str, opt, rep, rep1, onenter!, onexit!, onall!, onfinal!, precond!
