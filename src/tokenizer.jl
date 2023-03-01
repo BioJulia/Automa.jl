@@ -34,7 +34,7 @@ function compile(tokens::AbstractVector{Pair{RegExp.RE,Expr}}; optimize::Bool=tr
         push!(actions_code, (name, code))
     end
     nfa = NFA(start, final)
-    dfa = nfa2dfa(remove_dead_nodes(nfa))
+    dfa = nfa2dfa(remove_dead_nodes(nfa), false)
     if optimize
         dfa = remove_dead_nodes(reduce_nodes(dfa))
     end
