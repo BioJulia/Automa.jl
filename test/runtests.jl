@@ -77,6 +77,34 @@ end
     end
 end
 
+# Can't have final actions in looping regex
+@testset "Looping regex" begin
+    nonlooping_regex = [
+        re"abc",
+        re"a+b",
+        re"(a|b)*c",
+        re"a|b|c",
+    ]
+
+    looping_regex = [
+        re"a+"
+        re"abc*"
+        re"ab(c*)"
+        re"(a|b|c)+"
+        re"(abc)+"
+    ]
+
+    for regex in nonlooping_regex
+        onfinal!(regex, :a)
+        @test Automa.re2nfa(regex) isa Automa.NFA
+    end
+
+    for regex in looping_regex
+        onfinal!(regex, :a)
+        @test_throws Exception Automa.re2nfa(regex)
+    end
+end
+
 include("test01.jl")
 include("test02.jl")
 include("test03.jl")
