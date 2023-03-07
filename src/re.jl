@@ -22,6 +22,8 @@ function RE(head::Symbol, args::Vector)
     return RE(head, args, nothing, nothing)
 end
 
+RE(s::AbstractString) = parse(s)
+
 function actions!(re::RE)
     if isnothing(re.actions)
         re.actions = Dict{Symbol, Vector{Symbol}}()
@@ -129,7 +131,8 @@ end
 const METACHAR = raw".*+?()[]\|-^"
 
 # Parse a regular expression string using the shunting-yard algorithm.
-function parse(str::String)
+function parse(str_::AbstractString)
+    str = String(str_)
     # stacks
     operands = RE[]
     operators = Symbol[]
