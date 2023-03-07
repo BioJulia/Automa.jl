@@ -10,7 +10,33 @@ using Automa: ByteSet
 # actions: Julia code to be executed when matching the regex. See Automa docs
 # when: a Precondition that is checked when every byte in the regex is matched.
 # See comments on Precondition struct
+"""
+    RE(s::AbstractString)
 
+Automa regular expression (regex) that is used to match a sequence of input bytes.
+Regex should preferentially be constructed using the `@re_str` macro: `re"ab+c?"`.
+Regex can be combined with other regex, strings or chars with `*`, `|`, `&` and `\\`:
+* `a * b` matches inputs that matches first `a`, then `b`
+* `a | b` matches inputs that matches `a` or `b`
+* `a & b` matches inputs that matches `a` and `b`
+* `a \\ b` matches input that mathes `a` but not `b`
+* `!a` matches all inputs that does not match `a`.
+
+# Example
+```julia
+julia> regex = (re"a*b?" | opt('c')) * re"[a-z]+";
+
+julia> regex = rep1((regex \\ "aba") & !re"ca");
+
+julia> regex isa RE
+true
+
+julia> compile(regex) isa Automa.Machine
+true
+```
+
+See also: `[@re_str](@ref)`, `[@compile](@ref)`
+"""
 mutable struct RE
     head::Symbol
     args::Vector
@@ -117,11 +143,15 @@ function space()
 end
 
 Base.:*(re1::RE, re2::RE) = cat(re1, re2)
-Base.:*(x::Union{String, Char}, re::RE) = parse(string(x)) * re
-Base.:*(re::RE, x::Union{String, Char}) = re * parse(string(x))
 Base.:|(re1::RE, re2::RE) = alt(re1, re2)
 Base.:&(re1::RE, re2::RE) = isec(re1, re2)
 Base.:\(re1::RE, re2::RE) = diff(re1, re2)
+
+for f in (:*, :|, :&, :\)
+    @eval Base.$(f)(x::Union{AbstractString, AbstractChar}, re::RE) = $(f)(RE(string(x)), re)
+    @eval Base.$(f)(re::RE, x::Union{AbstractString, AbstractChar}) = $(f)(re, RE(string(x))) 
+end
+
 Base.:!(re::RE) = neg(re)
 
 macro re_str(str::String)
