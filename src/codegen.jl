@@ -91,7 +91,7 @@ end
 const DefaultCodeGenContext = CodeGenContext()
 
 """
-    generate_validator_function(name::Symbol, regexp::RE, goto=false)
+    generate_buffer_validator(name::Symbol, regexp::RE, goto=false)
 
 Generate code that, when evaluated, defines a function named `name`, which takes a
 single argument `data`, interpreted as a sequence of bytes.
@@ -99,7 +99,7 @@ The function returns `nothing` if `data` matches `Machine`, else the index of th
 invalid byte. If the machine reached unexpected EOF, returns `0`.
 If `goto`, the function uses the faster but more complicated `:goto` code.
 """
-function generate_validator_function(name::Symbol, regex::RegExp.RE, goto::Bool=false; docstring::Bool=true)
+function generate_buffer_validator(name::Symbol, regex::RegExp.RE, goto::Bool=false; docstring::Bool=true)
     ctx = goto ? CodeGenContext(generator=:goto) : DefaultCodeGenContext
     machine = compile(RegExp.strip_actions(regex))
     code = quote

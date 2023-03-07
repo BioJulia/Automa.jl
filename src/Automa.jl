@@ -55,7 +55,7 @@ export RE,
     compile,
 
     # user-facing generator functions
-    generate_validator_function,
+    generate_buffer_validator,
     generate_init_code,
     generate_exec_code,
     generate_code,
