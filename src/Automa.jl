@@ -43,8 +43,7 @@ if !isdefined(Base, :get_extension)
     include("../ext/AutomaStream.jl")
 end
 
-const RE = Automa.RegExp
-using .RegExp: @re_str, opt, rep, rep1, onenter!, onexit!, onall!, onfinal!, precond!
+using .RegExp: RE, @re_str, opt, rep, rep1, onenter!, onexit!, onall!, onfinal!, precond!
 
 # This list of exports lists the API
 export RE,

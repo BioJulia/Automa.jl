@@ -286,7 +286,7 @@ end
     @test Automa.generate_exec_code(ctx, machine, :debug) isa Any
 end
 
-@testset "Invalid RE.actions keys" begin
+@testset "Invalid actions keys" begin
     @test_throws Exception let
         a = re"abc"
         Automa.RegExp.actions!(a)[:badkey] = [:foo]
