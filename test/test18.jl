@@ -7,7 +7,7 @@ using Test
 @testset "Test18" begin
     regex = re"\0\a\b\t\n\v\r\x00\xff\xFF[\\][^\\]"
     for goto in (false, true)
-        @eval $(Automa.generate_validator_function(:validate, regex, goto; docstring=false))
+        @eval $(Automa.generate_buffer_validator(:validate, regex, goto; docstring=false))
 
         # Bad input types
         @test_throws Exception validate(18)

@@ -6,8 +6,8 @@ using Test
 
 @testset "Validator" begin
     regex = re"a(bc)*|(def)|x+" | re"def" | re"x+"
-    eval(Automa.generate_validator_function(:foobar, regex, false))
-    eval(Automa.generate_validator_function(:barfoo, regex, true))
+    eval(Automa.generate_buffer_validator(:foobar, regex, false))
+    eval(Automa.generate_buffer_validator(:barfoo, regex, true))
 
     eval(Automa.generate_io_validator(:io_bar, regex; goto=false))
     eval(Automa.generate_io_validator(:io_foo, regex; goto=true))
