@@ -1,13 +1,14 @@
 name = "Automa"
 uuid = "67c07d97-cdcb-5c2c-af73-a7f9c32a568b"
 authors = ["Kenta Sato <bicycle1885@gmail.com>", "Jakob Nybo Nissen <jakobnybonissen@gmail.com"]
-version = "0.8.2"
-
-[weakdeps]
-TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+version = "1.0.0"
 
 [deps]
 ScanByte = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
+SnoopPrecompile = "66db9d55-30c0-4569-8b51-7e840670fc0c"
+TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+
+[weakdeps]
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 
 [extensions]
@@ -15,8 +16,9 @@ AutomaStream = "TranscodingStreams"
 
 [compat]
 ScanByte = "0.3.3"
+SnoopPrecompile = "1"
 TranscodingStreams = "0.9"
-julia = "1.5"
+julia = "1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
