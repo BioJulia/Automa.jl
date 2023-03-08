@@ -104,26 +104,23 @@ function Automa.generate_reader(
 end
 
 """
-    generate_io_validator(funcname::Symbol, regex::RE; goto::Bool=false, report_col::Bool=true)
+    generate_io_validator(funcname::Symbol, regex::RE; goto::Bool=false)
 
 Create code that, when evaluated, defines a function named `funcname`.
 This function takes an `IO`, and checks if the data in the input conforms
 to the regex, without executing any actions.
 If the input conforms, return `nothing`.
-If `report_col` is set, return `(byte, (line, col))`, else return `(byte, line)`,
-where `byte` is the first invalid byte, and `(line, col)` the 1-indexed position of that byte.
+Else, return `(byte, (line, col))`, where `byte` is the first invalid byte,
+and `(line, col)` the 1-indexed position of that byte.
 If the invalid byte is a `\n` byte, `col` is 0 and the line number is incremented.
 If the input errors due to unexpected EOF, `byte` is `nothing`, and the line and column
 given is the last byte in the file.
-If `report_col` is set, the validator may buffer one line of the input.
-If the input has very long lines that should not be buffered, set it to `false`.
 If `goto`, the function uses the faster but more complicated `:goto` code.
 """
 function Automa.generate_io_validator(
     funcname::Symbol,
     regex::Automa.RegExp.RE;
-    goto::Bool=false,
-    report_col::Bool=true
+    goto::Bool=false
     )
     ctx = if goto
         Automa.CodeGenContext(generator=:goto)
@@ -131,42 +128,54 @@ function Automa.generate_io_validator(
         Automa.DefaultCodeGenContext
     end
     vars = ctx.vars
-    returncode = if report_col
-        quote
-            return if iszero(cs)
+    returncode = quote
+        return if iszero(cs)
+            nothing
+        else
+            # The column must be cleared cols. If we're EOF, all bytes have
+            # already been cleared by the buffer when attempting to get more bytes.
+            # If not, we add the bytes still in the buffer to the column
+            col = cleared_cols
+            col += ($(vars.p) - p_newline) * !$(vars.is_eof)
+            # Report position of last byte before EOF if EOF.
+            error_byte = if $(vars.p) > $(vars.p_end)
                 nothing
             else
-                col = $(vars.p) - $(vars.buffer).markpos
-                # Report position of last byte before EOF
-                error_byte = if $(vars.p) > $(vars.p_end)
-                    col -= 1
-                    nothing
-                else
-                    col -= $(vars.byte) == UInt8('\n')
-                    $(vars.byte)
-                end
-                (error_byte, (line_num, col))
+                $(vars.byte)
             end
+            # If errant byte was a newline, instead of counting it as last
+            # byte on a line (which would be inconsistent), count it as first
+            # byte on a new line
+            line_num += error_byte == UInt8('\n')
+            col -= error_byte == UInt8('\n')
+            (error_byte, (line_num, col))
         end
-    else
-        quote
-            return if iszero(cs)
-                nothing
-            else
-                error_byte = if $(vars.p) > $(vars.p_end)
-                    nothing
-                else
-                    $(vars.byte)
-                end
-                (error_byte, line_num)
-            end
+    end
+    initcode = quote
+        # Unmark buffer in case it's been marked before hand
+        @unmark()
+        line_num = 1
+        # Keep track of how many columns since newline that has
+        # been cleared from the buffer
+        cleared_cols = 0
+        # p value of last newline _in the current buffer_.
+        p_newline = 0
+    end
+    loopcode = quote
+        # If we're about to clear the buffer (ran out of buffer, did not error),
+        # then update cleared_cols, and since the buffer is about to be cleared,
+        # remove p_newline
+        if $(vars.cs) > 0 && $(vars.p) > $(vars.p_end) && !$(vars.is_eof)
+            cleared_cols += $(vars.p) - p_newline - 1
+            p_newline = 0
         end
     end
     machine = Automa.compile(Automa.RegExp.set_newline_actions(regex))
     actions = if :newline ∈ Automa.machine_names(machine)
         Dict{Symbol, Expr}(:newline => quote
                 line_num += 1
-                $(report_col ? :(@mark()) : :())
+                cleared_cols = 0
+                p_newline = $(vars.p)
             end
         )
     else
@@ -176,7 +185,8 @@ function Automa.generate_io_validator(
         funcname,
         machine;
         context=ctx,
-        initcode=:(line_num = 1; @unmark()),
+        initcode=initcode,
+        loopcode=loopcode,
         actions=actions,
         returncode=returncode,
         errorcode=:(@goto __return__),
