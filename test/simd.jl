@@ -16,7 +16,7 @@ using Automa
 
     context = CodeGenContext(generator=:goto)
 
-    eval(generate_buffer_validator(:is_valid_fasta, regex, true))
+    eval(generate_buffer_validator(:is_valid_fasta, regex; goto=true))
 
     s1 = ">seq\nTAGGCTA\n>hello\nAJKGMP"
     s2 = ">seq1\nTAGGC"
