@@ -2,6 +2,9 @@
 
 @precompile_all_calls begin
 let
+    goto_ctx = CodeGenContext(generator=:goto)
+    table_ctx = CodeGenContext(generator=:table)
+        
     # Create a buffer validator
     regex = let
         name = onexit!(onenter!(re"[^\t\r\n]+", :mark), :name)
@@ -10,7 +13,8 @@ let
         record = onexit!(field * rep('\t' * field), :record)
         nameline * re"\r?\n" * record * rep(re"\r?\n" * record) * rep(re"\r?\n")
     end
-    generate_buffer_validator(:foo, regex)
+    generate_buffer_validator(:foo, regex; goto=true)
+    generate_buffer_validator(:foo, regex; goto=false)
 
     # Create an ordinary parser
     machine = compile(regex)
@@ -27,7 +31,8 @@ let
         end
     )
 
-    generate_code(machine, actions)
+    generate_code(goto_ctx, machine, actions)
+    generate_code(table_ctx, machine, actions)
 
     # Create a tokenizer
     tokens = [
@@ -39,6 +44,7 @@ let
         re"\"",
         re"[\t\f ]+",
     ];
-    make_tokenizer(tokens)
+    make_tokenizer(tokens; goto=true)
+    make_tokenizer(tokens; goto=false)
 end
 end
