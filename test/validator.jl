@@ -76,21 +76,33 @@ end
     end 
 end
 
-@testset "Report column or not" begin
-    regex = re"[a-z]+"
-    eval(Automa.generate_io_validator(:io_foo_3, regex; goto=false, report_col=true))
-    eval(Automa.generate_io_validator(:io_bar_3, regex; goto=false, report_col=false))
+@testset "Reported column" begin
+    regex = re"([a-z][a-z]+)(\n[a-z][a-z]+)*"
+    eval(Automa.generate_io_validator(:io_foo_3, regex; goto=false))
 
-    let data = "abc;"
-        @test io_foo_3(IOBuffer(data)) == (UInt8(';'), (1, 4))
-        @test io_bar_3(IOBuffer(data)) == (UInt8(';'), 1)
+    function test_reported_pos(data)
+        # Test with a small buffer size
+        io = NoopStream(IOBuffer(data); bufsize=8)
+        y = io_foo_3(io)
+        y === nothing ? nothing : last(y)
     end
 
-    # Test that, if `report_col` is not set, very long lines are not
-    # buffered (because the mark is not set).
-    let data = repeat("abcd", 100_000) * ';'
-        io = NoopStream(IOBuffer(data))
-        @test length(io.state.buffer1.data) < 100_000
+    for (data, result) in [
+        ("abcd", nothing),
+        ('a'^10 * '!', (1, 11)),
+        ('a'^10 * "\nabc!", (2, 4)),
+        ("abcdef\n\n", (3, 0)),
+        ('a'^8 * '!', (1, 9)),
+        ('a'^8 * "\n" * 'a'^20 * '!', (2, 21)),
+        ('a'^7 * '!', (1, 8)),
+        ('a'^8, nothing),
+        ("abc!", (1, 4)),
+        ("", (1, 0)),
+        ("a", (1, 1)),
+        ("ab\na", (2, 1)),
+        ("ab\naa\n\n", (4, 0))
+    ]
+        @test test_reported_pos(data) == result
     end
 end
 
