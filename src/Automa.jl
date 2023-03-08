@@ -45,6 +45,8 @@ end
 
 using .RegExp: RE, @re_str, opt, rep, rep1, onenter!, onexit!, onall!, onfinal!, precond!
 
+include("workload.jl")
+
 # This list of exports lists the API
 export RE,
     @re_str,

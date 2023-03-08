@@ -22,8 +22,8 @@ end
 
 # By default, the counter C is 1
 Tokenizer{E}(data) where E = Tokenizer{E, typeof(data), 1}(data)
-Base.IteratorSize(::Type{<:Tokenizer}) = Base.SizeUnknown()
-Base.eltype(::Type{<:Tokenizer{E}}) where E = Tuple{Int, Int32, E}
+Base.IteratorSize(::Type{Tokenizer{E, D, C}}) where {E, D, C} = Base.SizeUnknown()
+Base.eltype(::Type{Tokenizer{E, D, C}}) where {E, D, C} = Tuple{Int, Int32, E}
 
 """
     tokenize(::Type{E}, data, version=1)
