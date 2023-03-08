@@ -20,7 +20,6 @@ jobs:
           - {user: BioJulia, repo: BED.jl, group: Automa}
           - {user: BioJulia, repo: BigBed.jl, group: Automa}
           - {user: BioJulia, repo: FASTX.jl, group: Automa}
-          - {user: BioJulia, repo: GeneticVariation.jl, group: Automa}
           - {user: BioJulia, repo: GFF3.jl, group: Automa}
           - {user: BioJulia, repo: XAM.jl, group: Automa}
           - {user: dellison, repo: ConstituencyTrees.jl, group: Automa}
