@@ -692,8 +692,8 @@ end
 # Add a warning if users go down a rabbit hole trying to figure out what these macros
 # expand to.
 # See the function `rewrite_special_macros` below, where the expansion happens
-const WARNING_STRING = """This string comes from the expansion of a fake macro in Automa.jl. \
-It is intercepted and expanded by Automa's own compiler, not by the Julia compiler. \
+const WARNING_STRING = """This string comes from the expansion of a fake macro in Automa.jl.
+It is intercepted and expanded by Automa's own compiler, not by the Julia compiler.
 Search for this string in the Automa source code to learn more."""
 
 """
