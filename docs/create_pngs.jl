@@ -63,9 +63,8 @@ digraph {
 dot_png(dot, "$DIR/kleenestar.png")
 
 open("/tmp/re.dot", "w") do io
-    nfa = Automa.remove_dead_nodes(Automa.re2nfa(re"(\+|-)?(0|1)*"))
-    #dfa = Automa.remove_dead_nodes(Automa.reduce_nodes(Automa.nfa2dfa(nfa)))
-    dfa = Automa.remove_dead_nodes(Automa.nfa2dfa(nfa))
+    nfa = Automa.re2nfa(re"(\+|-)?(0|1)*")
+    dfa = Automa.nfa2dfa(nfa)
     println(io, Automa.dfa2dot(dfa))
 end
 run(pipeline(`dot -Tpng /tmp/re.dot`, stdout="$DIR/large_dfa.png"))
