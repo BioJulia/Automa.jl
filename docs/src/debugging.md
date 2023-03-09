@@ -31,7 +31,7 @@ machine = let
 end
 
 # output
-ERROR: Ambiguous NFA. After inputs "XYZ A", observing 'B' lead to conflicting action sets [:cool_band] and nothing
+ERROR: Ambiguous NFA.
 [...]
 ```
 
@@ -40,7 +40,7 @@ Is the `B` part of `alphabet` (in which case it should do nothing), or is it par
 
 Automa will not compile this, and will raise the error:
 ```
-ERROR: Ambiguous NFA. After inputs "XYZ A", observing 'B' lead to conflicting action sets [:cool_band] and nothing
+ERROR: Ambiguous NFA.
 ```
 
 Note the error shows an example input which will trigger the ambiguity: `XYZ A`, then `B`.
@@ -58,7 +58,7 @@ fasta_machine = let
 end
 
 # output
-ERROR: Ambiguous NFA. After inputs ">a\nA", observing '\n' lead to conflicting action sets [:emit_record] and nothing
+ERROR: Ambiguous NFA.
 [...]
 ```
 

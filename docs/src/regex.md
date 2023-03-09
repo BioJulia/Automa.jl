@@ -17,6 +17,7 @@ The `@re_str` macro supports the following content:
 * `|` for alternation, as in `re"A|B"`, meaning "`A` or `B`". 
 * Byte sets with `[]`, like `re"[ABC]"`.
   This means any of the bytes in the brackets, e.g. `re"[ABC]"` is equivalent to `re"A|B|C"`.
+* Inverted byte sets, e.g. `re"[^ABC]"`, meaning any byte, except those in `re[ABC]`.
 * Repetition, with `X*` meaning zero or more repetitions of X
 * `+`, where `X+` means `XX*`, i.e. 1 or more repetitions of X
 * `?`, where `X?` means `X | ""`, i.e. 0 or 1 occurrences of X. It applies to the last element of the regex

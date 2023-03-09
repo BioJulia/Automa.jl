@@ -15,13 +15,12 @@ Atoms can be combined with the following operations, if R and P are two regular 
     In Automa, the alphabet is _bytes_, i.e. `0x00:0xff`, and so each symbol is a single byte.
     Multi-byte characters such as `Æ` is interpreted as the two concatenated of two symbols,
     `re"\xc3" * re"\x86"`.
-    The fact that Automa considers one input to be one byte, not one character, can become
-    relevant later.
+    The fact that Automa considers one input to be one byte, not one character, can become relevant if you instruct Automa to complete an action "on every input".
 
 Popular regex libraries include more operations like `?` and `+`.
 These can trivially be constructed from the above mentioned primitives,
 i.e. `R?` is `"" | R`,
-and `R+` is `R * R*`.
+and `R+` is `RR*`.
 
 Some implementations of regular expression engines, such as PCRE which is the default in Julia as of Julia 1.8,
 also support operations like backreferences and lookbehind.
@@ -46,8 +45,8 @@ To illustrate, let's look at one of the simplest regex: `re"a"`, matching the le
 
 ![](figure/simple.png)
 
-You begin at the small dot on the right, then immediately go to "state 1", the cirle marked by a `1`.
-By moving to the next state, state 2, you "consume" the next symbol from the input string, which must be the symbol marked on the edge from state 1 to state 2 (in this case, an `a`).
+You begin at the small dot on the right, then immediately go to state 1, the cirle marked by a `1`.
+By moving to the next state, state 2, you consume the next symbol from the input string, which must be the symbol marked on the edge from state 1 to state 2 (in this case, an `a`).
 Some states are "accept states", illustrated by a double cirle. If you are at an accept state when you've consumed all symbols of the input string, the string matches the regex.
 
 Each of the operaitons that combine regex can also combine NFAs.
@@ -63,7 +62,7 @@ Similarly, `a | b` correspond to this NFA structure...
 
 ...and `a*` to this:
 
-![](figure/alt.png)
+![](figure/kleenestar.png)
 
 For a larger example, `re"(\+|-)?(0|1)*"` combines alternation, concatenation and repetition and so looks like this:
 

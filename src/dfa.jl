@@ -223,7 +223,7 @@ function validate_paths(
                 repr(Char(first(intersect(edge1.labels, edge2.labels))))
             end
             error(
-                "Ambiguous NFA. After inputs $input_until_now, observing $final_input " *
+                "Ambiguous NFA.\nAfter inputs $input_until_now, observing $final_input " *
                 "lead to conflicting action sets $act1 and $act2"
             )
         end

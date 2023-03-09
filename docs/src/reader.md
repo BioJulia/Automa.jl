@@ -17,8 +17,27 @@ Hence, while a B record can appear at any time, once you've seen a B record, the
 When reading records from the file, you must be able to store whether you've seen a B record.
 
 We address this by creating a `Reader` type which wraps the IO being parsed, and which store any state we want to preserve between records.
-Let's stick to our simplified FASTA format - see previous sections for the format definition and the `Machine` we generated:
+Let's stick to our simplified FASTA format parsing sequences into `Seq` objects:
 
+```jldoctest reader1; output = false
+struct Seq
+    name::String
+    seq::String
+end
+
+machine = let
+    header = onexit!(onenter!(re"[a-z]+", :mark_pos), :header)
+    seqline = onexit!(onenter!(re"[ACGT]+", :mark_pos), :seqline)
+    record = onexit!(re">" * header * '\n' * rep1(seqline * '\n'), :record)
+    compile(rep(record))
+end
+@assert machine isa Automa.Machine
+
+# output
+
+```
+
+This time, we use the following `Reader` type:
 ```jldoctest reader1; output = false
 mutable struct Reader{S <: TranscodingStream}
     io::S
@@ -34,25 +53,13 @@ Reader
 
 The `Reader` contains an instance of `TranscodingStream` to read from, and stores the Automa state between records.
 The beginning state of Automa is always 1.
-We can now create our reader function like this:
+We can now create our reader function like below.
 There are only three differences from the definitions in the previous section:
 * I no longer have the code to decrement `p` in the `:record` action - because we can store the Automa state between records such that the machine can handle beginning in the middle of a record if necessary, there is no need to reset the value of `p` in order to restore the IO to the state right before each record.
 * I return `(cs, state)` instead of just `state`, because I want to update the Automa state of the Reader, so when it reads the next record, it begins in the same state where the machine left off from the previous state
 * In the arguments, I add `start_state`, and in the `initcode` I set `cs` to the start state, so the machine begins from the correct state
 
 ```jldoctest reader1; output = false
-struct Seq
-    name::String
-    seq::String
-end
-
-machine = let
-    header = onexit!(onenter!(re"[a-z]+", :mark_pos), :header)
-    seqline = onexit!(onenter!(re"[ACGT]+", :mark_pos), :seqline)
-    record = onexit!(re">" * header * '\n' * rep1(seqline * '\n'), :record)
-    compile(rep(record))
-end
-
 actions = Dict{Symbol, Expr}(
     :mark_pos => :(@mark),
     :header => :(header = String(data[@markpos():p-1])),
