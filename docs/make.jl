@@ -29,6 +29,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/BioJulia/Automa.jl.git",
-    target = "build",
-    push_preview = true,  
+    push_preview = true 
 )
