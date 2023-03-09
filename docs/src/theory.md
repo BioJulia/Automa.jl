@@ -78,13 +78,13 @@ If an ϵ-edge is encountered from state `A` that leads to states `B` and `C`, th
 
 For example, if the regex `re"(\+|-)?(0|1)*` visualized above is matched to the string `-11`, this is what happens:
 * NFA starts in state 1
-* NFA immediately moves to all states reachable via ϵ transition. It is now in state {5, 7, 10, 13, 16}.
-* NFA sees input `-`. States {5, 7, 10, 16} do not have an edge with `-` leading out, so these states die.
-  Therefore, the machine is in state 13, consumes the input, and moves to state 14.
-* NFA immediately moves to all states reachable from state 14 via ϵ transitions, so goes to {5, 7, 10}
-* NFA sees input `1`, must be in state 7, moves to state 8, then through ϵ transitions to state {5, 7, 10}
-* The above point repeats, NFA is still in state {5, 7, 10}
-* Input ends. Since state 5 is an accept state, the string matches.
+* NFA immediately moves to all states reachable via ϵ transition. It is now in state {3, 5, 7, 9, 10}.
+* NFA sees input `-`. States {5, 7, 9, 10} do not have an edge with `-` leading out, so these states die.
+  Therefore, the machine is in state 9, consumes the input, and moves to state 2.
+* NFA immediately moves to all states reachable from state 2 via ϵ transitions, so goes to {3, 5, 7}
+* NFA sees input `1`, must be in state 5, moves to state 6, then through ϵ transitions to state {3, 5, 7}
+* The above point repeats, NFA is still in state {3, 5, 7}
+* Input ends. Since state 3 is an accept state, the string matches.
 
 Using only a regex-to-NFA converter, you could create a simple regex engine simply by emulating the NFA as above.
 The existence of ϵ transitions means the NFA can be in multiple states at once which adds unwelcome complexity to the emulation and makes it slower.

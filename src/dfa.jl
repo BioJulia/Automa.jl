@@ -99,7 +99,7 @@ function nfa2dfa(nfa::NFA, unambiguous::Bool=true)
     # Each key represents a set of NFANodes that collapses to one DFANode.
     # If any set contain conflicting possible actions, raise an error.
     unambiguous && validate_nfanodes(newnodes, start)
-    return DFA(start)
+    return remove_dead_nodes(DFA(start))
 end
 
 function epsilon_closure(node::NFANode)

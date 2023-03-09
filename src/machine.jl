@@ -129,9 +129,9 @@ function compile(re::RegExp.RE; optimize::Bool=true, unambiguous::Bool=true)
 end
 
 function nfa2machine(nfa::NFA; optimize::Bool=true, unambiguous::Bool=true)
-    dfa = nfa2dfa(remove_dead_nodes(nfa), unambiguous)
+    dfa = nfa2dfa(nfa, unambiguous)
     if optimize
-        dfa = remove_dead_nodes(reduce_nodes(dfa))
+        dfa = reduce_nodes(dfa)
     end
     validate(dfa)
     machine = dfa2machine(dfa)

@@ -181,7 +181,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
 
     nfa_start = NFANode()
     nfa_final = rec!(nfa_start, re)
-    return NFA(nfa_start, nfa_final)
+    return remove_dead_nodes(NFA(nfa_start, nfa_final))
 end
 
 # Removes both dead nodes, i.e. nodes from which there is no path to
