@@ -1,18 +1,40 @@
-module AutomaStream
+"""
+    generate_reader(funcname::Symbol, machine::Automa.Machine; kwargs...)
 
-using Automa: Automa
-using TranscodingStreams: TranscodingStream, NoopStream
+**NOTE: This method requires TranscodingStreams to be loaded**
 
-function Automa.generate_reader(
+Generate a streaming reader function of the name `funcname` from `machine`.
+
+The generated function consumes data from a stream passed as the first argument
+and executes the machine with filling the data buffer.
+
+This function returns an expression object of the generated function.  The user
+need to evaluate it in a module in which the generated function is needed.
+
+# Keyword Arguments
+- `arguments`: Additional arguments `funcname` will take (default: `()`).
+    The default signature of the generated function is `(stream::TranscodingStream,)`,
+    but it is possible to supply more arguments to the signature with this keyword argument.
+- `context`: Automa's codegenerator (default: `Automa.CodeGenContext()`).
+- `actions`: A dictionary of action code (default: `Dict{Symbol,Expr}()`).
+- `initcode`: Initialization code (default: `:()`).
+- `loopcode`: Loop code (default: `:()`).
+- `returncode`: Return code (default: `:(return cs)`).
+- `errorcode`: Executed if `cs < 0` after `loopcode` (default error message)
+
+See the source code of this function to see how the generated code looks like
+```
+"""
+function generate_reader(
         funcname::Symbol,
-        machine::Automa.Machine;
+        machine::Machine;
         arguments=(),
-        context::Automa.CodeGenContext=Automa.DefaultCodeGenContext,
+        context::CodeGenContext=DefaultCodeGenContext,
         actions::Dict{Symbol,Expr}=Dict{Symbol,Expr}(),
         initcode::Expr=:(),
         loopcode::Expr=:(),
         returncode::Expr=:(return $(context.vars.cs)),
-        errorcode::Expr=Automa.generate_input_error_code(context, machine)
+        errorcode::Expr=generate_input_error_code(context, machine)
 )
     # Add a `return` to the return expression if the user forgot it
     if returncode.head != :return
@@ -27,7 +49,7 @@ function Automa.generate_reader(
     # at_eof and cs is meaningless, and when both are set to nothing, @escape
     # will error at parse time
     function rewrite(ex::Expr)
-        Automa.rewrite_special_macros(;
+        rewrite_special_macros(;
             ctx=context,
             ex=ex,
             at_eof=nothing,
@@ -38,7 +60,7 @@ function Automa.generate_reader(
     functioncode.args[2] = quote
         $(vars.buffer) = stream.state.buffer1
         $(vars.data) = $(vars.buffer).data
-        $(Automa.generate_init_code(context, machine))
+        $(generate_init_code(context, machine))
         $(rewrite(initcode))
         # Overwrite is_eof for Stream, since we don't know the real EOF
         # until after we've actually seen the stream eof
@@ -56,7 +78,7 @@ function Automa.generate_reader(
         $(vars.is_eof) = eof(stream)
         $(vars.p) = $(vars.buffer).bufferpos
         $(vars.p_end) = $(vars.buffer).marginpos - 1
-        $(Automa.generate_exec_code(context, machine, actions))
+        $(generate_exec_code(context, machine, actions))
         
         # Advance the buffer, hence advancing the stream itself
         $(vars.buffer).bufferpos = $(vars.p)
@@ -78,15 +100,31 @@ function Automa.generate_reader(
     return functioncode
 end
 
-function Automa.generate_io_validator(
+"""
+    generate_io_validator(funcname::Symbol, regex::RE; goto::Bool=false)
+
+**NOTE: This method requires TranscodingStreams to be loaded**
+
+Create code that, when evaluated, defines a function named `funcname`.
+This function takes an `IO`, and checks if the data in the input conforms
+to the regex, without executing any actions.
+If the input conforms, return `nothing`.
+Else, return `(byte, (line, col))`, where `byte` is the first invalid byte,
+and `(line, col)` the 1-indexed position of that byte.
+If the invalid byte is a `\n` byte, `col` is 0 and the line number is incremented.
+If the input errors due to unexpected EOF, `byte` is `nothing`, and the line and column
+given is the last byte in the file.
+If `goto`, the function uses the faster but more complicated `:goto` code.
+"""
+function generate_io_validator(
     funcname::Symbol,
-    regex::Automa.RegExp.RE;
+    regex::RegExp.RE;
     goto::Bool=false
     )
     ctx = if goto
-        Automa.CodeGenContext(generator=:goto)
+        CodeGenContext(generator=:goto)
     else
-        Automa.DefaultCodeGenContext
+        DefaultCodeGenContext
     end
     vars = ctx.vars
     returncode = quote
@@ -131,8 +169,8 @@ function Automa.generate_io_validator(
             p_newline = 0
         end
     end
-    machine = Automa.compile(Automa.RegExp.set_newline_actions(regex))
-    actions = if :newline ∈ Automa.machine_names(machine)
+    machine = compile(RegExp.set_newline_actions(regex))
+    actions = if :newline ∈ machine_names(machine)
         Dict{Symbol, Expr}(:newline => quote
                 line_num += 1
                 cleared_cols = 0
@@ -142,7 +180,7 @@ function Automa.generate_io_validator(
     else
         Dict{Symbol, Expr}()
     end
-    function_code = Automa.generate_reader(
+    function_code = generate_reader(
         funcname,
         machine;
         context=ctx,
@@ -169,5 +207,3 @@ function Automa.generate_io_validator(
         $(funcname)(io::$(IO)) = $(funcname)($(NoopStream)(io))
     end 
 end
-
-end # module

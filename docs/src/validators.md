@@ -47,7 +47,7 @@ julia> validate_fasta(">hello\nTAGAGA\nTAGAG\n") # nothing; it matches
 
 ## IO validators
 For large files, having to read the data into a buffer to validate it may not be possible.
-When the package `TranscodingStreams` is loaded, Automa also supports creating IO validators with the `generate_io_validator` function:
+Automa also supports creating IO validators with the `generate_io_validator` function:
 
 This works very similar to `generate_buffer_validator`, but the generated function takes an `IO`, and has a different return value:
 * If the data matches, still return `nothing`

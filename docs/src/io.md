@@ -7,11 +7,6 @@ end
 ```
 
 # Parsing from an IO
-
-!!! note
-    Parsing from an IO relies on TranscodingStreams.jl, and the relevant methods are defined in an extension module in Automa.
-    If you use Julia 1.9 or later, you must load TranscodingStreams before loading Automa to test this functionality.
-
 Some file types are gigabytes or tens of gigabytes in size.
 For these files, parsing from a buffer may be impractical, as they require you to read in the entire file in memory at once.
 Automa enables this by hooking into `TranscodingStreams.jl`, a package that provides a wrapper IO of the type `TranscodingStream`.
