@@ -1,5 +1,4 @@
 using Documenter
-using TranscodingStreams # to load extension
 using Automa
 
 DocMeta.setdocmeta!(Automa, :DocTestSetup, :(using Automa); recursive=true)
