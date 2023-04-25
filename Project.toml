@@ -4,8 +4,8 @@ authors = ["Kenta Sato <bicycle1885@gmail.com>", "Jakob Nybo Nissen <jakobnyboni
 version = "1.0.0"
 
 [deps]
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 ScanByte = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
-SnoopPrecompile = "66db9d55-30c0-4569-8b51-7e840670fc0c"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 
 [compat]
