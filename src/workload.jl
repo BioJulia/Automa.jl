@@ -1,6 +1,6 @@
- using SnoopPrecompile: @precompile_all_calls
+ using PrecompileTools: @compile_workload
 
-@precompile_all_calls begin
+@compile_workload begin
 let
     goto_ctx = CodeGenContext(generator=:goto)
     table_ctx = CodeGenContext(generator=:table)
