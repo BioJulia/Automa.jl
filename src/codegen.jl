@@ -469,7 +469,16 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         # This can be effectively SIMDd
         # If such an edge is detected, we treat it specially with code here, and leave the
         # non-SIMDable edges for below
+
+        # SIMD code temporarily disabled.
         simd, non_simd = peel_simd_edge(s)
+        if simd !== nothing
+            push!(non_simd, (simd, s))
+        end
+        simd = nothing
+        simd_code = :()
+
+        #=
         simd_code = if simd !== nothing
             quote
                 $(generate_simd_loop(ctx, simd.labels))
@@ -481,6 +490,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         else
             :()
         end
+        =#
         
         # If no inputs match, then we set cs = -cs to signal error, and go to exit
         default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
@@ -555,6 +565,11 @@ end
 
 # Note: This function has been carefully crafted to produce (nearly) optimal
 # assembly code for AVX2-capable CPUs. Change with great care.
+
+# Temporarily disabled because I've come to the realization that Julia does not
+# yet make it possible to robustly check what CPU instructions the user has available
+# See related issue
+#=
 function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
     # ScanByte finds first byte in a byteset. We want to find first
     # byte NOT in this byteset, as this is where we can no longer skip ahead to
@@ -581,6 +596,7 @@ end
 @inline function loop_simd(ptr::Ptr, len::UInt, valbs::Val)
     ScanByte.memchr(ptr, len, valbs)
 end
+=#
 
 # Make if/else statements for each state that is an acceptable end state, and execute
 # the actions attached with ending in this state.
@@ -949,7 +965,7 @@ function debug_actions(machine::Machine)
 end
 
 "If possible, remove self-simd edge."
-function peel_simd_edge(node)
+function peel_simd_edge(node)::Tuple{Union{Nothing, Edge}, Vector{Tuple{Edge, Node}}}
     non_simd = Tuple{Edge, Node}[]
     simd = nothing
     # A simd-edge has no actions or preconditions, and its source is same as destination.

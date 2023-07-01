@@ -1,10 +1,11 @@
 module Automa
 
-using ScanByte: ScanByte, ByteSet
 using TranscodingStreams: TranscodingStreams, TranscodingStream, NoopStream
 
+include("byteset.jl")
+
 # Encode a byte set into a sequence of non-empty ranges.
-function range_encode(set::ScanByte.ByteSet)
+function range_encode(set::ByteSet)
     result = UnitRange{UInt8}[]
     it = iterate(set)
     it === nothing && return result
