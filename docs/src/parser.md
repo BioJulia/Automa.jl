@@ -197,6 +197,65 @@ Input is not in any outgoing edge, and machine therefore errored.
 The code above parses with about 300 MB/s on my laptop.
 Not bad, but Automa can do better - read on to learn how to customize codegen.
 
+## Preconditions
+You might have noticed a peculiar detail about our FASTA format: It demands a trailing newline after each record.
+In other words, `>a\nA` is not a valid FASTA record.
+
+We can easily rewrite the regex such that the last record does not need a trailing `\n`.
+But look what happens when we try that:
+
+```jldoctest parse1
+julia> machine = let
+           header = onexit!(onenter!(re"[a-z]+", :mark_pos), :header)
+           seqline = onexit!(onenter!(re"[ACGT]+", :mark_pos), :seqline)
+           record = onexit!(re">" * header * '\n' * seqline * rep('\n' * seqline), :record)
+           compile(opt(record) * rep('\n' * record) * rep(re"\n"))
+       end;
+ERROR: Ambiguous NFA.
+```
+
+Why does this error? Well, remember that Automa processes one byte at a time, and at each byte, makes a decision on what actions to execute.
+Hence, if it sees the input `>a\nA\n`, it does not know what to do when encountering the second `\n`. If the next byte e,g. `A`, then it would need to execute the `:seqline` action. If the byte is `>`, it would need to execute first `:seqline`, then `:record`.
+Automa can't read ahead, so, the regex is ambiguous and the true behaviour when reading the inputs `>a\nA\n` is undefined.
+Therefore, Automa refuses to compile it.
+
+There are several ways to solve this:
+* First, you can rewrite the regex to not be ambiguous. This is usually the preferred option: After all, if the regex is ambiguous, you probably made a mistake with the regex
+* You can manually diasable the ambiguity check by passing the keyword `unambiguous=false` to `compile`. This will cause the machine to undefined behaviour if an input like `>a\nA\n` is seen, so this is usually a poor idea.
+* You can rewrite the actions, such that the action itself uses an if-statement to check what to do. In the example above, you could remove the `:record` action and have the `:seqline` action conditionally emit a record if the next byte was `>`.
+
+Finally, you can use _preconditions_.
+A precondition is a symbol, attached to a regex, just like an action.
+Just like an action, the symbol is attached to an `Expr` object, but for preconditions this must evaluate to a `Bool`.
+If `false`, the regex is not entered.
+
+Let's have an example. The following machine is obviously ambiguous:
+
+```jldoctest parse1
+julia> machine = let
+           a = onenter!(re"XY", :a)
+           b = onenter!(re"XZ", :b)
+           compile('A' * (a | b))
+       end;
+ERROR: Ambiguous NFA.
+```
+
+We can add a precondition with `precond!`. Below, `precond!(regex, label)` is equivalent to `precond!(regex, label; when=:enter, bool=true)`. This means "only enter `regex` when the boolean expression `label` evaluates to `bool` (`true`)":
+
+```jldoctest parse1
+julia> machine = let
+           a = precond!(onenter!(re"XY", :a), :test)
+           b = precond!(onenter!(re"XZ", :b), :test; bool=false)
+           compile('A' * (a | b))
+       end;
+
+julia> machine isa Automa.Machine
+true
+```
+
+Here, `re"XY"` can only be entered when `:test` is `true`, and `re"XZ"` only when `:test` is `false`.
+So, there can be no ambiguous behaviour and the regex compiles fine.
+
 ## Reference
 ```@docs
 Automa.onenter!

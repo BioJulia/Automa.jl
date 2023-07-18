@@ -41,6 +41,7 @@ using Test
     A = re"XY"
     precond!(A, :cond)
     B = re"XZ"
+    precond!(B, :cond, when=:enter, bool=false)
     onenter!(A, :enter_A)
     @test compile(A | B, unambiguous=true) isa Automa.Machine
 end

@@ -44,11 +44,12 @@ mutable struct RE
     head::Symbol
     args::Vector
     actions::Union{Nothing, Dict{Symbol, Vector{Symbol}}}
-    when::Union{Symbol, Nothing}
+    precond_all::Union{Tuple{Symbol, Bool}, Nothing}
+    precond_enter::Union{Tuple{Symbol, Bool}, Nothing}
 end
 
 function RE(head::Symbol, args::Vector)
-    return RE(head, args, nothing, nothing)
+    return RE(head, args, nothing, nothing, nothing)
 end
 
 RE(s::AbstractString) = parse(s)
@@ -151,10 +152,13 @@ onall!(re::RE, v::Vector{Symbol}) = (actions!(re)[:all] = v; re)
 onall!(re::RE, s::Symbol) = onall!(re, [s])
 
 """
-    precond!(re::RE, s::Symbol) -> re
+    precond!(re::RE, s::Symbol; [when=:enter], [bool=true]) -> re
 
 Set `re`'s precondition to `s`. Before any state transitions to `re`, or inside
-`re`, the precondition code `s` is checked before the transition is taken.
+`re`, the precondition code `s` is checked to be `bool` before the transition is taken.
+
+`when` controls if the condition is checked when the regex is entered (if `:enter`),
+or at every state transition inside the regex (if `:all`)
 
 # Example
 ```julia
@@ -166,7 +170,16 @@ julia> regex === regex2
 true
 ```
 """
-precond!(re::RE, s::Symbol) = (re.when = s; re)
+function precond!(re::RE, s::Symbol; when::Symbol=:enter, bool::Bool=true)
+    if when === :enter
+        re.precond_enter = (s, bool)
+    elseif when === :all
+        re.precond_all = (s, bool)
+    else
+        error("`precond!` only takes :enter or :all in third position")
+    end
+    re
+end
 
 const Primitive = Union{RE, ByteSet, UInt8, UnitRange{UInt8}, Char, String, Vector{UInt8}}
 
@@ -527,7 +540,7 @@ end
 # Create a deep copy of the regex without any actions
 function strip_actions(re::RE)
     args = [arg isa RE ? strip_actions(arg) : arg for arg in re.args]
-    RE(re.head, args, Dict{Symbol, Vector{Symbol}}(), re.when)
+    RE(re.head, args, Dict{Symbol, Vector{Symbol}}(), re.precond_enter, re.precond_all)
 end
 
 # Create a deep copy with the only actions being a :newline action
@@ -542,11 +555,11 @@ function set_newline_actions(re::RE)::RE
     if re.head == :set
         set = only(re.args)::ByteSet
         if UInt8('\n') ∈ set
-            re1 = RE(:set, [ByteSet(UInt8('\n'))], Dict(:enter => [:newline]), re.when)
+            re1 = RE(:set, [ByteSet(UInt8('\n'))], Dict(:enter => [:newline]), re.precond_enter, re.precond_all)
             if length(set) == 1
                 re1
             else
-                re2 = RE(:set, [setdiff(set, ByteSet(UInt8('\n')))], Dict{Symbol, Vector{Symbol}}(), re.when)
+                re2 = RE(:set, [setdiff(set, ByteSet(UInt8('\n')))], Dict{Symbol, Vector{Symbol}}(), re.precond_enter, re.precond_all)
                 re1 | re2
             end
         else
@@ -554,7 +567,7 @@ function set_newline_actions(re::RE)::RE
         end
     else
         args = [arg isa RE ? set_newline_actions(arg) : arg for arg in re.args]
-        RE(re.head, args, Dict{Symbol, Vector{Symbol}}(), re.when)
+        RE(re.head, args, Dict{Symbol, Vector{Symbol}}(), re.precond_enter, re.precond_all)
     end
 end
 

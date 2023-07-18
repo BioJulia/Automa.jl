@@ -167,11 +167,22 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             final = final_in
         end
 
-        if re.when !== nothing
-            name = re.when
+        # Add preconditions: The enter precondition is only added to the edge leading
+        # into this regex's NFA, whereas the all precondition is added to all edges.
+        # We do not add it to eps edges, since these are NFA artifacts, and will be
+        # removed during compilation to DFA anyway: The salient part is that the non-eps
+        # edges have preconditions.
+        if re.precond_enter !== nothing
+            (name, bool) = re.precond_enter
+            for e in traverse_first_noneps(start)
+                push!(e.precond, (name => (bool ? TRUE : FALSE)))
+            end
+        end
+        if re.precond_all !== nothing
+            (name, bool) = re.precond_all
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
-                    push!(e.precond, (name => TRUE))
+                    push!(e.precond, (name => (bool ? TRUE : FALSE)))
                 end
             end
         end
@@ -182,6 +193,27 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
     nfa_start = NFANode()
     nfa_final = rec!(nfa_start, re)
     return remove_dead_nodes(NFA(nfa_start, nfa_final))
+end
+
+# Return the set of the first non-epsilon edges reachable from the node
+function traverse_first_noneps(node::NFANode)::Set{Edge}
+    result = Set{Edge}()
+    stack = [node]
+    seen = Set(stack)
+    while !isempty(stack)
+        node = pop!(stack)
+        for (edge, child) in node.edges
+            if iseps(edge)
+                if !in(child, seen)
+                    push!(stack, child)
+                    push!(seen, child)
+                end
+            else
+                push!(result, edge)
+            end
+        end
+    end
+    result
 end
 
 # Removes both dead nodes, i.e. nodes from which there is no path to

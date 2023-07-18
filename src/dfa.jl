@@ -204,12 +204,9 @@ function validate_paths(
             eof = (edge1 === nothing) & (edge2 === nothing)
             
             if !eof
-                # If they are real edges but do not overlap, there is no conflict
+                # If they are real edges but do not overlap, or there are conflicting
+                # preconditions, there is no conflict
                 overlaps(edge1, edge2) || continue
-
-                # If the FSM may disambiguate the two edges based on preconditions
-                # there is no conflict (or, rather, we can't prove a conflict.
-                has_potentially_conflicting_precond(edge1, edge2) && continue
             end
 
             # Now we know there is an ambiguity, so we just need to create
