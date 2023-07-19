@@ -212,7 +212,7 @@ function throw_input_error(
         string(index),
         ".\nLast ",
         string(length(slice)),
-        " bytes were:\n\n"
+        " byte(s) were:\n\n"
     )
     write(buf, bytes, "\n\n")
 

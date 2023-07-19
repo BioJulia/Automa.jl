@@ -32,10 +32,7 @@ using Test
 end
 
 @testset "ByteSet" begin
-    x = Automa.ByteSet()
-    @test isempty(x)
-    @test_throws ArgumentError minimum(x)
-    @test_throws ArgumentError maximum(x)
+    include("byteset.jl")
 end
 
 @testset "RegExp" begin
@@ -124,6 +121,7 @@ include("test16.jl")
 include("test17.jl")
 include("test18.jl")
 include("test19.jl")
+include("input_error.jl")
 include("simd.jl")
 include("unicode.jl")
 include("validator.jl")
