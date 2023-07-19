@@ -4,6 +4,8 @@ using Automa
 using Test
 
 @testset "Test11" begin
+    @test_throws Exception precond!(re"A", :foo; when=:never)
+
     a = re"[a-z]+"
     precond!(a, :le)
     a = rep1(a)

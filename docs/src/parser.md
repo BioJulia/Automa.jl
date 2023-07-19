@@ -183,7 +183,7 @@ If we give out function a bad input - for example, if we forget the trailing new
 ```jldoctest parse1
 julia> parse_fasta(">abc\nTAGA\nAAGA\n>header\nAAAG\nGGCG")
 ERROR: Error during FSM execution at buffer position 33.
-Last 32 bytes were:
+Last 32 byte(s) were:
 
 ">abc\nTAGA\nAAGA\n>header\nAAAG\nGGCG"
 
