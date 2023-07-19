@@ -1,8 +1,6 @@
 """
     generate_reader(funcname::Symbol, machine::Automa.Machine; kwargs...)
 
-**NOTE: This method requires TranscodingStreams to be loaded**
-
 Generate a streaming reader function of the name `funcname` from `machine`.
 
 The generated function consumes data from a stream passed as the first argument
@@ -23,7 +21,6 @@ need to evaluate it in a module in which the generated function is needed.
 - `errorcode`: Executed if `cs < 0` after `loopcode` (default error message)
 
 See the source code of this function to see how the generated code looks like
-```
 """
 function generate_reader(
         funcname::Symbol,
