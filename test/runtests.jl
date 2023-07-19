@@ -37,6 +37,8 @@ end
 
 @testset "RegExp" begin
     @test_throws ArgumentError("invalid escape sequence: \\o") Automa.RegExp.parse("\\o")
+    @test ('+' * re"abc") isa RE
+    @test_throws Exception Automa.RegExp.parse("+")
 end
 
 @testset "DOT" begin

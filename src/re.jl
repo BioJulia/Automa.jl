@@ -52,7 +52,8 @@ function RE(head::Symbol, args::Vector)
     return RE(head, args, nothing, nothing, nothing)
 end
 
-RE(s::AbstractString) = parse(s)
+RE(s::AbstractString) = parse(string(s))
+RE(c::AbstractChar) = primitive(Char(c))
 
 function actions!(re::RE)
     x = re.actions
@@ -263,8 +264,8 @@ Base.:&(re1::RE, re2::RE) = isec(re1, re2)
 Base.:\(re1::RE, re2::RE) = diff(re1, re2)
 
 for f in (:*, :|, :&, :\)
-    @eval Base.$(f)(x::Union{AbstractString, AbstractChar}, re::RE) = $(f)(RE(string(x)), re)
-    @eval Base.$(f)(re::RE, x::Union{AbstractString, AbstractChar}) = $(f)(re, RE(string(x))) 
+    @eval Base.$(f)(x::Union{AbstractString, AbstractChar}, re::RE) = $(f)(RE(x), re)
+    @eval Base.$(f)(re::RE, x::Union{AbstractString, AbstractChar}) = $(f)(re, RE(x)) 
 end
 
 Base.:!(re::RE) = neg(re)
