@@ -55,10 +55,12 @@ end
 RE(s::AbstractString) = parse(s)
 
 function actions!(re::RE)
-    if isnothing(re.actions)
-        re.actions = Dict{Symbol, Vector{Symbol}}()
+    x = re.actions
+    if x === nothing
+        x = Dict{Symbol, Vector{Symbol}}()
+        re.actions = x
     end
-    re.actions
+    x
 end
 
 """

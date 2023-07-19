@@ -206,7 +206,7 @@ function validate_paths(
             if !eof
                 # If they are real edges but do not overlap, or there are conflicting
                 # preconditions, there is no conflict
-                overlaps(edge1, edge2) || continue
+                overlaps(edge1::Edge, edge2::Edge) || continue
             end
 
             # Now we know there is an ambiguity, so we just need to create
@@ -217,7 +217,7 @@ function validate_paths(
             final_input = if eof
                 "EOF"
             else
-                repr(Char(first(intersect(edge1.labels, edge2.labels))))
+                repr(Char(first(intersect((edge1::Edge).labels, (edge2::Edge).labels))))
             end
             error(
                 "Ambiguous NFA.\nAfter inputs $input_until_now, observing $final_input " *

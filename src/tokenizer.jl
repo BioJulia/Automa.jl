@@ -90,7 +90,7 @@ See also: [`Tokenizer`](@ref), [`tokenize`](@ref), [`compile`](@ref)
 """
 function make_tokenizer(
     machine::TokenizerMachine;
-    tokens::Tuple{E, AbstractVector{E}}=(UInt32(1):UInt32(machine.n_tokens), UInt32(0)),
+    tokens::Tuple{E, AbstractVector{E}}=(UInt32(0), UInt32(1):UInt32(machine.n_tokens)),
     goto::Bool=true,
     version::Int=1
 ) where E
@@ -120,7 +120,7 @@ function make_tokenizer(
         )
         actions[action_name] = quote
             stop = $(vars.p)
-            token = $(nonerror_tokens[parse(Int, only(m.captures))])
+            token = $(nonerror_tokens[parse(Int, something(only(m.captures)))])
         end
     end
     return quote
@@ -209,10 +209,10 @@ function make_tokenizer(
     version::Int=1,
     unambiguous=false
 ) where E
-    (regex, _tokens) = if tokens isa Vector
-        (tokens, (UInt32(0), UInt32(1):UInt32(length(tokens))))
+    (regex, _tokens) = if tokens isa AbstractVector
+        (Vector(tokens)::Vector, (UInt32(0), UInt32(1):UInt32(length(tokens))))
     else
-        (map(last, last(tokens)), (first(tokens), map(first, last(tokens))))
+        ([last(i) for i in last(tokens)]::Vector, (first(tokens), map(first, last(tokens))))
     end
     make_tokenizer(
         compile(regex; unambiguous=unambiguous);
