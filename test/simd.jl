@@ -1,9 +1,6 @@
 # Test codegencontext
 @testset "CodeGenContext" begin
     @test_throws ArgumentError Automa.CodeGenContext(generator=:fdjfhkdj)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:simd)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:simd, checkbounds=false, loopunroll=2)
-    @test_throws ArgumentError Automa.CodeGenContext(generator=:simd, checkbounds=false, getbyte=identity)
 end
 
 import Automa
