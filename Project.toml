@@ -1,14 +1,12 @@
 name = "Automa"
 uuid = "67c07d97-cdcb-5c2c-af73-a7f9c32a568b"
 authors = ["Kenta Sato <bicycle1885@gmail.com>", "Jakob Nybo Nissen <jakobnybonissen@gmail.com"]
-version = "0.8.2"
+version = "0.8.3"
 
 [deps]
-ScanByte = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 
 [compat]
-ScanByte = "0.3.3"
 TranscodingStreams = "0.9"
 julia = "1.5"
 
