@@ -794,7 +794,9 @@ end
 Automa pseudomacro. Return the position of `p` relative to `@markpos()`.
 Equivalent to `p - @markpos() + 1`.
 This can be used to mark additional points in the stream when the mark is set,
-after which their action position can be retrieved using `abspos(x)`
+after which their action position can be retrieved using `abspos(x)`.
+
+Behaviour is undefined if mark has not yet been set.
 
 # Example usage:
 ```
@@ -816,6 +818,8 @@ end
 
 Automa pseudomacro. Used to obtain the actual position of a relative position
 obtained from `@relpos`. See [`@relpos`](@ref) for more details.
+
+Behaviour is undefined if mark has not yet been set.
 """
 macro abspos(p)
     :($WARNING_STRING)
@@ -905,9 +909,9 @@ function rewrite_special_macros(;
         elseif special_macro isa Tuple{Symbol, Any}
             (sym, arg) = special_macro
             expr = if sym == Symbol("@relpos")
-                quote @assert $(ctx.vars.buffer).markpos > 0; $(arg) - $(ctx.vars.buffer).markpos + 1 end
+                quote $(arg) - $(ctx.vars.buffer).markpos + 1 end
             elseif sym == Symbol("@abspos")
-                quote @assert $(ctx.vars.buffer).markpos > 0; $(arg) + $(ctx.vars.buffer).markpos - 1 end
+                quote $(arg) + $(ctx.vars.buffer).markpos - 1 end
             else
                 @assert false
             end
