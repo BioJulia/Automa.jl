@@ -8,7 +8,7 @@ By compiling regex to Julia code in the form of `Expr` objects,
 Automa provides facilities to create efficient and robust regex-based lexers, tokenizers and parsers using Julia's metaprogramming capabilities. 
 You can view Automa as a regex engine that can insert arbitrary Julia code into its input matching process, which will be executed when certain parts of the regex matches an input.
 
-![Schema of Automa.jl](figure/Automa.png)
+![Schema of Automa.jl](docs/src/figure/Automa.png)
 
 Automa is designed to generate very efficient code to scan large text data, often much faster than handcrafted code.
 
