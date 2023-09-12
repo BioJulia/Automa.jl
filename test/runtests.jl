@@ -127,6 +127,7 @@ include("input_error.jl")
 include("simd.jl")
 include("unicode.jl")
 include("validator.jl")
+include("tokenizer.jl")
 
 module TestFASTA
 using Test
