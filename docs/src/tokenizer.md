@@ -22,30 +22,40 @@ Any text of this format can be broken down into a sequence of the following toke
 * Spaces: `re" +"`
 * Letters: `re"[A-Za-z]+"`
 
-Such that e.g. `("XY", "A")` can be represented as `lparent, quote, XY, quote, comma, space, quote A quote rparens`.
+Such that e.g. `("XY", "A")` can be represented as the token sequence `lparens, quote, XY, quote, comma, space, quote A quote rparens`.
 
-Breaking the text down to its tokens is called tokenization or lexing. Note that lexing in itself is not sufficient to parse the format: Lexing is _context unaware_, so e.g. the test `"((A` can be perfectly well tokenized to `quote lparens lparens A`, even if it's invalid.
+Breaking the text down to its tokens is called tokenization or lexing.
+Note that lexing in itself is not sufficient to parse the format:
+Lexing is _context unaware_ and doesn't understand syntax, so e.g. the test `"((A` can be perfectly well tokenized to `quote lparens lparens A`, even if it's invalid syntax.
 
-The purpose of tokenization is to make subsequent parsing easier, because each part of the text has been classified. That makes it easier to, for example, to search for letters in the input. Instead of having to muck around with regex to find the letters, you use regex once to classify all text.
+The purpose of tokenization is to make subsequent parsing easier, because each part of the text has been classified. That makes it easier to, for example, to search for letters in the input.
+Instead of having to muck around with regex to find the letters, you use regex once to classify all text.
 
 ## Making and using a tokenizer
 Let's use the example above to create a tokenizer.
-The most basic default tokenizer uses `UInt32` as tokens: You pass in a list of regex matching each token, then evaluate the resulting code:
+The most basic tokenizer defaults to using `UInt32` as tokens: You pass in a list of regex matching each token, then evaluate the resulting code:
 
 ```jldoctest tok1
 julia> make_tokenizer(
            [re"\(", re"\)", re",", re"\"", re" +", re"[a-zA-Z]+"]
        ) |> eval
 ```
+The `make_tokenizer` function creates Julia code (an `Expr` object) that, when evaluated, defines `Base.iterate` for the `Tokenizer` type.
+The code above defined `Base.iterate(::Tokenizer{UInt32, D, 1}) where D` - we'll get back to the different type parameters of `Tokenizer` later.
 
-Since the default tokenizer uses `UInt32` as tokens, you can then obtain a lazy iterator of tokens by calling `tokenize(UInt32, data)`:
+`Tokenizer`s are most easily created with the `tokenize` function.
+To create a `Tokenizer{UInt32}`, we can do call `tokenize(UInt32, data)`:
 
 ```jldoctest tok1
 julia> iterator = tokenize(UInt32, """("XY", "A")"""); typeof(iterator)
 Tokenizer{UInt32, String, 1}
 ```
 
-This will return `Tuple{Int64, Int32, UInt32}` elements, with each element being:
+Meaning: A `Tokenizer` emitting `UInt32` over `String` data, of version `1`.
+Since we used `make_tokenizer` above to define iteration for this kind of tokenizer (one with `UInt32` tokens),
+we can iterate this tokenizer.
+
+When we iterate, we get `Tuple{Int64, Int32, UInt32}` elements, with each element being:
 * The start index of the token
 * The length of the token
 * The token itself, in this example `UInt32(1)` for '(', `UInt32(2)` for ')' etc: 
@@ -65,6 +75,9 @@ julia> collect(iterator)
  (11, 1, 0x00000002)
 ```
 
+The type of the last element in each tuple comes from the `Tokenizer` type parameter:
+We specified `UInt32`, so we get `UInt32` tokens.
+
 Any data which could not be tokenized is given the error token `UInt32(0)`:
 ```jldoctest tok1
 julia> collect(tokenize(UInt32, "XY!!)"))
@@ -75,7 +88,10 @@ julia> collect(tokenize(UInt32, "XY!!)"))
 ```
 
 Both `tokenize` and `make_tokenizer` takes an optional argument `version`, which is `1` by default.
-This sets the last parameter of the `Tokenizer` struct, and as such allows you to create multiple different tokenizers with the same element type.
+This sets the last parameter of the `Tokenizer` struct - for example, `make_tokenizer(tokens::Vector{RE}; version=5)`
+defines `Base.iterate` for `Tokenizer{UInt32, D, 5}`.
+
+By letting the user freely choose the value of the last type parameter, this allows you to create multiple different tokenizers with the same element type.
 
 ## Using enums as tokens
 Using `UInt32` as tokens is not very convenient - so it's possible to use enums to create the tokenizer:
