@@ -2,38 +2,49 @@
     Tokenizer{E, D, C}
 
 Lazy iterator of tokens of type `E` over data of type `D`.
+Tokenizers are usually created with the [`tokenize`](@ref) function, and their iterator behaviour
+are defined by [`make_tokenizer`](@ref).
 
 `Tokenizer` works on any buffer-like object that defines `pointer` and `sizeof`.
-When iterated, it will return a 3-tuple of integers:
+When iterated, it will return a Tuple{Integer, Integer, E}:
     * The first is the 1-based starting index of the token in the buffer
     * The second is the length of the token in bytes
-    * The third is the token kind: The index in the input list `tokens`.
+    * The third is the token.
 
-Un-tokenizable data will be emitted as the "error token" with index zero.
+Un-tokenizable data will be emitted as the "error token" which must also be of type `E`.
 
 The `Int` `C` parameter allows multiple tokenizers to be created with
 the otherwise same type parameters.
 
 See also: [`make_tokenizer`](@ref)
 """
-struct Tokenizer{E, D, C}
+struct Tokenizer{E,D,C}
     data::D
 end
 
 # By default, the counter C is 1
-Tokenizer{E}(data) where E = Tokenizer{E, typeof(data), 1}(data)
-Base.IteratorSize(::Type{Tokenizer{E, D, C}}) where {E, D, C} = Base.SizeUnknown()
-Base.eltype(::Type{Tokenizer{E, D, C}}) where {E, D, C} = Tuple{Int, Int32, E}
+Tokenizer{E}(data) where {E} = Tokenizer{E,typeof(data),1}(data)
+Base.IteratorSize(::Type{Tokenizer{E,D,C}}) where {E,D,C} = Base.SizeUnknown()
+Base.eltype(::Type{Tokenizer{E,D,C}}) where {E,D,C} = Tuple{Int,Int32,E}
 
 """
-    tokenize(::Type{E}, data, version=1)
+    tokenize(::Type{E}, data, version=1) -> Tokenizer
 
 Create a `Tokenizer{E, typeof(data), version}`, iterating tokens of type `E`
 over `data`.
 
 See also: [`Tokenizer`](@ref), [`make_tokenizer`](@ref), [`compile`](@ref)
+
+# Examples
+```jldoctest
+julia> tokenize(UInt32, "hello")
+Tokenizer{UInt32, String, 1}("hello")
+
+julia> tokenize(Int8, [1, 2, 3], 3)
+Tokenizer{Int8, Vector{Int64}, 3}([1, 2, 3])
+```
 """
-tokenize(::Type{E}, data, version=1) where E = Tokenizer{E}(data)
+tokenize(::Type{E}, data, version=1) where {E} = Tokenizer{E,typeof(data),version}(data)
 
 """
     TokenizerMachine
@@ -41,6 +52,9 @@ tokenize(::Type{E}, data, version=1) where E = Tokenizer{E}(data)
 Struct representing a `Machine` created for tokenization.
 Machines used for tokenization contain distinct actions and are not to be used for notmal Automa codegen.
 `TokenizerMachine`s contain two public fields: `machine::Machine` and `n_tokens::Int`.
+
+You can manually create `TokenizerMachine`s with `compile(::Vector{RE})`, or more conveniently
+with [`make_tokenizer`](@ref).
 """
 struct TokenizerMachine
     machine::Machine
@@ -63,8 +77,10 @@ Create code which when evaluated, defines `Base.iterate(::Tokenizer{E, D, \$vers
 `tokens` is a tuple of a vector of non-error tokens of length `machine.n_tokens`, and the error token,
 which will be emitted for data that cannot be tokenized.
 
+Most users should instead use the more convenient method `make_tokenizer(tokens)`.
+
 # Example usage
-```
+```jldoctest
 julia> machine = compile([re"a", re"b"]);
 
 julia> make_tokenizer(machine; tokens=(0x00, [0x01, 0x02])) |> eval
@@ -90,16 +106,16 @@ See also: [`Tokenizer`](@ref), [`tokenize`](@ref), [`compile`](@ref)
 """
 function make_tokenizer(
     machine::TokenizerMachine;
-    tokens::Tuple{E, AbstractVector{E}}=(UInt32(0), UInt32(1):UInt32(machine.n_tokens)),
+    tokens::Tuple{E,AbstractVector{E}}=(UInt32(0), UInt32(1):UInt32(machine.n_tokens)),
     goto::Bool=true,
     version::Int=1
-) where E
+) where {E}
     (error_token, nonerror_tokens) = tokens
     # Check that tokens are unique
     if length(nonerror_tokens) != machine.n_tokens
         error("Tokenizer has $(machine.n_actions) actions, but only got $(length(nonerror_tokens)) tokens")
     end
-    if !allunique(push!(Set(nonerror_tokens), error_token))
+    if length(push!(Set(nonerror_tokens), error_token)) != length(nonerror_tokens) + 1
         error("Tokens and nonerror tokens must be unique")
     end
     ctx = if goto
@@ -109,7 +125,7 @@ function make_tokenizer(
     end
     vars = ctx.vars
     # In these actions, store enter token and exit token.
-    actions = Dict{Symbol, Expr}()
+    actions = Dict{Symbol,Expr}()
     for action_name in action_names(machine.machine)
         # The action for every token's final byte is to say: "This is where the token ends, and this is
         # what kind it is"
@@ -124,7 +140,7 @@ function make_tokenizer(
         end
     end
     return quote
-        function Base.iterate(tokenizer::$(Tokenizer){$E, D, $version}, state=(1, Int32(1), $error_token)) where D
+        function Base.iterate(tokenizer::$(Tokenizer){$E,D,$version}, state=(1, Int32(1), $error_token)) where {D}
             data = tokenizer.data
             (start, len, token) = state
             start > sizeof(data) && return nothing
@@ -147,22 +163,22 @@ function make_tokenizer(
                 # each of them here.
                 # If a token was found:
                 if token !== $error_token
-                    found_token = (token_start, (stop-token_start+1)%Int32, token)
+                    found_token = (token_start, (stop - token_start + 1) % Int32, token)
                     # If a token was found, but there are some error data, we emit the error data first,
                     # then set the state to be nonzero so the token is emitted next iteration
                     if start < token_start
-                        error_state = (start, (token_start-start)%Int32, $error_token)
+                        error_state = (start, (token_start - start) % Int32, $error_token)
                         return (error_state, found_token)
-                    # If no error data, simply emit the token with a zero state
+                        # If no error data, simply emit the token with a zero state
                     else
-                        return (found_token, (stop+1, Int32(0), $error_token))
+                        return (found_token, (stop + 1, Int32(0), $error_token))
                     end
                 else
                     # If no token was found and EOF, emit an error token for the rest of the data
                     if $(vars.p) > $(vars.p_end)
-                        error_state = (start, ($(vars.p) - start)%Int32, $error_token)
-                        return (error_state, ($(vars.p_end)+1, Int32(0), $error_token))
-                    # If no token, and also not EOF, we continue, looking at next byte
+                        error_state = (start, ($(vars.p) - start) % Int32, $error_token)
+                        return (error_state, ($(vars.p_end) + 1, Int32(0), $error_token))
+                        # If no token, and also not EOF, we continue, looking at next byte
                     else
                         token_start += 1
                     end
@@ -183,32 +199,48 @@ end
         unambiguous=false
     ) where E
 
-Convenience function for both compiling a tokenizer, then running `make_tokenizer` on it.
-If `tokens` is an abstract vector, create an iterator of integer tokens with the error token being zero and the non-error tokens being the index in the vector.
-Else, `tokens` is the error token followed by `token => regex` pairs.
-See the relevant other methods of `make_tokenizer`, and `compile`.
+Convenience function for both compiling a `TokenizerMachine`, then running `make_tokenizer` on it.
+In other words, this function returns code that when run, defines `iterate` for
+`Tokenizer{\$E, D, \$version} where D`.
+
+If tokens are a tuple, the first element is the error token, and the next
+is a vector of `token => regex` pairs.
+If `tokens` is an `AbstractVector` `v`, the tokens defaults to `UInt32`, and it behaves as if
+it was `(UInt32(0), [UInt32(i)=>r for (i,r) in pairs(v)])`, i.e. `UInt32(0)` is the error token.
 
 # Example
-```julia
-julia> make_tokenizer([re"abc", re"def") |> eval
+```jldoctest
+julia> make_tokenizer([re"abc", re"def"]) |> eval
 
-julia> collect(tokenize(Int, "abcxyzdef123"))
+julia> collect(tokenize(UInt32, "abcxyzdef123"))
 4-element Vector{Tuple{Int64, Int32, UInt32}}:
  (1, 3, 0x00000001)
- (4, 3, 0x00000003)
+ (4, 3, 0x00000000)
  (7, 3, 0x00000002)
- (10, 3, 0x00000003)
+ (10, 3, 0x00000000)
+
+julia> make_tokenizer((0, collect(pairs([re"x", re"y"]))); version=5) |> eval
+
+julia> iter = tokenize(Int, "xyaby", 5)
+Tokenizer{Int64, String, 5}("xyaby")
+
+julia> collect(iter)
+4-element Vector{Tuple{Int64, Int32, Int64}}:
+ (1, 1, 1)
+ (2, 1, 2)
+ (3, 2, 0)
+ (5, 1, 2)
 ```
 """
 function make_tokenizer(
     tokens::Union{
         <:AbstractVector{RegExp.RE},
-        <:Tuple{E, AbstractVector{Pair{E, RegExp.RE}}}
+        <:Tuple{E,AbstractVector{Pair{E,RegExp.RE}}}
     };
     goto::Bool=true,
     version::Int=1,
     unambiguous=false
-) where E
+) where {E}
     (regex, _tokens) = if tokens isa AbstractVector
         (Vector(tokens)::Vector, (UInt32(0), UInt32(1):UInt32(length(tokens))))
     else
@@ -245,7 +277,7 @@ function compile(
     end
     # We need the predefined actions here simply because it allows us to add priority to the actions.
     # This is necessary to guarantee that tokens are disambiguated in the correct order.
-    predefined_actions = Dict{Symbol, Action}()
+    predefined_actions = Dict{Symbol,Action}()
     for i in eachindex(tokens)
         predefined_actions[Symbol(:__token_, i)] = Action(Symbol(:__token_, i), 1000 + i)
     end
