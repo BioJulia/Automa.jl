@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · Automa.jl</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">Automa.jl</span></div><form class="docs-search" action="search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li class="is-active"><a class="tocitem" href>Home</a><ul class="internal"><li><a class="tocitem" href="#Where-to-start"><span>Where to start</span></a></li><li><a class="tocitem" href="#Examples"><span>Examples</span></a></li></ul></li><li><a class="tocitem" href="theory/">Theory</a></li><li><a class="tocitem" href="regex/">Regex</a></li><li><a class="tocitem" href="validators/">Validators</a></li><li><a class="tocitem" href="tokenizer/">Tokenizers</a></li><li><a class="tocitem" href="parser/">Parsing buffers</a></li><li><a class="tocitem" href="custom/">Customizing codegen</a></li><li><a class="tocitem" href="io/">Parsing IOs</a></li><li><a class="tocitem" href="reader/">Creating readers</a></li><li><a class="tocitem" href="debugging/">Debugging Automa</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Home</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Home</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/BioJulia/Automa.jl/blob/master/docs/src/index.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Automa.jl"><a class="docs-heading-anchor" href="#Automa.jl">Automa.jl</a><a id="Automa.jl-1"></a><a class="docs-heading-anchor-permalink" href="#Automa.jl" title="Permalink"></a></h1><p>Automa is a regex-to-Julia compiler. By compiling regex to Julia code in the form of <code>Expr</code> objects, Automa provides facilities to create efficient and robust regex-based lexers, tokenizers and parsers using Julia&#39;s metaprogramming capabilities.  You can view Automa as a regex engine that can insert arbitrary Julia code into its input matching process, which will be executed when certain parts of the regex matches an input.</p><p><img src="figure/Automa.png" alt="Schema of Automa.jl"/></p><p>Automa.jl is designed to generate very efficient code to scan large text data, which is often much faster than handcrafted code.  Automa.jl is a regex engine that can insert arbitrary Julia code into its input matching process, that will be executed in when certain parts of the regex matches an input.</p><h2 id="Where-to-start"><a class="docs-heading-anchor" href="#Where-to-start">Where to start</a><a id="Where-to-start-1"></a><a class="docs-heading-anchor-permalink" href="#Where-to-start" title="Permalink"></a></h2><p>If you&#39;re not familiar with regex engines, start by reading the <a href="theory/">theory section</a>, then you might want to read every section from the top. They&#39;re structured like a tutorial, beginning from the simplest use of Automa and moving to more advanced uses.</p><p>If you like to dive straight in, you might want to start by reading the examples below, then go through the examples in the <code>examples/</code> directory in the Automa repository.</p><h2 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h2><h3 id="Validate-some-text-only-is-composed-of-ASCII-alphanumeric-characters"><a class="docs-heading-anchor" href="#Validate-some-text-only-is-composed-of-ASCII-alphanumeric-characters">Validate some text only is composed of ASCII alphanumeric characters</a><a id="Validate-some-text-only-is-composed-of-ASCII-alphanumeric-characters-1"></a><a class="docs-heading-anchor-permalink" href="#Validate-some-text-only-is-composed-of-ASCII-alphanumeric-characters" title="Permalink"></a></h3><pre><code class="language-julia">generate_buffer_validator(:validate_alphanumeric, re&quot;[a-zA-Z0-9]*&quot;) |&gt; eval
+
+for s in [&quot;abc&quot;, &quot;aU81m&quot;, &quot;!,&gt;&quot;]
+    println(&quot;$s is alphanumeric? $(isnothing(validate_alphanumeric(s)))&quot;)
+end</code></pre><h3 id="Making-a-lexer"><a class="docs-heading-anchor" href="#Making-a-lexer">Making a lexer</a><a id="Making-a-lexer-1"></a><a class="docs-heading-anchor-permalink" href="#Making-a-lexer" title="Permalink"></a></h3><pre><code class="language-julia">tokens = [
+    :identifier =&gt; re&quot;[A-Za-z_][0-9A-Za-z_!]*&quot;,
+    :lparens =&gt; re&quot;\(&quot;,
+    :rparens =&gt; re&quot;\)&quot;,
+    :comma =&gt; re&quot;,&quot;,
+    :quot =&gt; re&quot;\&quot;&quot;,
+    :space =&gt; re&quot;[\t\f ]+&quot;,
+];
+@eval @enum Token errortoken $(first.(tokens)...)
+make_tokenizer((errortoken, 
+    [Token(i) =&gt; j for (i,j) in enumerate(last.(tokens))]
+)) |&gt; eval
+
+collect(tokenize(Token, &quot;&quot;&quot;(alpha, &quot;beta15&quot;)&quot;&quot;&quot;))</code></pre><h3 id="Make-a-simple-TSV-file-parser"><a class="docs-heading-anchor" href="#Make-a-simple-TSV-file-parser">Make a simple TSV file parser</a><a id="Make-a-simple-TSV-file-parser-1"></a><a class="docs-heading-anchor-permalink" href="#Make-a-simple-TSV-file-parser" title="Permalink"></a></h3><pre><code class="language-julia">machine = let
+    name = onexit!(onenter!(re&quot;[^\t\r\n]+&quot;, :mark), :name)
+    field = onexit!(onenter!(re&quot;[^\t\r\n]+&quot;, :mark), :field)
+    nameline = name * rep(&#39;\t&#39; * name)
+    record = onexit!(field * rep(&#39;\t&#39; * field), :record)
+    compile(nameline * re&quot;\r?\n&quot; * record * rep(re&quot;\r?\n&quot; * record) * rep(re&quot;\r?\n&quot;))
+end
+
+actions = Dict(
+    :mark =&gt; :(pos = p),
+    :name =&gt; :(push!(headers, String(data[pos:p-1]))),
+    :field =&gt; quote
+        n_fields += 1
+        push!(fields, String(data[pos:p-1]))
+    end,
+    :record =&gt; quote
+        n_fields == length(headers) || error(&quot;Malformed TSV&quot;)
+        n_fields = 0
+    end
+)
+
+@eval function parse_tsv(data)
+    headers = String[]
+    fields = String[]
+    pos = n_fields = 0
+    $(generate_code(machine, actions))
+    (headers, reshape(fields, length(headers), :))
+end
+
+header, data = parse_tsv(&quot;a\tabc\n12\t13\r\nxyc\tz\n\n&quot;)</code></pre></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="theory/">Theory »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 12 September 2023 06:35">Tuesday 12 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

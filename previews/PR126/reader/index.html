@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Creating readers · Automa.jl</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">Automa.jl</span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../theory/">Theory</a></li><li><a class="tocitem" href="../regex/">Regex</a></li><li><a class="tocitem" href="../validators/">Validators</a></li><li><a class="tocitem" href="../tokenizer/">Tokenizers</a></li><li><a class="tocitem" href="../parser/">Parsing buffers</a></li><li><a class="tocitem" href="../custom/">Customizing codegen</a></li><li><a class="tocitem" href="../io/">Parsing IOs</a></li><li class="is-active"><a class="tocitem" href>Creating readers</a></li><li><a class="tocitem" href="../debugging/">Debugging Automa</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Creating readers</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Creating readers</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/BioJulia/Automa.jl/blob/master/docs/src/reader.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Creating-a-Reader-type"><a class="docs-heading-anchor" href="#Creating-a-Reader-type">Creating a <code>Reader</code> type</a><a id="Creating-a-Reader-type-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-a-Reader-type" title="Permalink"></a></h1><p>The use of <code>generate_reader</code> as we learned in the previous section &quot;Parsing from an io&quot; has an issue we need to address: While we were able to read multiple records from the reader by calling <code>read_record</code> multiple times, no state was preserved between these calls, and so, no state can be preserved between reading individual records. This is also what made it necessary to clumsily reset <code>p</code> after emitting each record.</p><p>Imagine you have a format with two kinds of records, A and B types. A records must come before B records in the file. Hence, while a B record can appear at any time, once you&#39;ve seen a B record, there can&#39;t be any more A records. When reading records from the file, you must be able to store whether you&#39;ve seen a B record.</p><p>We address this by creating a <code>Reader</code> type which wraps the IO being parsed, and which store any state we want to preserve between records. Let&#39;s stick to our simplified FASTA format parsing sequences into <code>Seq</code> objects:</p><pre><code class="language-julia">struct Seq
+    name::String
+    seq::String
+end
+
+machine = let
+    header = onexit!(onenter!(re&quot;[a-z]+&quot;, :mark_pos), :header)
+    seqline = onexit!(onenter!(re&quot;[ACGT]+&quot;, :mark_pos), :seqline)
+    record = onexit!(re&quot;&gt;&quot; * header * &#39;\n&#39; * rep1(seqline * &#39;\n&#39;), :record)
+    compile(rep(record))
+end
+@assert machine isa Automa.Machine</code></pre><p>This time, we use the following <code>Reader</code> type:</p><pre><code class="language-julia">mutable struct Reader{S &lt;: TranscodingStream}
+    io::S
+    automa_state::Int
+end
+
+Reader(io::TranscodingStream) = Reader{typeof(io)}(io, 1)
+Reader(io::IO) = Reader(NoopStream(io))</code></pre><p>The <code>Reader</code> contains an instance of <code>TranscodingStream</code> to read from, and stores the Automa state between records. The beginning state of Automa is always 1. We can now create our reader function like below. There are only three differences from the definitions in the previous section:</p><ul><li>I no longer have the code to decrement <code>p</code> in the <code>:record</code> action - because we can store the Automa state between records such that the machine can handle beginning in the middle of a record if necessary, there is no need to reset the value of <code>p</code> in order to restore the IO to the state right before each record.</li><li>I return <code>(cs, state)</code> instead of just <code>state</code>, because I want to update the Automa state of the Reader, so when it reads the next record, it begins in the same state where the machine left off from the previous state</li><li>In the arguments, I add <code>start_state</code>, and in the <code>initcode</code> I set <code>cs</code> to the start state, so the machine begins from the correct state</li></ul><pre><code class="language-julia">actions = Dict{Symbol, Expr}(
+    :mark_pos =&gt; :(@mark),
+    :header =&gt; :(header = String(data[@markpos():p-1])),
+    :seqline =&gt; :(append!(seqbuffer, data[@markpos():p-1])),
+    :record =&gt; quote
+        seq = Seq(header, String(seqbuffer))
+        found_sequence = true
+        @escape
+    end
+)
+
+generate_reader(
+    :read_record,
+    machine;
+    actions=actions,
+    arguments=(:(start_state::Int),),
+    initcode=quote
+        seqbuffer = UInt8[]
+        found_sequence = false
+        header = &quot;&quot;
+        cs = start_state
+    end,
+    loopcode=quote
+        if (is_eof &amp;&amp; p &gt; p_end) || found_sequence
+            @goto __return__
+        end
+    end,
+    returncode=:(found_sequence ? (cs, seq) : throw(EOFError()))
+) |&gt; eval</code></pre><p>We then create a function that reads from the <code>Reader</code>, making sure to update the <code>automa_state</code> of the reader:</p><pre><code class="language-julia">function read_record(reader::Reader)
+    (cs, seq) = read_record(reader.io, reader.automa_state)
+    reader.automa_state = cs
+    return seq
+end</code></pre><p>Let&#39;s test it out:</p><pre><code class="language-julia-repl">julia&gt; reader = Reader(IOBuffer(&quot;&gt;a\nT\n&gt;tag\nGAG\nATATA\n&quot;));
+
+julia&gt; read_record(reader)
+Seq(&quot;a&quot;, &quot;T&quot;)
+
+julia&gt; read_record(reader)
+Seq(&quot;tag&quot;, &quot;GAGATATA&quot;)
+
+julia&gt; read_record(reader)
+ERROR: EOFError: read end of file</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« Parsing IOs</a><a class="docs-footer-nextpage" href="../debugging/">Debugging Automa »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 12 September 2023 06:35">Tuesday 12 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
