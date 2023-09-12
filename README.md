@@ -1,6 +1,6 @@
 # Automa.jl
 
-[![Docs Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://biojulia.github.io/Automa.jl/latest/)
+[![Docs Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://biojulia.github.io/Automa.jl/stable/)
 [![codecov.io](http://codecov.io/github/BioJulia/Automa.jl/coverage.svg?branch=master)](http://codecov.io/github/BioJulia/Automa.jl?branch=master)
 
 Automa is a regex-to-Julia compiler.
