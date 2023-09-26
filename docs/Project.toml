@@ -6,4 +6,4 @@ TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 [compat]
 Automa = "1"
 TranscodingStreams = "0.9"
-Documenter = "0.24 - 0.26"
+Documenter = "1"
