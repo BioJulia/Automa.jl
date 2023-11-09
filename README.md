@@ -1,6 +1,8 @@
 # Automa.jl
 
-[![Docs Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://biojulia.github.io/Automa.jl/stable/)
+[![Unit tests Status](https://github.com/BioJulia/Automa.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/BioJulia/Automa.jl/actions/workflows/UnitTests.yml)
+[![Downstream tests Status](https://github.com/BioJulia/Automa.jl/actions/workflows/Downstream.yml/badge.svg)](https://github.com/BioJulia/Automa.jl/actions/workflows/Downstream.yml)
+[![Docs Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://biojulia.github.io/Automa.jl/stable/)
 [![codecov.io](http://codecov.io/github/BioJulia/Automa.jl/coverage.svg?branch=master)](http://codecov.io/github/BioJulia/Automa.jl?branch=master)
 
 Automa is a regex-to-Julia compiler.
@@ -12,10 +14,10 @@ You can view Automa as a regex engine that can insert arbitrary Julia code into 
 
 Automa is designed to generate very efficient code to scan large text data, often much faster than handcrafted code.
 
-For more information [read the documentation](https://biojulia.github.io/Automa.jl/latest/), or read the examples below and in the `examples/` directory in this repository.
+For more information [read the documentation](https://biojulia.github.io/Automa.jl/stable/), or read the examples below and in the `examples/` directory in this repository.
 
 ## Examples
-### Validate some text only is composed of ASCII alphanumeric characters
+### Validate some text is composed only of ASCII alphanumeric characters
 ```julia
 using Automa
 
