@@ -17,7 +17,7 @@ Hence, while a B record can appear at any time, once you've seen a B record, the
 When reading records from the file, you must be able to store whether you've seen a B record.
 
 We address this by creating a `Reader` type which wraps the IO being parsed, and which store any state we want to preserve between records.
-Let's stick to our simplified FASTA format parsing sequences into `Seq` objects:
+Let's stick to our [simplified FASTA format](@ref fasta_example) parsing sequences into `Seq` objects:
 
 ```jldoctest reader1; output = false
 struct Seq

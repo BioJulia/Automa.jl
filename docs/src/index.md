@@ -25,7 +25,7 @@ They're structured like a tutorial, beginning from the simplest use of Automa an
 If you like to dive straight in, you might want to start by reading the examples below, then go through the examples in the `examples/` directory in the Automa repository.
 
 ## Examples
-### Validate some text only is composed of ASCII alphanumeric characters
+### Validate some text is composed only of ASCII alphanumeric characters
 ```jldoctest; output = false
 generate_buffer_validator(:validate_alphanumeric, re"[a-zA-Z0-9]*") |> eval
 

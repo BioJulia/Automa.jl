@@ -7,12 +7,12 @@ end
 ```
 
 # Parsing from a buffer
-Automa can leverage metaprogramming to combine regex and julia code to create parsers.
+Automa can leverage metaprogramming to combine regex and Julia code to create parsers.
 This is significantly more difficult than simply using validators or tokenizers, but still simpler than parsing from an IO.
 Currently, Automa loads data through pointers, and therefore needs data backed by `Array{UInt8}` or `String` or similar - it does not work with types such as `UnitRange{UInt8}`.
 Furthermore, be careful about passing strided views to Automa - while Automa can extract a pointer from a strided view, it will always advance the pointer one byte at a time, disregarding the view's stride.
 
-As an example, let's use the simplified FASTA format intoduced in the regex section, with the following format: `re"(>[a-z]+\n([ACGT]+\n)+)*"`.
+As an example, let's use the simplified FASTA format [introduced in the regex section](@ref fasta_example), with the following format: `re"(>[a-z]+\n([ACGT]+\n)+)*"`.
 We want to parse it into a `Vector{Seq}`, where `Seq` is defined as:
 
 ```jldoctest parse1
@@ -32,7 +32,7 @@ Currently, actions can be added in the following places in a regex:
 * With `onenter!`, meaning it will be executed when reading the first byte of the regex
 * With `onfinal!`, where it will be executed when reading the last byte of the regex.
   Note that it's not possible to determine the final byte for some regex like `re"X+"`, since
-  the machine reads only 1 byte at a time and cannot look ahead.
+  the machine reads only 1 byte at a time and cannot look ahead. In such cases, an error is raised.
 * With `onexit!`, meaning it will be executed on reading the first byte AFTER the regex,
   or when exiting the regex by encountering the end of inputs (only for a regex match, not an unexpected end of input)
 * With `onall!`, where it will be executed when reading every byte that is part of the regex.
@@ -56,10 +56,10 @@ julia> my_regex isa RE
 true
 ```
 
-When the the following regex' actions are visualized in its corresponding [DFA](theory.md#deterministic-finite-automata):
+When the the following regex's actions are visualized in its corresponding [DFA](theory.md#deterministic-finite-automata):
 
 ```julia
-regex = 
+regex = let
     ab = re"ab*"
     onenter!(ab, :enter_ab)
     onexit!(ab, :exit_ab)
@@ -215,7 +215,7 @@ ERROR: Ambiguous NFA.
 ```
 
 Why does this error? Well, remember that Automa processes one byte at a time, and at each byte, makes a decision on what actions to execute.
-Hence, if it sees the input `>a\nA\n`, it does not know what to do when encountering the second `\n`. If the next byte e,g. `A`, then it would need to execute the `:seqline` action. If the byte is `>`, it would need to execute first `:seqline`, then `:record`.
+Hence, if it sees the input `>a\nA\n`, it does not know what to do when encountering the second `\n`. If the next byte is, e,g. `A`, then it would need to execute the `:seqline` action. If the byte is `>`, it would need to execute first `:seqline`, then `:record`.
 Automa can't read ahead, so, the regex is ambiguous and the true behaviour when reading the inputs `>a\nA\n` is undefined.
 Therefore, Automa refuses to compile it.
 
