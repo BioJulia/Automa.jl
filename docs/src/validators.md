@@ -11,7 +11,7 @@ The simplest use of Automa is to simply match a regex.
 It's unlikely you are going to want to use Automa for this instead of Julia's built-in regex engine PCRE, unless you need the extra performance that Automa brings over PCRE.
 Nonetheless, it serves as a good starting point to introduce Automa.
 
-Suppose we have the FASTA regex from the regex page:
+Suppose we have the FASTA regex [from the regex page](@ref fasta_example):
 
 ```jldoctest val1
 julia> fasta_regex = let

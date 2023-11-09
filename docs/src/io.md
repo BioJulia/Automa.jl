@@ -112,7 +112,7 @@ false
 
 !!! danger
     The following code is only for demonstration purposes.
-    It has several one important flaw, which will be adressed in a later section, so do not copy-paste it for serious work.
+    It has one important flaw, which will be addressed in a later section, so do not copy-paste it for serious work.
 
 There are a few more subtleties related to the `generate_reader` function.
 Suppose we instead want to create a function that reads a single FASTA record from an IO.

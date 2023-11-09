@@ -28,7 +28,7 @@ Breaking the text down to its tokens is called tokenization or lexing.
 Note that lexing in itself is not sufficient to parse the format:
 Lexing is _context unaware_ and doesn't understand syntax, so e.g. the test `"((A` can be perfectly well tokenized to `quote lparens lparens A`, even if it's invalid syntax.
 
-The purpose of tokenization is to make subsequent parsing easier, because each part of the text has been classified. That makes it easier to, for example, to search for letters in the input.
+The purpose of tokenization is to make subsequent parsing easier, because each part of the text has been classified. That makes it easier to, for example, search for letters in the input.
 Instead of having to muck around with regex to find the letters, you use regex once to classify all text.
 
 ## Making and using a tokenizer
@@ -87,7 +87,7 @@ julia> collect(tokenize(UInt32, "XY!!)"))
  (5, 1, 0x00000002)
 ```
 
-Both `tokenize` and `make_tokenizer` takes an optional argument `version`, which is `1` by default.
+Both `tokenize` and `make_tokenizer` take an optional argument `version`, which is `1` by default.
 This sets the last parameter of the `Tokenizer` struct - for example, `make_tokenizer(tokens::Vector{RE}; version=5)`
 defines `Base.iterate` for `Tokenizer{UInt32, D, 5}`.
 

@@ -13,15 +13,15 @@ They are made using the `@re_str` macro, like this: `re"ABC[DEF]"`.
 Automa regex matches individual bytes, not characters. Hence, `re"Æ"` (with the UTF-8 encoding `[0xc3, 0x86]`) is equivalent to `re"\xc3\x86"`, and is considered the concatenation of two independent input bytes.
 
 The `@re_str` macro supports the following content:
-* Literal symbols, such as `re"ABC"`, `re"\xfe\xa2"` or `re"Ø"`
+* Literal symbols, such as `re"ABC"`, `re"\xfe\xa2"` or `re"Ø"`.
 * `|` for alternation, as in `re"A|B"`, meaning "`A` or `B`". 
 * Byte sets with `[]`, like `re"[ABC]"`.
   This means any of the bytes in the brackets, e.g. `re"[ABC]"` is equivalent to `re"A|B|C"`.
 * Inverted byte sets, e.g. `re"[^ABC]"`, meaning any byte, except those in `re[ABC]`.
-* Repetition, with `X*` meaning zero or more repetitions of X
-* `+`, where `X+` means `XX*`, i.e. 1 or more repetitions of X
-* `?`, where `X?` means `X | ""`, i.e. 0 or 1 occurrences of X. It applies to the last element of the regex
-* Parentheses to group expressions, like in `A(B|C)?`
+* Repetition, with `X*` meaning zero or more repetitions of X.
+* `+`, where `X+` means `XX*`, i.e. 1 or more repetitions of X.
+* `?`, where `X?` means `X | ""`, i.e. 0 or 1 occurrences of X. It applies to the last element of the regex.
+* Parentheses to group expressions, like in `re"A(B|C)?"`.
 
 You can combine regex with the following operations:
 * `*` for concatenation, with `re"A" * re"B"` being the same as `re"AB"`.
@@ -33,9 +33,9 @@ You can combine regex with the following operations:
 * `!` for inversion, such that `!re"[A-Z]"` matches all other strings than those which match `re"[A-Z]"`.
   Note that `!re"a"` also matches e.g. `"aa"`, since this does not match `re"a"`.
 
-Finally, the funtions `opt`, `rep` and `rep1` is equivalent to the operators `?`, `*` and `+`, so i.e. `opt(re"a" * rep(re"b") * re"c")` is equivalent to `re"(ab*c)?"`.
+Finally, the functions `opt`, `rep` and `rep1` are equivalent to the operators `?`, `*` and `+`, so for eg. `opt(re"a" * rep(re"b") * re"c")` is equivalent to `re"(ab*c)?"`.
 
-## Example
+## [Example](@id fasta_example)
 Suppose we want to create a regex that matches a simplified version of the FASTA format.
 This "simple FASTA" format is defined like so:
 

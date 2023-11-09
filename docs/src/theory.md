@@ -43,32 +43,32 @@ or labeled with one or more input symbols, in which the machine may traverse the
 
 To illustrate, let's look at one of the simplest regex: `re"a"`, matching the letter `a`:
 
-![](figure/simple.png)
+![State diagram showing state 1, edge transition consuming input 'a', leading to "accept state" 2](figure/simple.png)
 
-You begin at the small dot on the right, then immediately go to state 1, the cirle marked by a `1`.
+You begin at the small dot on the right, then immediately go to state 1, the circle marked by a `1`.
 By moving to the next state, state 2, you consume the next symbol from the input string, which must be the symbol marked on the edge from state 1 to state 2 (in this case, an `a`).
-Some states are "accept states", illustrated by a double cirle. If you are at an accept state when you've consumed all symbols of the input string, the string matches the regex.
+Some states are "accept states", illustrated by a double circle. If you are at an accept state when you've consumed all symbols of the input string, the string matches the regex.
 
-Each of the operaitons that combine regex can also combine NFAs.
+Each of the operations that combine regex can also combine NFAs.
 For example, given the two regex `a` and `b`, which correspond to the NFAs `A` and `B`, the regex `a * b` can be expressed with the following NFA:
 
-![](figure/cat.png)
+![State diagram showing ϵ transition from state A to accept state B](figure/cat.png)
 
 Note the `ϵ` symbol on the edge - this signifies an "epsilon transition", meaning you move directly from `A` to `B` without consuming any symbols.
 
 Similarly, `a | b` correspond to this NFA structure...
 
-![](figure/alt.png)
+![State diagram of the NFA for `a | b`](figure/alt.png)
 
 ...and `a*` to this:
 
-![](figure/kleenestar.png)
+![State diagram of the NFA for `a*`](figure/kleenestar.png)
 
 For a larger example, `re"(\+|-)?(0|1)*"` combines alternation, concatenation and repetition and so looks like this:
 
-![](figure/larger.png)
+![State diagram of the NFA for `re"(\+|-)?(0|1)*"`](figure/larger.png)
 
-ϵ-transitions means that there are states from which there are multiple possible next states, e.g. in the larger example above, state 1 can lead to state 2 or state 12.
+ϵ-transitions means that there are states from which there are multiple possible next states, e.g. in the larger example above, state 1 can lead to state 2 or state 8.
 That's what makes NFAs nondeterministic.
 
 In order to match a regex to a string then, the movement through the NFA must be emulated.
@@ -78,12 +78,12 @@ If an ϵ-edge is encountered from state `A` that leads to states `B` and `C`, th
 
 For example, if the regex `re"(\+|-)?(0|1)*` visualized above is matched to the string `-11`, this is what happens:
 * NFA starts in state 1
-* NFA immediately moves to all states reachable via ϵ transition. It is now in state {3, 5, 7, 9, 10}.
-* NFA sees input `-`. States {5, 7, 9, 10} do not have an edge with `-` leading out, so these states die.
+* NFA immediately moves to all states reachable via ϵ transition. It is now in state {2, 3, 5, 7, 8, 9, 10}.
+* NFA sees input `-`. States {2, 3, 4, 5, 7, 8, 10} do not have an edge with `-` leading out, so these states die.
   Therefore, the machine is in state 9, consumes the input, and moves to state 2.
-* NFA immediately moves to all states reachable from state 2 via ϵ transitions, so goes to {3, 5, 7}
-* NFA sees input `1`, must be in state 5, moves to state 6, then through ϵ transitions to state {3, 5, 7}
-* The above point repeats, NFA is still in state {3, 5, 7}
+* NFA immediately moves to all states reachable from state 2 via ϵ transitions, so goes to {3, 4, 5, 7}
+* NFA sees input `1`, must be in state 5, moves to state 6, then through ϵ transitions to state {3, 4, 5, 7}
+* The above point repeats, NFA is still in state {3, 4, 5, 7}
 * Input ends. Since state 3 is an accept state, the string matches.
 
 Using only a regex-to-NFA converter, you could create a simple regex engine simply by emulating the NFA as above.
@@ -97,11 +97,11 @@ In other words, every input symbol _must_ trigger one unambiguous state transiti
 
 Let's visualize the DFA equivalent to the larger NFA above:
 
-![](figure/large_dfa.png)
+![State diagram of the DFA for `re"(\+|-)?(0|1)*"`](figure/large_dfa.png)
 
 It might not be obvious, but the DFA above accepts exactly the same inputs as the previous NFA.
 DFAs are way simpler to simulate in code than NFAs, precisely because at every state, for every input, there is exactly one action.
-DFAs can be simulated either using a lookup table, of possible state transitions,
+DFAs can be simulated either using a lookup table of possible state transitions,
 or by hardcoding GOTO-statements from node to node when the correct input is matched.
 Code simulating DFAs can be ridicuously fast, with each state transition taking less than 1 nanosecond, if implemented well.
 
@@ -109,7 +109,7 @@ Furthermore, DFAs can be optimised.
 Two edges between the same nodes with labels `A` and `B` can be collapsed to a single edge with labels `[AB]`, and redundant nodes can be collapsed.
 The optimised DFA equivalent to the one above is simply: 
 
-![](figure/large_machine.png)
+![State diagram of the simpler DFA for `re"(\+|-)?(0|1)*"`](figure/large_machine.png)
 
 Unfortunately, as the name "powerset construction" hints, convering an NFA with N nodes may result in a DFA with up to 2^N nodes.
 This inconvenient fact drives important design decisions in regex implementations.
@@ -130,7 +130,7 @@ If the cache is flushed too often, it falls back to simulating the NFA directly.
 Such an approach is necessary for `ripgrep`, because the regex -> NFA -> DFA compilation happens at runtime and must be near-instantaneous, unlike Automa, where it happens during package precompilation and can afford to be slow.
 
 ## Automa in a nutshell
-Automa simulates the DFA by having the DFA create a Julia Expr, which is then used to generate a Julia function using metaprogramming.
+Automa simulates the DFA by having the DFA create a Julia `Expr`, which is then used to generate a Julia function using metaprogramming.
 Like all other Julia code, this function is then optimized by Julia and then LLVM, making the DFA simulations very fast.
 
 Because Automa just constructs Julia functions, we can do extra tricks that ordinary regex engines cannot:
@@ -138,5 +138,5 @@ We can splice arbitrary Julia code into the DFA simulation.
 Currently, Automa supports two such kinds of code: _actions_, and _preconditions_.
 
 Actions are Julia code that is executed during certain state transitions.
-Preconditions are Julia code, that evaluates to a `Bool` value, and which is checked before a state transition.
-If it evaluates to `false`, the transition is not taken.
+Preconditions are Julia code, that evaluates to a `Bool` value, and which are checked before a state transition.
+If a precondition evaluates to `false`, the transition is not taken.

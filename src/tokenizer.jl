@@ -6,14 +6,15 @@ Tokenizers are usually created with the [`tokenize`](@ref) function, and their i
 are defined by [`make_tokenizer`](@ref).
 
 `Tokenizer` works on any buffer-like object that defines `pointer` and `sizeof`.
-When iterated, it will return a Tuple{Integer, Integer, E}:
-    * The first is the 1-based starting index of the token in the buffer
-    * The second is the length of the token in bytes
-    * The third is the token.
+When iterated, it will return a `Tuple{Integer, Integer, E}`:
+
+  * The first value in the tuple is the 1-based starting index of the token in the buffer
+  * The second is the length of the token in bytes
+  * The third is the token.
 
 Un-tokenizable data will be emitted as the "error token" which must also be of type `E`.
 
-The `Int` `C` parameter allows multiple tokenizers to be created with
+The `Int` parameter `C` allows multiple tokenizers to be created with
 the otherwise same type parameters.
 
 See also: [`make_tokenizer`](@ref)
@@ -74,8 +75,10 @@ end
     ) where E
 
 Create code which when evaluated, defines `Base.iterate(::Tokenizer{E, D, \$version})`.
-`tokens` is a tuple of a vector of non-error tokens of length `machine.n_tokens`, and the error token,
-which will be emitted for data that cannot be tokenized.
+`tokens` is a tuple of:
+
+* the error token, which will be emitted for data that cannot be tokenized, and
+* a vector of non-error tokens of length `machine.n_tokens`.
 
 Most users should instead use the more convenient method `make_tokenizer(tokens)`.
 
@@ -98,7 +101,8 @@ julia> collect(iter)
 ```
 
 Any actions inside the input regexes will be ignored.
-If `goto` (default), use the faster, but more complex goto code generator.
+
+If `goto` (default), use the faster, but more complex goto code generator.\\
 The `version` number will set the last parameter of the `Tokenizer`,
 which allows you to create different tokenizers for the same element type.
 
@@ -205,7 +209,7 @@ In other words, this function returns code that when run, defines `iterate` for
 
 If tokens are a tuple, the first element is the error token, and the next
 is a vector of `token => regex` pairs.
-If `tokens` is an `AbstractVector` `v`, the tokens defaults to `UInt32`, and it behaves as if
+If `tokens` is an `AbstractVector{RE}` `v`, the tokens defaults to `UInt32`, and it behaves as if
 it was `(UInt32(0), [UInt32(i)=>r for (i,r) in pairs(v)])`, i.e. `UInt32(0)` is the error token.
 
 # Example

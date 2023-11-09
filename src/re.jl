@@ -38,7 +38,7 @@ julia> compile(regex) isa Automa.Machine
 true
 ```
 
-See also: `[@re_str](@ref)`, `[@compile](@ref)`
+See also: [`@re_str`](@ref), [`compile`](@ref Main.Automa.compile)
 """
 mutable struct RE
     head::Symbol
