@@ -26,7 +26,7 @@ Such that e.g. `("XY", "A")` can be represented as the token sequence `lparens, 
 
 Breaking the text down to its tokens is called tokenization or lexing.
 Note that lexing in itself is not sufficient to parse the format:
-Lexing is _context unaware_ and doesn't understand syntax, so e.g. the test `"((A` can be perfectly well tokenized to `quote lparens lparens A`, even if it's invalid syntax.
+Lexing is _context unaware_ and doesn't understand syntax, so e.g. the text `"((A` can be perfectly well tokenized to `quote lparens lparens A`, even if it's invalid syntax.
 
 The purpose of tokenization is to make subsequent parsing easier, because each part of the text has been classified. That makes it easier to, for example, to search for letters in the input.
 Instead of having to muck around with regex to find the letters, you use regex once to classify all text.

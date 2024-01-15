@@ -7,7 +7,7 @@ end
 ```
 
 # Parsing from a buffer
-Automa can leverage metaprogramming to combine regex and julia code to create parsers.
+Automa can leverage metaprogramming to combine regex and Julia code to create parsers.
 This is significantly more difficult than simply using validators or tokenizers, but still simpler than parsing from an IO.
 Currently, Automa loads data through pointers, and therefore needs data backed by `Array{UInt8}` or `String` or similar - it does not work with types such as `UnitRange{UInt8}`.
 Furthermore, be careful about passing strided views to Automa - while Automa can extract a pointer from a strided view, it will always advance the pointer one byte at a time, disregarding the view's stride.
