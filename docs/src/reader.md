@@ -7,7 +7,7 @@ end
 ```
 
 # Creating a `Reader` type
-The use of `generate_reader` as we learned in the previous section "Parsing from an io" has an issue we need to address:
+The use of `generate_reader` as we learned in the previous section "Parsing from an IO" has an issue we need to address:
 While we were able to read multiple records from the reader by calling `read_record` multiple times, no state was preserved between these calls, and so, no state can be preserved between reading individual records.
 This is also what made it necessary to clumsily reset `p` after emitting each record.
 

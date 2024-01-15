@@ -41,6 +41,7 @@ Is the `B` part of `alphabet` (in which case it should do nothing), or is it par
 Automa will not compile this, and will raise the error:
 ```
 ERROR: Ambiguous NFA.
+After inputs "XYZ A", observing 'B' lead to conflicting action sets [:cool_band] and nothing
 ```
 
 Note the error shows an example input which will trigger the ambiguity: `XYZ A`, then `B`.
@@ -82,6 +83,7 @@ end
 @assert fasta_machine isa Automa.Machine
 
 # output
+
 ```
 
 When all else fails, you can also pass `unambiguous=false` to the `compile` function - but beware!
@@ -140,7 +142,7 @@ julia> debug(">abc\nTAG")
 Note that if your machine relies on its actions to work correctly, for example by actions modifying `p`,
 this kind of debugger will not work, as it replaces all actions.
 
-## More advanced debuggning
+## More advanced debugging
 The file `test/debug.jl` contains extra debugging functionality and may be `include`d.
 In particular it defines the functions `debug_execute` and `create_debug_function`.
 

@@ -14,8 +14,7 @@ You can view Automa as a regex engine that can insert arbitrary Julia code into 
 
 ![Schema of Automa.jl](figure/Automa.png)
 
-Automa.jl is designed to generate very efficient code to scan large text data, which is often much faster than handcrafted code. 
-Automa.jl is a regex engine that can insert arbitrary Julia code into its input matching process, that will be executed in when certain parts of the regex matches an input.
+Automa.jl is designed to generate very efficient code to scan large text data, which is often much faster than handcrafted code.
 
 ## Where to start
 If you're not familiar with regex engines, start by reading the [theory section](theory.md),
