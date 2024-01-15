@@ -706,7 +706,7 @@ function generate_input_error_code(ctx::CodeGenContext, machine::Machine)
         if $(vars.cs) != 0
             $(vars.cs) = -abs($(vars.cs)) 
             $byte_symbol = $(vars.p) > $(vars.p_end) ? nothing : $(vars.byte)
-            Automa.throw_input_error($(machine), -$(vars.cs), $byte_symbol, $(vars.mem), $(vars.p))
+            $(Automa.throw_input_error)($(machine), -$(vars.cs), $byte_symbol, $(vars.mem), $(vars.p))
         end
     end
 end

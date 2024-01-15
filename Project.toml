@@ -1,7 +1,7 @@
 name = "Automa"
 uuid = "67c07d97-cdcb-5c2c-af73-a7f9c32a568b"
 authors = ["Kenta Sato <bicycle1885@gmail.com>", "Jakob Nybo Nissen <jakobnybonissen@gmail.com"]
-version = "1.0.2"
+version = "1.0.3"
 
 [deps]
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
