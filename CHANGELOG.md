@@ -1,3 +1,7 @@
+## [1.0.3]
+* Fix a bug when displaying Automa machine errors when the user has not imported
+  the symbol Automa
+
 ## [1.0.2]
 * Bump documenter to version 1.0
 * Bump TranscodingStreams to version 0.10
