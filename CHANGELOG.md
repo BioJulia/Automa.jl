@@ -1,3 +1,6 @@
+## [1.0.4]
+* Bump TranscodingStreams to version 0.11
+
 ## [1.0.3]
 * Fix a bug when displaying Automa machine errors when the user has not imported
   the symbol Automa
