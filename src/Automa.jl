@@ -1,6 +1,7 @@
 module Automa
 
 using TranscodingStreams: TranscodingStreams, TranscodingStream, NoopStream
+using SIMD: SIMD, Vec, vload
 
 include("byteset.jl")
 
