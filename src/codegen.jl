@@ -472,28 +472,12 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
         # This can be effectively SIMDd
         # If such an edge is detected, we treat it specially with code here, and leave the
         # non-SIMDable edges for below
-
-        # SIMD code temporarily disabled.
         simd, non_simd = peel_simd_edge(s)
-        if simd !== nothing
-            push!(non_simd, (simd, s))
-        end
-        simd = nothing
-        simd_code = :()
-
-        #=
         simd_code = if simd !== nothing
-            quote
-                $(generate_simd_loop(ctx, simd.labels))
-                if $(ctx.vars.p) > $(ctx.vars.p_end)
-                    $(ctx.vars.cs) = $(s.state)
-                    @goto exit
-                end
-            end
+            generate_simd_loop(ctx, simd.labels, s.state)
         else
             :()
         end
-        =#
         
         # If no inputs match, then we set cs = -cs to signal error, and go to exit
         default = :($(ctx.vars.cs) = $(-s.state); @goto exit)
@@ -544,6 +528,7 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
 
     # This is an overview of the final code structure
     return quote
+        GC.@preserve $(ctx.vars.data) begin
         $(ctx.vars.mem) = $(SizedMemory)($(ctx.vars.data))
         if $(ctx.vars.p) > $(ctx.vars.p_end)
             @goto exit
@@ -555,9 +540,9 @@ function generate_goto_code(ctx::CodeGenContext, machine::Machine, actions::Dict
             $(eof_action_code)
             $(ctx.vars.cs) = 0
         end
+        end # GC.preserve
     end
 end
-
 
 function append_code!(block::Expr, code::Expr)
     @assert block.head == :block
@@ -566,40 +551,41 @@ function append_code!(block::Expr, code::Expr)
     return block
 end
 
-# Note: This function has been carefully crafted to produce (nearly) optimal
-# assembly code for AVX2-capable CPUs. Change with great care.
-
-# Temporarily disabled because I've come to the realization that Julia does not
-# yet make it possible to robustly check what CPU instructions the user has available
-# See related issue
-#=
-function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet)
-    # ScanByte finds first byte in a byteset. We want to find first
-    # byte NOT in this byteset, as this is where we can no longer skip ahead to
-    byteset = ~ScanByte.ByteSet(bs)
-    bsym = gensym()
-    quote
-        # We wrap this in an Automa function, because otherwise the generated code
-        # would have a reference to ScanByte, which the user may not have imported.
-        # But they surely have imported Automa.
-        $bsym = Automa.loop_simd(
-            $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1,
-            ($(ctx.vars.p_end) - $(ctx.vars.p) + 1) % UInt,
-            Val($byteset)
-        )
-        $(ctx.vars.p) = if $bsym === nothing
-            $(ctx.vars.p_end) + 1
+function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet, state::Int)
+    vsym = gensym()
+    rsym = gensym()
+    block = Expr(:block)
+    for range in range_encode(bs)
+        expr = if length(range) == 1
+            quote
+                $(rsym) |= ($(vsym) == $(first(range)))
+            end
         else
-            $(ctx.vars.p) + $bsym - 1
+            quote
+                $(rsym) |= ($(vsym) >= $(first(range))) & ($(vsym) <= $(last(range)))
+            end
+        end
+        append_code!(block, expr)
+    end
+    quote
+        while $(ctx.vars.p) + 30 < $(ctx.vars.p_end)
+            $(vsym) = @inbounds $(SIMD.vload)($(Vec{32, UInt8}), $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1, nothing, Val(false), Val(false))
+            $(rsym) = $(Vec{32, Bool})(false)
+            $(block)
+            all($(rsym)) || break
+            $(ctx.vars.p) += 32
+        end
+        while true
+            if $(ctx.vars.p) > $(ctx.vars.p_end)
+                $(ctx.vars.cs) = $(state)
+                @goto exit
+            end
+            $(ctx.vars.byte) = @inbounds getindex($(ctx.vars.mem), $(ctx.vars.p))
+            ($(generate_membership_code(ctx.vars.byte, bs))) || break
+            $(ctx.vars.p) += 1
         end
     end
 end
-
-# Necessary wrapper function, see comment in `generate_simd_loop`
-@inline function loop_simd(ptr::Ptr, len::UInt, valbs::Val)
-    ScanByte.memchr(ptr, len, valbs)
-end
-=#
 
 # Make if/else statements for each state that is an acceptable end state, and execute
 # the actions attached with ending in this state.
