@@ -111,7 +111,7 @@ The optimised DFA equivalent to the one above is simply:
 
 ![State diagram of the simpler DFA for `re"(\+|-)?(0|1)*"`](figure/large_machine.png)
 
-Unfortunately, as the name "powerset construction" hints, convering an NFA with N nodes may result in a DFA with up to 2^N nodes.
+Unfortunately, as the name "powerset construction" hints, converting an NFA with N nodes may result in a DFA with up to 2^N nodes.
 This inconvenient fact drives important design decisions in regex implementations.
 There are basically two approaches:
 
