@@ -1,3 +1,10 @@
+## [1.2.0]
+* Add `Base.copy(::RE)` to more easily generate multiple regex with different
+  actions
+
+## [1.1.0]
+* Re-enable SIMD for goto CodeGenContext
+
 ## [1.0.4]
 * Bump TranscodingStreams to version 0.11
 

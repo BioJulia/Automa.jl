@@ -39,6 +39,18 @@ end
     @test_throws ArgumentError("invalid escape sequence: \\o") Automa.RegExp.parse("\\o")
     @test ('+' * re"abc") isa RE
     @test_throws Exception Automa.RegExp.parse("+")
+
+    # Copy regex
+    r = re"abc"
+    onexit!(r, :foo)
+    onenter!(r, [:bar, :baz])
+    r2 = copy(r)
+    @test r.actions == r2.actions
+    onall!(r, :qux)
+    @test r2.head == r.head
+    @test r2.args == r.args
+    @test length(r2.actions) == 2
+    @test length(r.actions) == 3
 end
 
 @testset "DOT" begin
