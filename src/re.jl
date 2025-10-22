@@ -55,6 +55,21 @@ end
 RE(s::AbstractString) = parse(string(s))
 RE(c::AbstractChar) = primitive(Char(c))
 
+function Base.copy(re::RE)
+    actions = if re.actions === nothing
+        nothing
+    else
+        Dict(k => copy(v) for (k, v) in re.actions)
+    end
+    return RE(
+        re.head,
+        re.args,
+        actions,
+        re.precond_all,
+        re.precond_enter,
+    )
+end
+
 function actions!(re::RE)
     x = re.actions
     if x === nothing
