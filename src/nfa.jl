@@ -37,7 +37,7 @@ const ACCEPTED_KEYS = [:enter, :exit, :all, :final]
 
 function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
     actions = Dict{Tuple{RegExp.RE,Symbol},Action}()
-    action_order = 1
+    action_order = Ref(1)
 
     function make_action_list(re, names)
         list = ActionList()
@@ -47,9 +47,9 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             elseif haskey(actions, (re, name))
                 action = actions[(re, name)]
             else
-                action = Action(name, action_order)
+                action = Action(name, action_order[])
                 actions[(re, name)] = action
-                action_order += 1
+                action_order[] += 1
             end
             push!(list, action)
         end

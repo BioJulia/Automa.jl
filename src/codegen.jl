@@ -401,13 +401,13 @@ function generate_action_dispatch_code(ctx::CodeGenContext, machine::Machine, ac
     # else if act == 2 (... etc)
     action_dispatch_code = foldr(default, action_ids) do names_id, els
         names, id = names_id
-        action_code = rewrite_special_macros(;
+        _action_code = rewrite_special_macros(;
             ctx=ctx,
             ex=generate_action_code(names, actions),
             at_eof=false,
             cs=nothing
         )
-        return Expr(:if, :($(act) == $(id)), action_code, els)
+        return Expr(:if, :($(act) == $(id)), _action_code, els)
     end
     # Action code is: Get the action int from the state and current input byte
     # Action dispatch code: The thing made above
