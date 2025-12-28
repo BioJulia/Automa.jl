@@ -317,7 +317,8 @@ function remove_redundant_preconds(names::Vector{Symbol}, pvs::Vector{UInt64})
     left = length(names)
     for name in names
         sort!(pvs)
-        fnd = findfirst(pv -> bitat(pv, left), pvs)
+        lft = left
+        fnd = findfirst(pv -> bitat(pv, lft), pvs)
         k = ifelse(fnd === nothing, 0, fnd) # TODO: See if there is a more elegant way of doing this.
         if (k - 1) * 2 == length(pvs)
             redundant = true
