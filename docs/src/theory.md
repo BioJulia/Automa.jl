@@ -45,7 +45,7 @@ To illustrate, let's look at one of the simplest regex: `re"a"`, matching the le
 
 ![State diagram showing state 1, edge transition consuming input 'a', leading to "accept state" 2](figure/simple.png)
 
-You begin at the small dot on the right, then immediately go to state 1, the circle marked by a `1`.
+You begin at the small dot on the left, then immediately go to state 1, the circle marked by a `1`.
 By moving to the next state, state 2, you consume the next symbol from the input string, which must be the symbol marked on the edge from state 1 to state 2 (in this case, an `a`).
 Some states are "accept states", illustrated by a double circle. If you are at an accept state when you've consumed all symbols of the input string, the string matches the regex.
 
