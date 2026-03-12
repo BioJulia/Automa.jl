@@ -8,9 +8,9 @@ using Test
         re"a",
         re"a*b",
         re"cd"
-    ]))
+    ]; version=3))
 
-    tokenize(x) = collect(Automa.tokenize(UInt32, x))
+    tokenize(x) = collect(Automa.tokenize(UInt32, x, 3))
 
     @test tokenize("") == []
     @test tokenize("a") == [(1, 1, 1)]
