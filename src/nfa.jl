@@ -35,29 +35,42 @@ end
 
 const ACCEPTED_KEYS = [:enter, :exit, :all, :final]
 
-function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
-    actions = Dict{Tuple{RegExp.RE,Symbol},Action}()
-    action_order = Ref(1)
+mutable struct ActionContext
+    predefined_actions::Dict{Symbol,Action}
+    actions::Dict{Tuple{RegExp.RE,Symbol},Action}
+    action_order::Int
+end
 
-    function make_action_list(re, names)
-        list = ActionList()
-        for name in names
-            if haskey(predefined_actions, name)  # pick up a predefined action
-                action = predefined_actions[name]
-            elseif haskey(actions, (re, name))
-                action = actions[(re, name)]
-            else
-                action = Action(name, action_order[])
-                actions[(re, name)] = action
-                action_order[] += 1
-            end
-            push!(list, action)
+function ActionContext(predefined_actions::Dict{Symbol,Action})
+    return ActionContext(predefined_actions, Dict{Tuple{RegExp.RE,Symbol},Action}(), 1)
+end
+
+function make_action_list(ctx::ActionContext, re, names)
+    list = ActionList()
+    for name in names
+        if haskey(ctx.predefined_actions, name)  # pick up a predefined action
+            action = ctx.predefined_actions[name]
+        elseif haskey(ctx.actions, (re, name))
+            action = ctx.actions[(re, name)]
+        else
+            action = Action(name, ctx.action_order)
+            ctx.actions[(re, name)] = action
+            ctx.action_order += 1
         end
-        return list
+        push!(list, action)
     end
+    return list
+end
 
-    # Thompson's construction.
-    function rec!(start, re)
+function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symbol,Action}())
+    ctx = ActionContext(predefined_actions)
+    nfa_start = NFANode()
+    nfa_final::NFANode = _re2nfa_rec!(ctx, nfa_start, re)
+    return remove_dead_nodes(NFA(nfa_start, nfa_final))
+end
+
+# Thompson's construction.
+function _re2nfa_rec!(ctx::ActionContext, start, re)
         if re.actions !== nothing
             for k in keys(re.actions)
                 @assert k ∈ ACCEPTED_KEYS
@@ -66,7 +79,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
 
         if !isnothing(re.actions) && haskey(re.actions, :enter)
             start_in = NFANode()
-            push!(start.edges, (Edge(eps, make_action_list(re, re.actions[:enter])), start_in))
+            push!(start.edges, (Edge(eps, make_action_list(ctx, re, re.actions[:enter])), start_in))
         else
             start_in = start
         end
@@ -82,7 +95,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
         elseif head == :cat
             f = start_in
             for arg in args
-                f = rec!(f, arg)
+                f = _re2nfa_rec!(ctx, f, arg)
             end
             if f == start_in
                 final_in = NFANode()
@@ -95,14 +108,14 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             final_in = NFANode()
             for arg in args
                 s = NFANode()
-                f = rec!(s, arg)
+                f = _re2nfa_rec!(ctx, s, arg)
                 push!(start_in.edges, (Edge(eps), s))
                 push!(       f.edges, (Edge(eps), final_in))
             end
         elseif head == :rep
             @assert length(args) == 1
             s = NFANode()
-            f = rec!(s, args[1])
+            f = _re2nfa_rec!(ctx, s, args[1])
             final_in = NFANode()
             push!(start_in.edges, (Edge(eps), s))
             push!(start_in.edges, (Edge(eps), final_in))
@@ -112,11 +125,11 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
             @assert length(args) == 2
             final_in = NFANode()
             s1 = NFANode()
-            f1 = rec!(s1, args[1])
+            f1 = _re2nfa_rec!(ctx, s1, args[1])
             push!(start_in.edges, (Edge(eps), s1))
             push!(      f1.edges, (Edge(eps), final_in))
             s2 = NFANode()
-            f2 = rec!(s2, args[2])
+            f2 = _re2nfa_rec!(ctx, s2, args[2])
             push!(start_in.edges, (Edge(eps), s2))
             push!(      f2.edges, (Edge(eps), final_in))
             if head == :isec
@@ -132,7 +145,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
         end
 
         if !isnothing(re.actions) && haskey(re.actions, :all)
-            as = make_action_list(re, re.actions[:all])
+            as = make_action_list(ctx, re, re.actions[:all])
             for s in traverse(start), (e, _) in s.edges
                 if !iseps(e)
                     union!(e.actions, as)
@@ -141,7 +154,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
         end
 
         if !isnothing(re.actions) && haskey(re.actions, :final)
-            as = make_action_list(re, re.actions[:final])
+            as = make_action_list(ctx, re, re.actions[:final])
             for s in traverse(start), (e, t) in s.edges
                 if !iseps(e) && final_in ∈ epsilon_closure(t)
                     # Ugly hack: The tokenizer ATM relies on adding actions to the final edge
@@ -162,7 +175,7 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
 
         if !isnothing(re.actions) && haskey(re.actions, :exit)
             final = NFANode()
-            push!(final_in.edges, (Edge(eps, make_action_list(re, re.actions[:exit])), final))
+            push!(final_in.edges, (Edge(eps, make_action_list(ctx, re, re.actions[:exit])), final))
         else
             final = final_in
         end
@@ -188,11 +201,6 @@ function re2nfa(re::RegExp.RE, predefined_actions::Dict{Symbol,Action}=Dict{Symb
         end
 
         return final
-    end
-
-    nfa_start = NFANode()
-    nfa_final::NFANode = rec!(nfa_start, re)
-    return remove_dead_nodes(NFA(nfa_start, nfa_final))
 end
 
 # Return the set of the first non-epsilon edges reachable from the node
