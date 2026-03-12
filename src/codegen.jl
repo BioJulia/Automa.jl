@@ -985,13 +985,14 @@ end
 
 # Generic foldr. We have this here because using Base's foldr requires the iterator
 # to have a reverse method, whereas this one doesn't (but is much less efficient)
-function foldr(op::Function, x0, xs)
-    function rec(xs, s)
-        if s === nothing
-            return x0
-        else
-            return op(s[1], rec(xs, iterate(xs, s[2])))
-        end
+function _foldr_rec(op, x0, xs, s)
+    if s === nothing
+        return x0
+    else
+        return op(s[1], _foldr_rec(op, x0, xs, iterate(xs, s[2])))
     end
-    return rec(xs, iterate(xs))
+end
+
+function foldr(op::Function, x0, xs)
+    return _foldr_rec(op, x0, xs, iterate(xs))
 end
