@@ -1,3 +1,6 @@
+## Unreleased
+* Remove the SIMD.jl dependency without loss of performance
+
 ## [1.2.0]
 * Add `Base.copy(::RE)` to more easily generate multiple regex with different
   actions
