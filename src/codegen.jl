@@ -552,27 +552,32 @@ function append_code!(block::Expr, code::Expr)
 end
 
 function generate_simd_loop(ctx::CodeGenContext, bs::ByteSet, state::Int)
-    vsym = gensym()
-    rsym = gensym()
-    block = Expr(:block)
-    for range in range_encode(bs)
-        expr = if length(range) == 1
-            quote
-                $(rsym) |= ($(vsym) == $(first(range)))
-            end
+    bsym = gensym()
+    accsym = gensym()
+    isym = gensym()
+    # Branch-free membership test (| and & instead of short-circuiting
+    # || / `in`): together with the fixed 32-iteration loop below this is a
+    # pure Bool reduction, which LLVM's loop vectorizer compiles to the same
+    # vpcmp/vpand vector code the previous, explicitly SIMD.jl-based
+    # implementation emitted - without the SIMD.jl dependency (whose broad
+    # Base-operator methods invalidate compiled code across the ecosystem in
+    # every session loading Automa).
+    membership = foldr(:(false), range_encode(bs)) do range, cond
+        test = if length(range) == 1
+            :($(bsym) == $(first(range)))
         else
-            quote
-                $(rsym) |= ($(vsym) >= $(first(range))) & ($(vsym) <= $(last(range)))
-            end
+            :(($(bsym) >= $(first(range))) & ($(bsym) <= $(last(range))))
         end
-        append_code!(block, expr)
+        Expr(:call, :|, test, cond)
     end
     quote
         while $(ctx.vars.p) + 30 < $(ctx.vars.p_end)
-            $(vsym) = @inbounds $(SIMD.vload)($(Vec{32, UInt8}), $(ctx.vars.mem).ptr + $(ctx.vars.p) - 1, nothing, Val(false), Val(false))
-            $(rsym) = $(Vec{32, Bool})(false)
-            $(block)
-            all($(rsym)) || break
+            $(accsym) = true
+            for $(isym) in 0:31
+                $(bsym) = @inbounds getindex($(ctx.vars.mem), $(ctx.vars.p) + $(isym))
+                $(accsym) &= $(membership)
+            end
+            $(accsym) || break
             $(ctx.vars.p) += 32
         end
         while true
