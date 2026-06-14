@@ -1,9 +1,8 @@
-## Unreleased
-* Remove the SIMD.jl dependency without loss of performance
-
 ## [1.2.0]
 * Add `Base.copy(::RE)` to more easily generate multiple regex with different
   actions
+* Remove the SIMD.jl dependency without loss of performance
+* Reduce boxing and improve type inference in codegen
 
 ## [1.1.0]
 * Re-enable SIMD for goto CodeGenContext
