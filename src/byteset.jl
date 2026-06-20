@@ -12,13 +12,13 @@ function ByteSet(it)
     for i in it
         vi = convert(UInt8, i)
         if vi < 0x40
-            a |= UInt(1) << ((vi - 0x00) & 0x3f)
+            a |= UInt64(1) << ((vi - 0x00) & 0x3f)
         elseif vi < 0x80
-            b |= UInt(1) << ((vi - 0x40) & 0x3f)
+            b |= UInt64(1) << ((vi - 0x40) & 0x3f)
         elseif vi < 0xc0
-            c |= UInt(1) << ((vi - 0x80) & 0x3f)
+            c |= UInt64(1) << ((vi - 0x80) & 0x3f)
         else
-            d |= UInt(1) << ((vi - 0xc0) & 0x3f)
+            d |= UInt64(1) << ((vi - 0xc0) & 0x3f)
         end
     end
     ByteSet((a, b, c, d))
